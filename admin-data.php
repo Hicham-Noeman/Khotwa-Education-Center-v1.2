@@ -179,10 +179,17 @@ function admin_default_field_value(array $column): string
     return '';
 }
 
-function admin_render_field(PDO $pdo, string $table, array $column, mixed $value = '', array $locked = []): void
+function admin_render_field(
+    PDO $pdo,
+    string $table,
+    array $column,
+    mixed $value = '',
+    array $locked = [],
+    bool $showHidden = false
+): void
 {
     $name = (string) $column['COLUMN_NAME'];
-    if (in_array($name, admin_hidden_derived_columns($table), true)) {
+    if (!$showHidden && in_array($name, admin_hidden_derived_columns($table), true)) {
         return;
     }
 
@@ -334,6 +341,52 @@ function admin_save_record(PDO $pdo, string $table, array $fields, ?int $id = nu
     )->execute([...$values, $id]);
 
     return $id;
+}
+
+function admin_delete_records(PDO $pdo, string $table, array $recordIds, int $currentUserId): int
+{
+    if (!in_array($table, array_values(admin_view_tables()), true)) {
+        throw new RuntimeException('Invalid database table.');
+    }
+
+    $recordIds = array_values(array_unique(array_filter(
+        array_map('intval', $recordIds),
+        static fn (int $id): bool => $id > 0
+    )));
+
+    if ($recordIds === []) {
+        throw new RuntimeException('Select at least one record to delete.');
+    }
+
+    if ($table === 'users' && in_array($currentUserId, $recordIds, true)) {
+        throw new RuntimeException('You cannot delete the administrator account currently in use.');
+    }
+
+    $placeholders = implode(', ', array_fill(0, count($recordIds), '?'));
+    $statement = $pdo->prepare(
+        'DELETE FROM ' . admin_quote_identifier($table) . ' WHERE id IN (' . $placeholders . ')'
+    );
+
+    try {
+        $pdo->beginTransaction();
+        $statement->execute($recordIds);
+        $deletedCount = $statement->rowCount();
+        $pdo->commit();
+
+        return $deletedCount;
+    } catch (PDOException $exception) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        if ((string) $exception->getCode() === '23000') {
+            throw new RuntimeException(
+                'This record cannot be deleted because other database records still depend on it.'
+            );
+        }
+
+        throw $exception;
+    }
 }
 
 function admin_csrf_token(): string

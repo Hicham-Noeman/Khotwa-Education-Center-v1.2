@@ -42,19 +42,55 @@ document.querySelectorAll(".admin-nav a").forEach((link) => {
 });
 
 const searchInput = document.querySelector("[data-table-search]");
-const tableRows = [...document.querySelectorAll("[data-admin-table] tbody tr:not(.search-empty)")];
+const adminTable = document.querySelector("[data-admin-table]");
+const tableRows = [...document.querySelectorAll("[data-record-row]")];
 const emptySearchRow = document.querySelector(".search-empty");
+const selectAllCheckbox = document.querySelector("[data-select-all]");
+const bulkDeleteButton = document.querySelector("[data-bulk-delete]");
+const tableActionsForm = document.querySelector("[data-table-actions]");
+
+const isInteractiveTarget = (target) =>
+  target.closest("a, button, input, select, textarea, label") !== null;
 
 document.querySelectorAll("[data-detail-url]").forEach((row) => {
-  row.addEventListener("dblclick", () => {
+  row.addEventListener("dblclick", (event) => {
+    if (isInteractiveTarget(event.target)) return;
     window.location.href = row.dataset.detailUrl;
   });
   row.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") window.location.href = row.dataset.detailUrl;
+    if (event.key === "Enter" && !isInteractiveTarget(event.target)) {
+      window.location.href = row.dataset.detailUrl;
+    }
   });
 });
 
-searchInput?.addEventListener("input", () => {
+const visibleRows = () => tableRows.filter((row) => !row.hidden);
+
+const updateSelectionControls = () => {
+  const visible = visibleRows();
+  const selected = tableRows.filter(
+    (row) => row.querySelector("[data-record-select]")?.checked
+  );
+  const selectedVisible = visible.filter(
+    (row) => row.querySelector("[data-record-select]")?.checked
+  );
+
+  if (bulkDeleteButton) {
+    bulkDeleteButton.disabled = selected.length === 0;
+    bulkDeleteButton.textContent = selected.length
+      ? `Delete selected (${selected.length})`
+      : "Delete selected";
+  }
+
+  if (selectAllCheckbox) {
+    selectAllCheckbox.checked =
+      visible.length > 0 && selectedVisible.length === visible.length;
+    selectAllCheckbox.indeterminate =
+      selectedVisible.length > 0 && selectedVisible.length < visible.length;
+  }
+};
+
+const filterTableRows = () => {
   const query = searchInput.value.trim().toLocaleLowerCase();
   let visibleCount = 0;
 
@@ -65,7 +101,133 @@ searchInput?.addEventListener("input", () => {
   });
 
   if (emptySearchRow) emptySearchRow.hidden = visibleCount !== 0;
+  updateSelectionControls();
+};
+
+searchInput?.addEventListener("input", filterTableRows);
+searchInput?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") event.preventDefault();
 });
+
+selectAllCheckbox?.addEventListener("change", () => {
+  visibleRows().forEach((row) => {
+    const checkbox = row.querySelector("[data-record-select]");
+    if (checkbox) checkbox.checked = selectAllCheckbox.checked;
+  });
+  updateSelectionControls();
+});
+
+document.querySelectorAll("[data-record-select]").forEach((checkbox) => {
+  checkbox.addEventListener("change", updateSelectionControls);
+});
+
+document.querySelectorAll("[data-sort-column]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const columnIndex = Number(button.dataset.sortColumn);
+    const currentDirection = button.dataset.sortDirection || "none";
+    const direction = currentDirection === "ascending" ? "descending" : "ascending";
+    const multiplier = direction === "ascending" ? 1 : -1;
+
+    document.querySelectorAll("[data-sort-column]").forEach((otherButton) => {
+      otherButton.dataset.sortDirection = "none";
+      otherButton.closest("th")?.setAttribute("aria-sort", "none");
+    });
+
+    button.dataset.sortDirection = direction;
+    button.closest("th")?.setAttribute("aria-sort", direction);
+
+    tableRows
+      .sort((leftRow, rightRow) => {
+        const leftValue =
+          leftRow.querySelectorAll("td[data-sort-value]")[columnIndex]?.dataset.sortValue || "";
+        const rightValue =
+          rightRow.querySelectorAll("td[data-sort-value]")[columnIndex]?.dataset.sortValue || "";
+        const leftNumber = Number(leftValue.replaceAll(",", ""));
+        const rightNumber = Number(rightValue.replaceAll(",", ""));
+
+        if (
+          leftValue !== "" &&
+          rightValue !== "" &&
+          Number.isFinite(leftNumber) &&
+          Number.isFinite(rightNumber)
+        ) {
+          return (leftNumber - rightNumber) * multiplier;
+        }
+
+        return (
+          leftValue.localeCompare(rightValue, undefined, {
+            numeric: true,
+            sensitivity: "base",
+          }) * multiplier
+        );
+      })
+      .forEach((row) => adminTable?.tBodies[0].insertBefore(row, emptySearchRow));
+  });
+});
+
+tableActionsForm?.addEventListener("submit", (event) => {
+  const submitter = event.submitter;
+  if (submitter?.matches("[data-delete-record]")) {
+    if (!window.confirm("Delete this record? This action cannot be undone.")) {
+      event.preventDefault();
+    }
+    return;
+  }
+
+  if (submitter?.matches("[data-bulk-delete]")) {
+    const selectedCount = tableRows.filter(
+      (row) => row.querySelector("[data-record-select]")?.checked
+    ).length;
+    if (
+      selectedCount === 0 ||
+      !window.confirm(
+        `Delete ${selectedCount} selected record${selectedCount === 1 ? "" : "s"}? This action cannot be undone.`
+      )
+    ) {
+      event.preventDefault();
+    }
+    return;
+  }
+
+  event.preventDefault();
+});
+
+document.querySelectorAll("[data-edit-form]").forEach((form) => {
+  const fieldset = form.querySelector("[data-edit-fields]");
+  const editButton = form.querySelector("[data-edit-toggle]");
+  const saveButton = form.querySelector("[data-save-record]");
+  const cancelButton = form.querySelector("[data-cancel-edit]");
+  const panel = form.closest(".data-panel, .linked-row");
+  const status = panel?.querySelector("[data-edit-status]");
+
+  const setEditMode = (isEditing) => {
+    if (fieldset) fieldset.disabled = !isEditing;
+    if (editButton) editButton.hidden = isEditing;
+    if (saveButton) saveButton.hidden = !isEditing;
+    if (cancelButton) cancelButton.hidden = !isEditing;
+    if (status) {
+      status.textContent = isEditing ? "Editing" : "Read only";
+      status.classList.toggle("is-editing", isEditing);
+    }
+
+    if (isEditing) {
+      fieldset
+        ?.querySelector("input:not([type='hidden']):not(:disabled), select:not(:disabled), textarea:not(:disabled)")
+        ?.focus();
+    }
+  };
+
+  editButton?.addEventListener("click", () => setEditMode(true));
+  cancelButton?.addEventListener("click", () => {
+    form.reset();
+    setEditMode(false);
+  });
+  form.addEventListener("submit", () => {
+    if (fieldset) fieldset.disabled = false;
+  });
+});
+
+updateSelectionControls();
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeMobileSidebar();

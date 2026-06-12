@@ -48,6 +48,12 @@ $recentAttendance = [];
 $databaseError = '';
 $formError = '';
 $message = isset($_GET['created']) ? 'Record added successfully.' : '';
+if (isset($_GET['deleted'])) {
+    $deletedCount = max(0, (int) $_GET['deleted']);
+    $message = $deletedCount === 1
+        ? 'Record deleted successfully.'
+        : $deletedCount . ' records deleted successfully.';
+}
 $isAdding = isset($_GET['new']) && $view !== 'overview';
 $formColumns = [];
 
@@ -55,19 +61,43 @@ try {
     $pdo = khotwa_db();
     $viewTables = admin_view_tables();
 
-    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && ($_POST['action'] ?? '') === 'add') {
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         try {
             admin_verify_csrf();
             $postedView = (string) ($_POST['view'] ?? '');
             if (!isset($viewTables[$postedView])) {
                 throw new RuntimeException('Invalid data section.');
             }
-            admin_save_record($pdo, $viewTables[$postedView], (array) ($_POST['fields'] ?? []));
-            header('Location: admin.php?view=' . rawurlencode($postedView) . '&created=1');
+
+            $action = isset($_POST['delete_id']) ? 'delete' : (string) ($_POST['action'] ?? '');
+            if ($action === 'add') {
+                admin_save_record($pdo, $viewTables[$postedView], (array) ($_POST['fields'] ?? []));
+                header('Location: admin.php?view=' . rawurlencode($postedView) . '&created=1');
+                exit;
+            }
+
+            if ($action === 'delete') {
+                $recordIds = [(int) ($_POST['delete_id'] ?? 0)];
+            } elseif ($action === 'bulk_delete') {
+                $recordIds = (array) ($_POST['record_ids'] ?? []);
+            } else {
+                throw new RuntimeException('Invalid table action.');
+            }
+
+            $deletedCount = admin_delete_records(
+                $pdo,
+                $viewTables[$postedView],
+                $recordIds,
+                (int) ($user['id'] ?? 0)
+            );
+            header(
+                'Location: admin.php?view=' . rawurlencode($postedView)
+                . '&deleted=' . $deletedCount
+            );
             exit;
         } catch (Throwable $exception) {
             $formError = $exception->getMessage();
-            $isAdding = true;
+            $isAdding = (string) ($_POST['action'] ?? '') === 'add';
         }
     }
 
@@ -132,7 +162,7 @@ try {
             'attended_subject_count' => 'Attended', 'missed_subject_count' => 'Missed',
         ];
         $rows = $pdo->query(
-            "SELECT attendance_date, student_name_en, check_in_time, check_out_time,
+            "SELECT daily_attendance_id AS id, attendance_date, student_name_en, check_in_time, check_out_time,
                     daily_status, attended_subject_count, missed_subject_count
              FROM student_daily_attendance_summary ORDER BY attendance_date DESC, student_name_en"
         )->fetchAll();
@@ -179,7 +209,8 @@ try {
             'balance_amount' => 'Balance', 'payment_status' => 'Payment status',
         ];
         $rows = $pdo->query(
-            "SELECT CONCAT(students.first_name_en, ' ', students.last_name_en) student_name,
+            "SELECT student_subscription_months.id,
+                    CONCAT(students.first_name_en, ' ', students.last_name_en) student_name,
                     CONCAT(student_subscription_months.billing_year, '-', LPAD(student_subscription_months.billing_month, 2, '0')) billing_period,
                     student_subscription_months.expected_amount, student_subscription_months.paid_amount,
                     GREATEST(student_subscription_months.expected_amount - student_subscription_months.paid_amount, 0) balance_amount,
@@ -211,7 +242,7 @@ try {
             'warning_type' => 'Type', 'reason' => 'Reason', 'parent_notified_label' => 'Parent notified',
         ];
         $rows = $pdo->query(
-            "SELECT student_warnings.warning_date,
+            "SELECT student_warnings.id, student_warnings.warning_date,
                     CONCAT(students.first_name_en, ' ', students.last_name_en) student_name,
                     COALESCE(TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))), 'Center team') teacher_name,
                     student_warnings.warning_type, student_warnings.reason,
@@ -336,45 +367,77 @@ try {
           <?php endif; ?>
 
           <section class="data-panel">
-            <div class="panel-heading table-panel-heading">
-              <div><span>Database table</span><h2><?= e($pageTitle) ?></h2></div>
-              <label class="table-search">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
-                <input type="search" placeholder="Search this table" data-table-search>
-              </label>
-              <div class="table-heading-actions">
-                <strong class="record-count"><?= e((string) count($rows)) ?> records</strong>
-                <a class="add-record-button" href="admin.php?view=<?= e($view) ?>&new=1">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-                  Add record
-                </a>
+            <form method="post" data-table-actions>
+              <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
+              <input type="hidden" name="view" value="<?= e($view) ?>">
+              <div class="panel-heading table-panel-heading">
+                <div><span>Database table</span><h2><?= e($pageTitle) ?></h2></div>
+                <label class="table-search">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
+                  <input type="search" placeholder="Search this table" data-table-search>
+                </label>
+                <div class="table-heading-actions">
+                  <strong class="record-count"><?= e((string) count($rows)) ?> records</strong>
+                  <button class="bulk-delete-button" type="submit" name="action" value="bulk_delete" disabled data-bulk-delete>
+                    Delete selected
+                  </button>
+                  <a class="add-record-button" href="admin.php?view=<?= e($view) ?>&new=1">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                    Add record
+                  </a>
+                </div>
               </div>
-            </div>
-            <div class="table-scroll">
-              <table data-admin-table>
-                <thead><tr><?php foreach ($columns as $label): ?><th><?= e($label) ?></th><?php endforeach; ?></tr></thead>
-                <tbody>
-                  <?php if ($rows === []): ?>
-                    <tr><td class="empty-row" colspan="<?= e((string) max(1, count($columns))) ?>">No records found.</td></tr>
-                  <?php else: ?>
-                    <?php foreach ($rows as $row): ?>
-                      <?php
-                      $detailUrl = '';
-                      if ($view === 'students') {
-                          $detailUrl = 'admin-person.php?type=student&id=' . (int) $row['id'];
-                      } elseif ($view === 'teachers') {
-                          $detailUrl = 'admin-person.php?type=teacher&id=' . (int) $row['id'];
-                      }
-                      ?>
-                      <tr<?= $detailUrl !== '' ? ' class="is-openable" data-detail-url="' . e($detailUrl) . '" title="Double-click to open the full record" tabindex="0"' : '' ?>>
-                        <?php foreach ($columns as $key => $label): ?><td><?= render_value($key, $row[$key] ?? null) ?></td><?php endforeach; ?>
-                      </tr>
-                    <?php endforeach; ?>
-                  <?php endif; ?>
-                  <tr class="search-empty" hidden><td colspan="<?= e((string) max(1, count($columns))) ?>">No matching records.</td></tr>
-                </tbody>
-              </table>
-            </div>
+              <div class="table-scroll">
+                <table data-admin-table>
+                  <thead>
+                    <tr>
+                      <th class="selection-column">
+                        <input type="checkbox" aria-label="Select all visible records" data-select-all>
+                      </th>
+                      <?php foreach (array_values($columns) as $sortIndex => $label): ?>
+                        <th aria-sort="none">
+                          <button class="sort-button" type="button" data-sort-column="<?= e((string) $sortIndex) ?>">
+                            <?= e($label) ?><span aria-hidden="true"></span>
+                          </button>
+                        </th>
+                      <?php endforeach; ?>
+                      <th class="actions-column">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <?php if ($rows === []): ?>
+                      <tr><td class="empty-row" colspan="<?= e((string) (count($columns) + 2)) ?>">No records found.</td></tr>
+                    <?php else: ?>
+                      <?php foreach ($rows as $row): ?>
+                        <?php
+                        if ($view === 'students') {
+                            $detailUrl = 'admin-person.php?type=student&id=' . (int) $row['id'];
+                        } elseif ($view === 'teachers') {
+                            $detailUrl = 'admin-person.php?type=teacher&id=' . (int) $row['id'];
+                        } else {
+                            $detailUrl = 'admin-record.php?view=' . rawurlencode($view) . '&id=' . (int) $row['id'];
+                        }
+                        ?>
+                        <tr class="is-openable" data-record-row data-detail-url="<?= e($detailUrl) ?>" title="Double-click to open the full record" tabindex="0">
+                          <td class="selection-column">
+                            <input type="checkbox" name="record_ids[]" value="<?= e((string) $row['id']) ?>" aria-label="Select record <?= e((string) $row['id']) ?>" data-record-select>
+                          </td>
+                          <?php foreach ($columns as $key => $label): ?>
+                            <td data-sort-value="<?= e((string) ($row[$key] ?? '')) ?>"><?= render_value($key, $row[$key] ?? null) ?></td>
+                          <?php endforeach; ?>
+                          <td class="actions-column">
+                            <button class="inline-delete-button" type="submit" name="delete_id" value="<?= e((string) $row['id']) ?>" data-delete-record>
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      <?php endforeach; ?>
+                    <?php endif; ?>
+                    <tr class="search-empty" hidden><td colspan="<?= e((string) (count($columns) + 2)) ?>">No matching records.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </form>
           </section>
         <?php endif; ?>
       </main>

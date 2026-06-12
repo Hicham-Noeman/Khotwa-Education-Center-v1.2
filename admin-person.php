@@ -74,9 +74,14 @@ try {
         ? trim((string) $person['first_name'] . ' ' . (string) $person['last_name'])
         : trim((string) $person['first_name_en'] . ' ' . (string) $person['last_name_en']);
 
-    $mainColumns = admin_editable_columns($pdo, $mainTable);
+    $mainColumns = admin_columns($pdo, $mainTable);
+    $mainEditableNames = array_fill_keys(
+        array_column(admin_editable_columns($pdo, $mainTable), 'COLUMN_NAME'),
+        true
+    );
     $linkedData = [];
     foreach ($linkedTables as $table => $label) {
+        $editableColumns = admin_editable_columns($pdo, $table);
         $statement = $pdo->prepare(
             'SELECT * FROM ' . admin_quote_identifier($table)
             . ' WHERE ' . admin_quote_identifier($relationColumn) . ' = ? ORDER BY id DESC'
@@ -84,9 +89,14 @@ try {
         $statement->execute([$personId]);
         $linkedData[$table] = [
             'label' => $label,
-            'columns' => admin_editable_columns($pdo, $table),
+            'columns' => admin_columns($pdo, $table),
+            'editable_columns' => $editableColumns,
+            'editable_names' => array_fill_keys(array_column($editableColumns, 'COLUMN_NAME'), true),
             'rows' => $statement->fetchAll(),
         ];
+        foreach (admin_hidden_derived_columns($table) as $derivedColumn) {
+            unset($linkedData[$table]['editable_names'][$derivedColumn]);
+        }
     }
 } catch (Throwable $exception) {
     $databaseError = $exception->getMessage();
@@ -117,7 +127,7 @@ try {
         <?php else: ?>
           <section class="content-heading profile-heading">
             <div>
-              <a class="back-to-table" href="admin.php?view=<?= e($activeView) ?>">Back to <?= e(ucfirst($activeView)) ?></a>
+              <a class="back-to-table" href="admin.php?view=<?= e($activeView) ?>">Go back to <?= e(ucfirst($activeView)) ?></a>
               <h1><?= e($personName) ?></h1>
               <p>Complete <?= e($type) ?> profile with every directly linked database record.</p>
             </div>
@@ -128,18 +138,39 @@ try {
           <?php if ($error !== ''): ?><div class="form-notice error-notice"><?= e($error) ?></div><?php endif; ?>
 
           <section class="data-panel profile-main-card">
-            <div class="panel-heading"><div><span>Main record</span><h2><?= e(ucfirst($type)) ?> information</h2></div></div>
-            <form method="post">
+            <div class="panel-heading">
+              <div><span>Main record</span><h2><?= e(ucfirst($type)) ?> information</h2></div>
+              <span class="read-only-status" data-edit-status>Read only</span>
+            </div>
+            <form method="post" data-edit-form>
               <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
               <input type="hidden" name="action" value="update_main">
               <input type="hidden" name="table" value="<?= e($mainTable) ?>">
               <input type="hidden" name="record_id" value="<?= e((string) $personId) ?>">
-              <div class="record-form-grid">
-                <?php foreach ($mainColumns as $column): ?>
-                  <?php admin_render_field($pdo, $mainTable, $column, $person[$column['COLUMN_NAME']] ?? ''); ?>
-                <?php endforeach; ?>
+              <fieldset class="record-fieldset" disabled data-edit-fields>
+                <div class="record-form-grid">
+                  <?php foreach ($mainColumns as $column): ?>
+                    <?php
+                    $columnName = (string) $column['COLUMN_NAME'];
+                    $locked = isset($mainEditableNames[$columnName])
+                        ? []
+                        : [$columnName => $person[$columnName] ?? ''];
+                    admin_render_field(
+                        $pdo,
+                        $mainTable,
+                        $column,
+                        $person[$columnName] ?? '',
+                        $locked
+                    );
+                    ?>
+                  <?php endforeach; ?>
+                </div>
+              </fieldset>
+              <div class="record-form-actions">
+                <button class="secondary-action edit-record-button" type="button" data-edit-toggle>Edit</button>
+                <button class="primary-action" type="submit" hidden data-save-record>Save</button>
+                <button class="secondary-action" type="button" hidden data-cancel-edit>Cancel</button>
               </div>
-              <div class="record-form-actions"><button class="primary-action" type="submit">Save main record</button></div>
             </form>
           </section>
 
@@ -170,7 +201,7 @@ try {
                       <input type="hidden" name="action" value="add_linked">
                       <input type="hidden" name="table" value="<?= e($table) ?>">
                       <div class="record-form-grid compact-grid">
-                        <?php foreach ($data['columns'] as $column): ?>
+                        <?php foreach ($data['editable_columns'] as $column): ?>
                           <?php admin_render_field(
                               $pdo,
                               $table,
@@ -193,23 +224,40 @@ try {
                     <?php foreach ($data['rows'] as $index => $row): ?>
                       <details class="linked-row">
                         <summary>Record #<?= e((string) $row['id']) ?><span><?= e((string) ($index + 1)) ?> of <?= e((string) count($data['rows'])) ?></span></summary>
-                        <form class="linked-record-form" method="post">
+                        <form class="linked-record-form" method="post" data-edit-form>
                           <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
                           <input type="hidden" name="action" value="update_linked">
                           <input type="hidden" name="table" value="<?= e($table) ?>">
                           <input type="hidden" name="record_id" value="<?= e((string) $row['id']) ?>">
-                          <div class="record-form-grid compact-grid">
-                            <?php foreach ($data['columns'] as $column): ?>
-                              <?php admin_render_field(
-                                  $pdo,
-                                  $table,
-                                  $column,
-                                  $row[$column['COLUMN_NAME']] ?? '',
-                                  [$relationColumn => $personId]
-                              ); ?>
-                            <?php endforeach; ?>
+                          <fieldset class="record-fieldset" disabled data-edit-fields>
+                            <div class="record-form-grid compact-grid">
+                              <?php foreach ($data['columns'] as $column): ?>
+                                <?php
+                                $columnName = (string) $column['COLUMN_NAME'];
+                                $locked = [];
+                                if (!isset($data['editable_names'][$columnName])) {
+                                    $locked[$columnName] = $row[$columnName] ?? '';
+                                }
+                                if ($columnName === $relationColumn) {
+                                    $locked[$columnName] = $personId;
+                                }
+                                admin_render_field(
+                                    $pdo,
+                                    $table,
+                                    $column,
+                                    $row[$columnName] ?? '',
+                                    $locked,
+                                    true
+                                );
+                                ?>
+                              <?php endforeach; ?>
+                            </div>
+                          </fieldset>
+                          <div class="record-form-actions">
+                            <button class="secondary-action edit-record-button" type="button" data-edit-toggle>Edit</button>
+                            <button class="primary-action" type="submit" hidden data-save-record>Save</button>
+                            <button class="secondary-action" type="button" hidden data-cancel-edit>Cancel</button>
                           </div>
-                          <div class="record-form-actions"><button class="primary-action" type="submit">Save changes</button></div>
                         </form>
                       </details>
                     <?php endforeach; ?>

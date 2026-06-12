@@ -19,6 +19,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   min-width: 320px;
@@ -641,7 +645,9 @@ svg {
 
 .add-record-button,
 .primary-action,
-.secondary-action {
+.secondary-action,
+.bulk-delete-button,
+.inline-delete-button {
   display: inline-flex;
   min-height: 42px;
   align-items: center;
@@ -674,6 +680,31 @@ svg {
   color: var(--navy);
   border: 1px solid var(--line);
   background: var(--paper);
+}
+
+.bulk-delete-button,
+.inline-delete-button {
+  color: #a30e4e;
+  border: 1px solid rgba(229, 28, 111, 0.22);
+  background: rgba(229, 28, 111, 0.07);
+}
+
+.bulk-delete-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.inline-delete-button {
+  min-height: 34px;
+  padding: 0 11px;
+  border-radius: 9px;
+  font-size: 0.66rem;
+}
+
+.bulk-delete-button:not(:disabled):hover,
+.inline-delete-button:hover {
+  color: #7e0b3c;
+  background: rgba(229, 28, 111, 0.13);
 }
 
 .table-search {
@@ -744,6 +775,55 @@ th {
   text-transform: uppercase;
 }
 
+.sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.sort-button span {
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  opacity: 0.35;
+  transform: rotate(45deg) translateY(-2px);
+}
+
+th[aria-sort="ascending"] .sort-button,
+th[aria-sort="descending"] .sort-button {
+  color: var(--navy);
+}
+
+th[aria-sort="ascending"] .sort-button span {
+  opacity: 1;
+  transform: rotate(225deg) translate(-1px, -1px);
+}
+
+th[aria-sort="descending"] .sort-button span {
+  opacity: 1;
+}
+
+.selection-column,
+.actions-column {
+  width: 1%;
+  text-align: center;
+}
+
+.selection-column input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--navy);
+}
+
 th:first-child {
   border-radius: 12px 0 0 12px;
 }
@@ -774,6 +854,10 @@ tbody tr.is-openable {
 
 tbody tr.is-openable:hover {
   background: rgba(244, 159, 15, 0.07);
+}
+
+tbody tr:has([data-record-select]:checked) {
+  background: rgba(34, 63, 107, 0.07);
 }
 
 .status-pill {
@@ -906,6 +990,42 @@ tbody tr.is-openable:hover {
 .admin-field input:disabled {
   color: #7f8998;
   background: #edf1f6;
+}
+
+.admin-field select:disabled,
+.admin-field textarea:disabled {
+  color: #7f8998;
+  background: #edf1f6;
+}
+
+.record-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.read-only-status {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  padding: 0 11px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--soft);
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.read-only-status.is-editing {
+  color: #925b00;
+  background: rgba(244, 159, 15, 0.12);
+}
+
+.edit-record-button {
+  color: var(--paper);
+  border-color: var(--navy);
+  background: var(--navy);
 }
 
 .record-form-actions {
@@ -1423,6 +1543,7 @@ html[dir="rtl"] th:last-child {
 
   .table-heading-actions {
     width: 100%;
+    flex-wrap: wrap;
     justify-content: space-between;
   }
 
