@@ -174,6 +174,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
           </button>
         </div>
 
+        <div style="text-align: center; margin: -12px 0 24px; font-size: 0.81rem; color: var(--muted);">
+          Need to reset or seed the demo data? 
+          <a href="setup.php" style="color: var(--navy); font-weight: 700; text-decoration: underline; transition: color 0.2s ease;">Initialize & Seed Database</a>
+        </div>
+
         <form class="auth-form" id="login-form" method="post" action="login.php">
           <label class="field">
             <span>Email address</span>

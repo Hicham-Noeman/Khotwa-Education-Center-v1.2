@@ -6,13 +6,13 @@ require_once __DIR__ . '/auth.php';
 $user = require_roles(['teacher']);
 $teacherId = (int) ($user['teacher_id'] ?? 0);
 $views = [
+    'attendance' => ['label' => 'Attendance', 'description' => 'Mark attendance quickly, then add session notes when you have time.'],
     'students' => ['label' => 'Students', 'description' => 'Students actively assigned to your subjects.'],
-    'attendance' => ['label' => 'Attendance', 'description' => 'Record attendance and session notes for your assigned students.'],
     'profile' => ['label' => 'My Profile', 'description' => 'Your teacher information, account details, and assigned subjects.'],
 ];
-$view = (string) ($_GET['view'] ?? 'students');
+$view = (string) ($_GET['view'] ?? 'attendance');
 if (!isset($views[$view])) {
-    $view = 'students';
+    $view = 'attendance';
 }
 
 $today = date('Y-m-d');
@@ -62,7 +62,7 @@ function render_teacher_sidebar(array $user, string $activeView): void
       <nav class="admin-nav">
         <section class="nav-group">
           <h2>My Workspace</h2>
-          <?php foreach (['students' => 'Students', 'attendance' => 'Attendance', 'profile' => 'My Profile'] as $key => $label): ?>
+          <?php foreach (['attendance' => 'Attendance', 'students' => 'Students', 'profile' => 'My Profile'] as $key => $label): ?>
             <a class="<?= $activeView === $key ? 'is-active' : '' ?>" href="teacher.php?view=<?= e($key) ?>" title="<?= e($label) ?>">
               <?= teacher_icon($key) ?><span><?= e($label) ?></span>
               <?php if ($activeView === $key): ?><i></i><?php endif; ?>
@@ -412,83 +412,136 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
           </section>
 
         <?php elseif ($view === 'attendance'): ?>
-          <section class="data-panel teacher-filter-panel">
-            <div class="panel-heading">
-              <div><span>Session setup</span><h2><?= e(date('l, F j, Y', strtotime($attendanceDate))) ?></h2></div>
-            </div>
-            <div class="teacher-control-row">
-              <form method="get" data-date-form>
-                <input type="hidden" name="view" value="attendance">
-                <label class="admin-field"><span>Attendance date</span><input type="date" name="date" value="<?= e($attendanceDate) ?>" max="<?= e($today) ?>"></label>
-                <label class="admin-field"><span>Session</span><select name="session"><?php for ($session = 1; $session <= 8; $session++): ?><option value="<?= $session ?>" <?= $sessionNumber === $session ? 'selected' : '' ?>>Session <?= $session ?></option><?php endfor; ?></select></label>
-                <button class="secondary-action" type="submit">Load session</button>
-              </form>
-              <label class="table-search">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
-                <input type="search" placeholder="Search this roster" data-roster-search>
-              </label>
-            </div>
-          </section>
-
-          <section class="metrics-grid" aria-label="Attendance summary">
-            <article class="metric-card metric-navy"><span class="metric-dot"></span><strong><?= e((string) $uniqueStudents) ?></strong><p>Students</p></article>
-            <article class="metric-card metric-green"><span class="metric-dot"></span><strong data-attended-count><?= e((string) $attendedCount) ?></strong><p>Came</p></article>
-            <article class="metric-card metric-pink"><span class="metric-dot"></span><strong data-missed-count><?= e((string) $missedCount) ?></strong><p>Did not come</p></article>
-            <article class="metric-card metric-orange"><span class="metric-dot"></span><strong data-unmarked-count><?= e((string) $unmarkedCount) ?></strong><p>Not marked</p></article>
-          </section>
-
-          <section class="data-panel">
-            <div class="panel-heading teacher-attendance-heading">
-              <div><span>Assigned roster</span><h2><?= e((string) count($attendanceRows)) ?> subject assignment(s)</h2></div>
-              <?php if ($attendanceRows !== []): ?>
-                <div class="teacher-bulk-actions">
-                  <button class="secondary-action" type="button" data-mark-all="attended">Mark visible as came</button>
-                  <button class="secondary-action" type="button" data-mark-all="missed">Mark visible as absent</button>
-                </div>
-              <?php endif; ?>
-            </div>
-
-            <?php if ($attendanceRows === []): ?>
+          <?php if ($attendanceRows === []): ?>
+            <section class="data-panel">
               <p class="linked-empty">No active students are assigned to this teacher.</p>
-            <?php else: ?>
-              <form method="post" data-attendance-form>
-                <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
-                <input type="hidden" name="attendance_date" value="<?= e($attendanceDate) ?>">
-                <input type="hidden" name="session_number" value="<?= e((string) $sessionNumber) ?>">
-                <div class="teacher-roster" data-roster>
+            </section>
+          <?php else: ?>
+            <section class="attendance-session-bar">
+              <form method="get" class="attendance-session-form" data-date-form>
+                <input type="hidden" name="view" value="attendance">
+                <label class="admin-field"><span>Date</span><input type="date" name="date" value="<?= e($attendanceDate) ?>" max="<?= e($today) ?>"></label>
+                <label class="admin-field"><span>Session</span><select name="session"><?php for ($session = 1; $session <= 8; $session++): ?><option value="<?= $session ?>" <?= $sessionNumber === $session ? 'selected' : '' ?>>Session <?= $session ?></option><?php endfor; ?></select></label>
+              </form>
+              <div class="attendance-progress" aria-label="Attendance progress">
+                <div class="attendance-progress-track"><span data-progress-fill style="width: <?= count($attendanceRows) > 0 ? round((($attendedCount + $missedCount) / count($attendanceRows)) * 100) : 0 ?>%"></span></div>
+                <div class="attendance-progress-stats">
+                  <span><strong data-attended-count><?= e((string) $attendedCount) ?></strong> came</span>
+                  <span><strong data-missed-count><?= e((string) $missedCount) ?></strong> absent</span>
+                  <span><strong data-unmarked-count><?= e((string) $unmarkedCount) ?></strong> left</span>
+                </div>
+              </div>
+            </section>
+
+            <form method="post" class="attendance-workspace" data-attendance-form>
+              <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
+              <input type="hidden" name="attendance_date" value="<?= e($attendanceDate) ?>">
+              <input type="hidden" name="session_number" value="<?= e((string) $sessionNumber) ?>">
+
+              <div class="attendance-mode-tabs" role="tablist" aria-label="Attendance workflow">
+                <button class="attendance-mode-tab is-active" type="button" role="tab" aria-selected="true" data-attendance-mode="mark">Quick mark</button>
+                <button class="attendance-mode-tab" type="button" role="tab" aria-selected="false" data-attendance-mode="notes">Session notes</button>
+              </div>
+
+              <section class="attendance-panel is-active" data-attendance-panel="mark" role="tabpanel">
+                <div class="attendance-mark-toolbar">
+                  <label class="table-search attendance-search">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
+                    <input type="search" placeholder="Find a student" data-roster-search>
+                  </label>
+                  <div class="attendance-bulk-actions">
+                    <button class="secondary-action" type="button" data-mark-all="attended">All came</button>
+                    <button class="secondary-action" type="button" data-mark-all="missed">All absent</button>
+                  </div>
+                </div>
+                <div class="attendance-filters">
+                  <div class="show-attended-container">
+                    <label class="show-attended-label">
+                      <span>Show Attended Students</span>
+                      <span class="show-attended-switch">
+                        <input type="checkbox" data-toggle-attended>
+                        <span class="show-attended-slider"></span>
+                      </span>
+                    </label>
+                  </div>
+                  <div class="letter-filter-container" data-letter-filter-container>
+                    <!-- Letter buttons will be dynamically generated by JS -->
+                  </div>
+                </div>
+
+                <div class="attendance-quick-list" data-quick-list>
                   <?php foreach ($attendanceRows as $row): ?>
-                    <?php $rowStatus = (string) ($row['attendance_status'] ?? ''); ?>
-                    <article class="student-attendance-card" data-roster-row data-status="<?= e($rowStatus) ?>">
-                      <div class="student-card-heading">
-                        <span class="student-initial"><?= e(strtoupper(substr((string) $row['student_name'], 0, 1))) ?></span>
-                        <div><h3><?= e((string) $row['student_name']) ?></h3><p><?= e((string) $row['student_name_ar']) ?></p></div>
-                        <span class="attendance-state" data-status-label><?= $rowStatus === 'attended' ? 'Came' : ($rowStatus === 'missed' ? 'Did not come' : 'Not marked') ?></span>
+                    <?php
+                    $rowStatus = (string) ($row['attendance_status'] ?? '');
+                    $enrollmentId = (string) $row['enrollment_id'];
+                    $searchText = strtolower(
+                        (string) $row['student_name'] . ' '
+                        . (string) $row['student_name_ar'] . ' '
+                        . (string) $row['grade_name'] . ' '
+                        . (string) $row['subject_name']
+                    );
+                    ?>
+                    <article
+                      class="attendance-quick-row"
+                      data-roster-row
+                      data-enrollment-id="<?= e($enrollmentId) ?>"
+                      data-status="<?= e($rowStatus) ?>"
+                      data-search-text="<?= e($searchText) ?>"
+                      tabindex="0"
+                    >
+                      <span class="quick-row-avatar"><?= e(strtoupper(substr((string) $row['student_name'], 0, 1))) ?></span>
+                      <div class="quick-row-copy">
+                        <strong><?= e((string) $row['student_name']) ?></strong>
+                        <small class="quick-row-arabic"><?= e((string) $row['student_name_ar']) ?></small>
+                        <span class="quick-row-meta"><?= e((string) $row['grade_name']) ?> · <?= e((string) $row['subject_name']) ?></span>
                       </div>
-                      <div class="student-context">
-                        <span><small>Grade</small><strong><?= e((string) $row['grade_name']) ?></strong></span>
-                        <span><small>Subject</small><strong><?= e((string) $row['subject_name']) ?></strong></span>
-                        <span><small>Session</small><strong><?= e((string) $sessionNumber) ?></strong></span>
+                      <div class="quick-row-actions">
+                        <button class="quick-status-btn quick-status-came" type="button" data-set-status="attended" aria-pressed="<?= $rowStatus === 'attended' ? 'true' : 'false' ?>">Came</button>
+                        <button class="quick-status-btn quick-status-missed" type="button" data-set-status="missed" aria-pressed="<?= $rowStatus === 'missed' ? 'true' : 'false' ?>">Absent</button>
                       </div>
-                      <fieldset class="attendance-choice">
-                        <legend>Attendance</legend>
-                        <label class="choice-came"><input type="radio" name="attendance[<?= e((string) $row['enrollment_id']) ?>][status]" value="attended" <?= $rowStatus === 'attended' ? 'checked' : '' ?>><span>Came</span></label>
-                        <label class="choice-missed"><input type="radio" name="attendance[<?= e((string) $row['enrollment_id']) ?>][status]" value="missed" <?= $rowStatus === 'missed' ? 'checked' : '' ?>><span>Did not come</span></label>
-                      </fieldset>
-                      <div class="student-notes">
-                        <label><span>Session note</span><textarea name="attendance[<?= e((string) $row['enrollment_id']) ?>][note]" maxlength="255" placeholder="Participation, progress, behavior, or follow-up"><?= e((string) ($row['attendance_note'] ?? '')) ?></textarea></label>
-                        <label><span>Homework note</span><textarea name="attendance[<?= e((string) $row['enrollment_id']) ?>][homework_note]" maxlength="255" placeholder="Homework assigned or completion note"><?= e((string) ($row['homework_note'] ?? '')) ?></textarea></label>
-                      </div>
+                      <input type="radio" name="attendance[<?= e($enrollmentId) ?>][status]" value="attended" <?= $rowStatus === 'attended' ? 'checked' : '' ?> hidden>
+                      <input type="radio" name="attendance[<?= e($enrollmentId) ?>][status]" value="missed" <?= $rowStatus === 'missed' ? 'checked' : '' ?> hidden>
+                      <textarea name="attendance[<?= e($enrollmentId) ?>][note]" maxlength="255" hidden data-note-input><?= e((string) ($row['attendance_note'] ?? '')) ?></textarea>
+                      <textarea name="attendance[<?= e($enrollmentId) ?>][homework_note]" maxlength="255" hidden data-homework-input><?= e((string) ($row['homework_note'] ?? '')) ?></textarea>
                     </article>
                   <?php endforeach; ?>
                 </div>
                 <p class="teacher-search-empty" hidden data-search-empty>No assigned students match this search.</p>
-                <div class="teacher-save-bar">
-                  <span data-save-state>Changes are saved only when you press Save attendance.</span>
-                  <button class="primary-action" type="submit">Save attendance</button>
+                <p class="attendance-desktop-hint">Tip: focus a row and press <kbd>C</kbd> for came or <kbd>A</kbd> for absent.</p>
+              </section>
+
+              <section class="attendance-panel" data-attendance-panel="notes" role="tabpanel" hidden>
+                <p class="attendance-notes-intro">Add session and homework notes for students you already marked. Attendance status is shown read-only here.</p>
+                <div class="attendance-notes-list" data-notes-list>
+                  <?php foreach ($attendanceRows as $row): ?>
+                    <?php
+                    $rowStatus = (string) ($row['attendance_status'] ?? '');
+                    $enrollmentId = (string) $row['enrollment_id'];
+                    ?>
+                    <article class="attendance-notes-row" data-notes-row data-enrollment-id="<?= e($enrollmentId) ?>" data-status="<?= e($rowStatus) ?>" <?= $rowStatus === '' ? 'hidden' : '' ?>>
+                      <div class="notes-row-head">
+                        <div>
+                          <strong><?= e((string) $row['student_name']) ?></strong>
+                          <small><?= e((string) $row['subject_name']) ?> · <?= e((string) $row['grade_name']) ?></small>
+                        </div>
+                        <span class="attendance-state" data-notes-status-label><?= $rowStatus === 'attended' ? 'Came' : ($rowStatus === 'missed' ? 'Did not come' : 'Not marked') ?></span>
+                      </div>
+                      <div class="notes-row-fields">
+                        <label><span>Session note</span><textarea maxlength="255" data-note-field="<?= e($enrollmentId) ?>" placeholder="Participation, progress, or follow-up"><?= e((string) ($row['attendance_note'] ?? '')) ?></textarea></label>
+                        <label><span>Homework note</span><textarea maxlength="255" data-homework-field="<?= e($enrollmentId) ?>" placeholder="Homework assigned or completion"><?= e((string) ($row['homework_note'] ?? '')) ?></textarea></label>
+                      </div>
+                    </article>
+                  <?php endforeach; ?>
                 </div>
-              </form>
-            <?php endif; ?>
-          </section>
+                <p class="attendance-notes-empty" data-notes-empty <?= ($attendedCount + $missedCount) > 0 ? 'hidden' : '' ?>>Mark attendance in Quick mark first, then come back here to add notes.</p>
+              </section>
+
+              <div class="teacher-save-bar">
+                <span data-save-state>Tap came or absent, save when ready.</span>
+                <button class="primary-action" type="submit">Save session</button>
+              </div>
+            </form>
+          <?php endif; ?>
 
         <?php elseif ($teacherProfile !== []): ?>
           <section class="profile-overview-grid">

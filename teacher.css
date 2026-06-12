@@ -23,99 +23,426 @@
   background: rgba(244, 159, 15, 0.12);
 }
 
-.teacher-filter-panel {
-  margin-bottom: 18px;
+.attendance-session-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.85fr);
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--paper);
 }
 
-.teacher-control-row {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.teacher-control-row form {
+.attendance-session-form {
   display: flex;
   align-items: end;
   gap: 10px;
 }
 
-.teacher-control-row .admin-field {
-  min-width: 160px;
+.attendance-session-form .admin-field {
+  min-width: 150px;
 }
 
-.teacher-control-row .secondary-action {
-  min-height: 45px;
+.attendance-progress {
+  display: grid;
+  gap: 10px;
+  align-content: center;
 }
 
-.teacher-attendance-heading {
-  align-items: end;
+.attendance-progress-track {
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(34, 63, 107, 0.08);
 }
 
-.teacher-bulk-actions {
+.attendance-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--green), #6fd456);
+  transition: width 0.24s ease;
+}
+
+.attendance-progress-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.attendance-progress-stats strong {
+  color: var(--navy);
+  font-size: 0.92rem;
+}
+
+.attendance-workspace {
+  display: grid;
+  gap: 14px;
+}
+
+.attendance-mode-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+}
+
+.attendance-mode-tab {
+  min-height: 44px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.attendance-mode-tab.is-active {
+  color: var(--navy);
+  background: rgba(34, 63, 107, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(34, 63, 107, 0.08);
+}
+
+.attendance-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.attendance-mark-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.attendance-search {
+  flex: 1;
+}
+
+.attendance-bulk-actions {
   display: flex;
   gap: 8px;
 }
 
-.teacher-bulk-actions .secondary-action {
+.attendance-bulk-actions .secondary-action {
   min-height: 39px;
   font-size: 0.68rem;
+  white-space: nowrap;
 }
 
-.teacher-roster {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.student-attendance-card {
-  padding: 19px;
+.attendance-swipe-zone {
+  display: none;
+  gap: 12px;
+  padding: 16px;
   border: 1px solid var(--line);
   border-radius: 18px;
-  background: #fbfcfe;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  background: linear-gradient(180deg, #fbfcfe 0%, #f4f7fb 100%);
 }
 
-.student-attendance-card[data-status="attended"] {
-  border-color: rgba(79, 187, 55, 0.34);
-  box-shadow: inset 4px 0 var(--green);
+.swipe-zone-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.student-attendance-card[data-status="missed"] {
-  border-color: rgba(229, 28, 111, 0.3);
-  box-shadow: inset 4px 0 var(--pink);
+.swipe-counter {
+  color: var(--navy);
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
-.student-card-heading {
+.swipe-list-toggle {
+  border: 0;
+  color: var(--navy);
+  background: transparent;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.swipe-stack {
+  position: relative;
+  min-height: 250px;
+}
+
+.swipe-card {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 24px 20px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--paper);
+  box-shadow: 0 18px 40px rgba(20, 42, 73, 0.12);
+  touch-action: none;
+  user-select: none;
+}
+
+.swipe-card.is-swipe-right {
+  border-color: rgba(79, 187, 55, 0.45);
+  box-shadow: 0 18px 40px rgba(79, 187, 55, 0.18);
+}
+
+.swipe-card.is-swipe-left {
+  border-color: rgba(229, 28, 111, 0.4);
+  box-shadow: 0 18px 40px rgba(229, 28, 111, 0.16);
+}
+
+.swipe-card-avatar {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border-radius: 18px;
+  color: var(--paper);
+  background: var(--navy);
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.swipe-card-name {
+  color: var(--navy);
+  font-family: var(--display);
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.swipe-card-arabic {
+  color: var(--muted);
+  font-family: "Tajawal", sans-serif;
+  font-size: 0.86rem;
+}
+
+.swipe-card-meta {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.swipe-zone-empty {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  padding: 28px 16px;
+  text-align: center;
+}
+
+.swipe-zone-empty strong {
+  color: var(--navy);
+  font-size: 0.92rem;
+}
+
+.swipe-zone-empty p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.swipe-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.swipe-btn {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  min-height: 58px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.swipe-btn svg {
+  width: 22px;
+}
+
+.swipe-btn-came {
+  color: #2f7d22;
+  border-color: rgba(79, 187, 55, 0.35);
+  background: rgba(79, 187, 55, 0.1);
+}
+
+.swipe-btn-missed {
+  color: #a30e4e;
+  border-color: rgba(229, 28, 111, 0.35);
+  background: rgba(229, 28, 111, 0.08);
+}
+
+.swipe-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+.attendance-quick-list {
+  display: grid;
+  gap: 8px;
+}
+
+.attendance-quick-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 11px;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
-.student-initial {
+.attendance-quick-row:focus-visible {
+  outline: 2px solid rgba(34, 63, 107, 0.35);
+  outline-offset: 2px;
+}
+
+.attendance-quick-row[data-status="attended"] {
+  border-color: rgba(79, 187, 55, 0.34);
+  box-shadow: inset 3px 0 var(--green);
+}
+
+.attendance-quick-row[data-status="missed"] {
+  border-color: rgba(229, 28, 111, 0.3);
+  box-shadow: inset 3px 0 var(--pink);
+}
+
+.quick-row-avatar {
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   place-items: center;
-  border-radius: 13px;
+  border-radius: 12px;
   color: var(--paper);
   background: var(--navy);
   font-weight: 800;
 }
 
-.student-card-heading h3 {
-  margin: 0;
-  color: var(--navy);
-  font-family: var(--display);
-  font-size: 1rem;
+.quick-row-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 }
 
-.student-card-heading p {
-  margin: 3px 0 0;
+.quick-row-copy strong {
+  color: var(--navy);
+  font-size: 0.84rem;
+}
+
+.quick-row-arabic {
   color: var(--muted);
   font-family: "Tajawal", sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+}
+
+.quick-row-meta {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.quick-row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.quick-status-btn {
+  min-width: 72px;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--soft);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.quick-status-btn[aria-pressed="true"].quick-status-came {
+  color: #2f7d22;
+  border-color: rgba(79, 187, 55, 0.45);
+  background: rgba(79, 187, 55, 0.12);
+}
+
+.quick-status-btn[aria-pressed="true"].quick-status-missed {
+  color: #a30e4e;
+  border-color: rgba(229, 28, 111, 0.4);
+  background: rgba(229, 28, 111, 0.1);
+}
+
+.attendance-desktop-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.attendance-desktop-hint kbd {
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.attendance-notes-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.attendance-notes-list {
+  display: grid;
+  gap: 10px;
+}
+
+.attendance-notes-row {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+}
+
+.attendance-notes-row[data-status="attended"] {
+  border-color: rgba(79, 187, 55, 0.28);
+}
+
+.attendance-notes-row[data-status="missed"] {
+  border-color: rgba(229, 28, 111, 0.24);
+}
+
+.notes-row-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.notes-row-head strong {
+  display: block;
+  color: var(--navy);
+  font-size: 0.86rem;
+}
+
+.notes-row-head small {
+  color: var(--muted);
+  font-size: 0.68rem;
 }
 
 .attendance-state {
@@ -125,6 +452,7 @@
   background: rgba(244, 159, 15, 0.12);
   font-size: 0.64rem;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 [data-status="attended"] .attendance-state {
@@ -137,94 +465,24 @@
   background: rgba(229, 28, 111, 0.1);
 }
 
-.student-context {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin: 16px 0;
-}
-
-.student-context span {
-  display: grid;
-  gap: 4px;
-  padding: 10px;
-  border-radius: 10px;
-  background: var(--paper);
-}
-
-.student-context small,
-.student-notes label > span,
-.attendance-choice legend {
-  color: var(--muted);
-  font-size: 0.64rem;
-  font-weight: 800;
-}
-
-.student-context strong {
-  color: var(--navy);
-  font-size: 0.72rem;
-}
-
-.attendance-choice {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin: 0 0 14px;
-  padding: 0;
-  border: 0;
-}
-
-.attendance-choice legend {
-  grid-column: 1 / -1;
-  margin-bottom: 7px;
-}
-
-.attendance-choice label {
-  position: relative;
-  cursor: pointer;
-}
-
-.attendance-choice input {
-  position: absolute;
-  opacity: 0;
-}
-
-.attendance-choice span {
-  display: flex;
-  min-height: 42px;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  background: var(--paper);
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.choice-came input:checked + span {
-  color: #2f7d22;
-  border-color: rgba(79, 187, 55, 0.45);
-  background: rgba(79, 187, 55, 0.11);
-}
-
-.choice-missed input:checked + span {
-  color: #a30e4e;
-  border-color: rgba(229, 28, 111, 0.4);
-  background: rgba(229, 28, 111, 0.09);
-}
-
-.student-notes {
+.notes-row-fields {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 9px;
 }
 
-.student-notes label {
+.notes-row-fields label {
   display: grid;
   gap: 6px;
 }
 
-.student-notes textarea {
+.notes-row-fields label > span {
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 800;
+}
+
+.notes-row-fields textarea {
   width: 100%;
   min-height: 82px;
   padding: 10px 11px;
@@ -232,17 +490,18 @@
   border-radius: 11px;
   outline: none;
   resize: vertical;
-  background: var(--paper);
+  background: var(--soft);
   font-size: 0.76rem;
 }
 
-.student-notes textarea:focus {
+.notes-row-fields textarea:focus {
   border-color: rgba(34, 63, 107, 0.45);
   box-shadow: 0 0 0 4px rgba(34, 63, 107, 0.06);
 }
 
+.attendance-notes-empty,
 .teacher-search-empty {
-  padding: 50px 20px;
+  padding: 40px 20px;
   color: var(--muted);
   text-align: center;
 }
@@ -255,7 +514,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  margin-top: 18px;
+  margin-top: 4px;
   padding: 13px 14px 13px 17px;
   border: 1px solid rgba(34, 63, 107, 0.15);
   border-radius: 15px;
@@ -372,8 +631,8 @@
   font-style: normal;
 }
 
-@media (max-width: 1050px) {
-  .teacher-roster,
+@media (max-width: 900px) {
+  .attendance-session-bar,
   .profile-overview-grid {
     grid-template-columns: 1fr;
   }
@@ -384,23 +643,41 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .teacher-control-row,
-  .teacher-attendance-heading {
-    align-items: stretch;
+  .attendance-mark-toolbar {
     flex-direction: column;
+    align-items: stretch;
   }
 
-  .teacher-control-row form {
+  .attendance-bulk-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
   }
 
-  .teacher-control-row .secondary-action {
-    grid-column: 1 / -1;
+  .attendance-swipe-zone {
+    display: grid;
   }
 
-  .teacher-control-row .table-search {
-    width: 100%;
+  .attendance-swipe-zone.show-list .swipe-stack,
+  .attendance-swipe-zone.show-list .swipe-actions,
+  .attendance-swipe-zone.show-list .swipe-hint,
+  .attendance-swipe-zone.show-list .swipe-zone-empty {
+    display: none;
+  }
+
+  .attendance-swipe-zone:not(.show-list) .attendance-quick-list,
+  .attendance-swipe-zone:not(.show-list) + .attendance-quick-list,
+  .attendance-swipe-zone:not(.show-list) ~ .attendance-desktop-hint {
+    display: none;
+  }
+
+  .attendance-desktop-hint {
+    display: none;
+  }
+}
+
+@media (min-width: 761px) {
+  .attendance-swipe-zone {
+    display: none !important;
   }
 }
 
@@ -409,20 +686,18 @@
     grid-template-columns: 1fr;
   }
 
-  .teacher-bulk-actions,
-  .student-notes,
-  .student-context,
+  .notes-row-fields,
   .teacher-profile-fields {
     grid-template-columns: 1fr;
-  }
-
-  .teacher-bulk-actions {
-    display: grid;
-    width: 100%;
   }
 
   .teacher-save-bar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .attendance-session-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 }
