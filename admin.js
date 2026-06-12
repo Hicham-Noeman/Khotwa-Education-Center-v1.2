@@ -49,6 +49,9 @@ document.querySelectorAll("[data-detail-url]").forEach((row) => {
   row.addEventListener("dblclick", () => {
     window.location.href = row.dataset.detailUrl;
   });
+  row.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") window.location.href = row.dataset.detailUrl;
+  });
 });
 
 searchInput?.addEventListener("input", () => {

@@ -366,7 +366,7 @@ try {
                           $detailUrl = 'admin-person.php?type=teacher&id=' . (int) $row['id'];
                       }
                       ?>
-                      <tr<?= $detailUrl !== '' ? ' class="is-openable" data-detail-url="' . e($detailUrl) . '" title="Double-click to open the full record"' : '' ?>>
+                      <tr<?= $detailUrl !== '' ? ' class="is-openable" data-detail-url="' . e($detailUrl) . '" title="Double-click to open the full record" tabindex="0"' : '' ?>>
                         <?php foreach ($columns as $key => $label): ?><td><?= render_value($key, $row[$key] ?? null) ?></td><?php endforeach; ?>
                       </tr>
                     <?php endforeach; ?>

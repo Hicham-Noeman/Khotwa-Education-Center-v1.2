@@ -18,13 +18,13 @@
 [Fri Jun 12 10:49:47 2026] 127.0.0.1:62579 [200]: GET /terms.html
 [Fri Jun 12 10:49:47 2026] 127.0.0.1:62579 Closing
 [Fri Jun 12 10:49:47 2026] 127.0.0.1:62580 Accepted
-[Fri Jun 12 10:49:47 2026] 127.0.0.1:62580 [200]: GET /index2.html
+[Fri Jun 12 10:49:47 2026] 127.0.0.1:62580 [200]: GET /index.html
 [Fri Jun 12 10:49:47 2026] 127.0.0.1:62580 Closing
 [Fri Jun 12 10:50:02 2026] 127.0.0.1:49290 Accepted
-[Fri Jun 12 10:50:02 2026] 127.0.0.1:49290 [200]: GET /index2.html
+[Fri Jun 12 10:50:02 2026] 127.0.0.1:49290 [200]: GET /index.html
 [Fri Jun 12 10:50:02 2026] 127.0.0.1:49290 Closing
 [Fri Jun 12 10:50:02 2026] 127.0.0.1:61204 Accepted
-[Fri Jun 12 10:50:02 2026] 127.0.0.1:61204 [200]: GET /index2.css
+[Fri Jun 12 10:50:02 2026] 127.0.0.1:61204 [200]: GET /index.css
 [Fri Jun 12 10:50:02 2026] 127.0.0.1:53731 Accepted
 [Fri Jun 12 10:50:02 2026] 127.0.0.1:52355 Accepted
 [Fri Jun 12 10:50:02 2026] 127.0.0.1:53731 [200]: GET /assets/images/khotwa-hero.png
@@ -33,7 +33,7 @@
 [Fri Jun 12 10:50:02 2026] 127.0.0.1:61204 Closing
 [Fri Jun 12 10:50:02 2026] 127.0.0.1:50414 [200]: GET /assets/images/khotwa-stem-gallery.png
 [Fri Jun 12 10:50:02 2026] 127.0.0.1:60026 Accepted
-[Fri Jun 12 10:50:02 2026] 127.0.0.1:60026 [200]: GET /index2.js
+[Fri Jun 12 10:50:02 2026] 127.0.0.1:60026 [200]: GET /index.js
 [Fri Jun 12 10:50:02 2026] 127.0.0.1:60026 Closing
 [Fri Jun 12 10:50:02 2026] 127.0.0.1:52355 Closing
 [Fri Jun 12 10:50:02 2026] 127.0.0.1:50414 Closing
@@ -93,17 +93,17 @@
 [Fri Jun 12 10:56:02 2026] 127.0.0.1:51864 [200]: GET /auth.css
 [Fri Jun 12 10:56:02 2026] 127.0.0.1:51864 Closing
 [Fri Jun 12 10:56:09 2026] 127.0.0.1:64440 Accepted
-[Fri Jun 12 10:56:09 2026] 127.0.0.1:64440 [200]: GET /index2.html
+[Fri Jun 12 10:56:09 2026] 127.0.0.1:64440 [200]: GET /index.html
 [Fri Jun 12 10:56:09 2026] 127.0.0.1:64440 Closing
 [Fri Jun 12 10:56:09 2026] 127.0.0.1:61779 Accepted
 [Fri Jun 12 10:56:09 2026] 127.0.0.1:51055 Accepted
 [Fri Jun 12 10:56:09 2026] 127.0.0.1:49196 Accepted
-[Fri Jun 12 10:56:09 2026] 127.0.0.1:61779 [200]: GET /index2.css
+[Fri Jun 12 10:56:09 2026] 127.0.0.1:61779 [200]: GET /index.css
 [Fri Jun 12 10:56:09 2026] 127.0.0.1:51055 [200]: GET /assets/images/khotwa-hero.png
 [Fri Jun 12 10:56:09 2026] 127.0.0.1:49196 [200]: GET /assets/images/khotwa-classroom-gallery.png
 [Fri Jun 12 10:56:09 2026] 127.0.0.1:61779 Closing
 [Fri Jun 12 10:56:09 2026] 127.0.0.1:50753 Accepted
-[Fri Jun 12 10:56:09 2026] 127.0.0.1:50753 [200]: GET /index2.js
+[Fri Jun 12 10:56:09 2026] 127.0.0.1:50753 [200]: GET /index.js
 [Fri Jun 12 10:56:09 2026] 127.0.0.1:50753 Closing
 [Fri Jun 12 10:56:09 2026] 127.0.0.1:60775 Accepted
 [Fri Jun 12 10:56:09 2026] 127.0.0.1:60775 [200]: GET /assets/images/khotwa-stem-gallery.png
@@ -111,11 +111,11 @@
 [Fri Jun 12 10:56:09 2026] 127.0.0.1:49196 Closing
 [Fri Jun 12 10:56:09 2026] 127.0.0.1:60775 Closing
 [Fri Jun 12 10:57:10 2026] 127.0.0.1:60435 Accepted
-[Fri Jun 12 10:57:10 2026] 127.0.0.1:60435 [200]: GET /index2.html
+[Fri Jun 12 10:57:10 2026] 127.0.0.1:60435 [200]: GET /index.html
 [Fri Jun 12 10:57:10 2026] 127.0.0.1:60435 Closing
 [Fri Jun 12 10:57:10 2026] 127.0.0.1:62008 Accepted
 [Fri Jun 12 10:57:10 2026] 127.0.0.1:49601 Accepted
-[Fri Jun 12 10:57:10 2026] 127.0.0.1:62008 [200]: GET /index2.css
+[Fri Jun 12 10:57:10 2026] 127.0.0.1:62008 [200]: GET /index.css
 [Fri Jun 12 10:57:10 2026] 127.0.0.1:52691 Accepted
 [Fri Jun 12 10:57:10 2026] 127.0.0.1:49601 [200]: GET /assets/images/khotwa-hero.png
 [Fri Jun 12 10:57:10 2026] 127.0.0.1:52691 [200]: GET /assets/images/khotwa-classroom-gallery.png
@@ -124,7 +124,7 @@
 [Fri Jun 12 10:57:10 2026] 127.0.0.1:53431 Accepted
 [Fri Jun 12 10:57:10 2026] 127.0.0.1:55077 Accepted
 [Fri Jun 12 10:57:10 2026] 127.0.0.1:53431 [200]: GET /assets/images/khotwa-stem-gallery.png
-[Fri Jun 12 10:57:10 2026] 127.0.0.1:55077 [200]: GET /index2.js
+[Fri Jun 12 10:57:10 2026] 127.0.0.1:55077 [200]: GET /index.js
 [Fri Jun 12 10:57:10 2026] 127.0.0.1:55077 Closing
 [Fri Jun 12 10:57:10 2026] 127.0.0.1:52691 Closing
 [Fri Jun 12 10:57:10 2026] 127.0.0.1:53431 Closing
@@ -150,12 +150,12 @@
 [Fri Jun 12 10:57:58 2026] 127.0.0.1:51436 Closing
 [Fri Jun 12 10:57:58 2026] 127.0.0.1:57398 Closing
 [Fri Jun 12 11:09:11 2026] 127.0.0.1:61045 Accepted
-[Fri Jun 12 11:09:11 2026] 127.0.0.1:61045 [200]: GET /index2.html
+[Fri Jun 12 11:09:11 2026] 127.0.0.1:61045 [200]: GET /index.html
 [Fri Jun 12 11:09:11 2026] 127.0.0.1:61045 Closing
 [Fri Jun 12 11:09:11 2026] 127.0.0.1:53787 Accepted
 [Fri Jun 12 11:09:11 2026] 127.0.0.1:52056 Accepted
 [Fri Jun 12 11:09:11 2026] 127.0.0.1:52412 Accepted
-[Fri Jun 12 11:09:11 2026] 127.0.0.1:53787 [200]: GET /index2.css
+[Fri Jun 12 11:09:11 2026] 127.0.0.1:53787 [200]: GET /index.css
 [Fri Jun 12 11:09:11 2026] 127.0.0.1:52056 [200]: GET /assets/images/khotwa-hero.png
 [Fri Jun 12 11:09:11 2026] 127.0.0.1:52412 [200]: GET /assets/images/khotwa-classroom-gallery.png
 [Fri Jun 12 11:09:11 2026] 127.0.0.1:53787 Closing
@@ -164,7 +164,7 @@
 [Fri Jun 12 11:09:11 2026] 127.0.0.1:60076 Accepted
 [Fri Jun 12 11:09:11 2026] 127.0.0.1:60076 [200]: GET /language.js
 [Fri Jun 12 11:09:11 2026] 127.0.0.1:55632 Accepted
-[Fri Jun 12 11:09:11 2026] 127.0.0.1:55632 [200]: GET /index2.js
+[Fri Jun 12 11:09:11 2026] 127.0.0.1:55632 [200]: GET /index.js
 [Fri Jun 12 11:09:11 2026] 127.0.0.1:60076 Closing
 [Fri Jun 12 11:09:11 2026] 127.0.0.1:55632 Closing
 [Fri Jun 12 11:09:11 2026] 127.0.0.1:52056 Closing
@@ -207,12 +207,12 @@
 [Fri Jun 12 11:12:23 2026] 127.0.0.1:62546 Closing
 [Fri Jun 12 11:12:23 2026] 127.0.0.1:51101 Closing
 [Fri Jun 12 11:12:34 2026] 127.0.0.1:51201 Accepted
-[Fri Jun 12 11:12:34 2026] 127.0.0.1:51201 [200]: GET /index2.html
+[Fri Jun 12 11:12:34 2026] 127.0.0.1:51201 [200]: GET /index.html
 [Fri Jun 12 11:12:34 2026] 127.0.0.1:51201 Closing
 [Fri Jun 12 11:12:34 2026] 127.0.0.1:52159 Accepted
 [Fri Jun 12 11:12:34 2026] 127.0.0.1:64120 Accepted
 [Fri Jun 12 11:12:34 2026] 127.0.0.1:50902 Accepted
-[Fri Jun 12 11:12:34 2026] 127.0.0.1:52159 [200]: GET /index2.css
+[Fri Jun 12 11:12:34 2026] 127.0.0.1:52159 [200]: GET /index.css
 [Fri Jun 12 11:12:34 2026] 127.0.0.1:64120 [200]: GET /assets/images/khotwa-hero.png
 [Fri Jun 12 11:12:34 2026] 127.0.0.1:50902 [200]: GET /assets/images/khotwa-classroom-gallery.png
 [Fri Jun 12 11:12:34 2026] 127.0.0.1:52159 Closing
@@ -224,16 +224,16 @@
 [Fri Jun 12 11:12:34 2026] 127.0.0.1:62030 [200]: GET /language.js
 [Fri Jun 12 11:12:34 2026] 127.0.0.1:62030 Closing
 [Fri Jun 12 11:12:34 2026] 127.0.0.1:55760 Accepted
-[Fri Jun 12 11:12:34 2026] 127.0.0.1:55760 [200]: GET /index2.js
+[Fri Jun 12 11:12:34 2026] 127.0.0.1:55760 [200]: GET /index.js
 [Fri Jun 12 11:12:34 2026] 127.0.0.1:55760 Closing
 [Fri Jun 12 11:12:34 2026] 127.0.0.1:49670 Closing
 [Fri Jun 12 11:13:13 2026] 127.0.0.1:64428 Accepted
-[Fri Jun 12 11:13:13 2026] 127.0.0.1:64428 [200]: GET /index2.html
+[Fri Jun 12 11:13:13 2026] 127.0.0.1:64428 [200]: GET /index.html
 [Fri Jun 12 11:13:13 2026] 127.0.0.1:64428 Closing
 [Fri Jun 12 11:13:13 2026] 127.0.0.1:59940 Accepted
 [Fri Jun 12 11:13:13 2026] 127.0.0.1:61217 Accepted
 [Fri Jun 12 11:13:13 2026] 127.0.0.1:61940 Accepted
-[Fri Jun 12 11:13:13 2026] 127.0.0.1:59940 [200]: GET /index2.css
+[Fri Jun 12 11:13:13 2026] 127.0.0.1:59940 [200]: GET /index.css
 [Fri Jun 12 11:13:13 2026] 127.0.0.1:61217 [200]: GET /assets/images/khotwa-hero.png
 [Fri Jun 12 11:13:13 2026] 127.0.0.1:61940 [200]: GET /assets/images/khotwa-classroom-gallery.png
 [Fri Jun 12 11:13:13 2026] 127.0.0.1:59940 Closing
@@ -242,7 +242,7 @@
 [Fri Jun 12 11:13:13 2026] 127.0.0.1:65524 Accepted
 [Fri Jun 12 11:13:13 2026] 127.0.0.1:51885 Accepted
 [Fri Jun 12 11:13:13 2026] 127.0.0.1:65524 [200]: GET /language.js
-[Fri Jun 12 11:13:13 2026] 127.0.0.1:51885 [200]: GET /index2.js
+[Fri Jun 12 11:13:13 2026] 127.0.0.1:51885 [200]: GET /index.js
 [Fri Jun 12 11:13:13 2026] 127.0.0.1:65524 Closing
 [Fri Jun 12 11:13:13 2026] 127.0.0.1:51885 Closing
 [Fri Jun 12 11:13:13 2026] 127.0.0.1:61217 Closing
@@ -285,7 +285,7 @@
 [Fri Jun 12 11:13:29 2026] 127.0.0.1:61678 Closing
 [Fri Jun 12 11:13:29 2026] 127.0.0.1:62923 Closing
 [Fri Jun 12 11:14:16 2026] 127.0.0.1:62625 Accepted
-[Fri Jun 12 11:14:16 2026] 127.0.0.1:62625 [200]: GET /index2.html
+[Fri Jun 12 11:14:16 2026] 127.0.0.1:62625 [200]: GET /index.html
 [Fri Jun 12 11:14:16 2026] 127.0.0.1:62625 Closing
 [Fri Jun 12 11:14:16 2026] 127.0.0.1:62626 Accepted
 [Fri Jun 12 11:14:16 2026] 127.0.0.1:62626 [200]: GET /login.html
@@ -300,18 +300,18 @@
 [Fri Jun 12 11:14:16 2026] 127.0.0.1:62630 [200]: GET /language.js
 [Fri Jun 12 11:14:16 2026] 127.0.0.1:62630 Closing
 [Fri Jun 12 11:14:16 2026] 127.0.0.1:62631 Accepted
-[Fri Jun 12 11:14:16 2026] 127.0.0.1:62631 [200]: GET /index2.css
+[Fri Jun 12 11:14:16 2026] 127.0.0.1:62631 [200]: GET /index.css
 [Fri Jun 12 11:14:16 2026] 127.0.0.1:62631 Closing
 [Fri Jun 12 11:14:16 2026] 127.0.0.1:62632 Accepted
 [Fri Jun 12 11:14:16 2026] 127.0.0.1:62632 [200]: GET /auth.css
 [Fri Jun 12 11:14:16 2026] 127.0.0.1:62632 Closing
 [Fri Jun 12 11:14:31 2026] 127.0.0.1:59840 Accepted
-[Fri Jun 12 11:14:31 2026] 127.0.0.1:59840 [200]: GET /index2.html
+[Fri Jun 12 11:14:31 2026] 127.0.0.1:59840 [200]: GET /index.html
 [Fri Jun 12 11:14:31 2026] 127.0.0.1:59840 Closing
 [Fri Jun 12 11:14:31 2026] 127.0.0.1:61718 Accepted
 [Fri Jun 12 11:14:31 2026] 127.0.0.1:65131 Accepted
 [Fri Jun 12 11:14:31 2026] 127.0.0.1:55210 Accepted
-[Fri Jun 12 11:14:31 2026] 127.0.0.1:61718 [200]: GET /index2.css
+[Fri Jun 12 11:14:31 2026] 127.0.0.1:61718 [200]: GET /index.css
 [Fri Jun 12 11:14:31 2026] 127.0.0.1:65131 [200]: GET /assets/images/khotwa-hero.png
 [Fri Jun 12 11:14:31 2026] 127.0.0.1:55210 [200]: GET /assets/images/khotwa-classroom-gallery.png
 [Fri Jun 12 11:14:31 2026] 127.0.0.1:61718 Closing
@@ -322,18 +322,18 @@
 [Fri Jun 12 11:14:31 2026] 127.0.0.1:64018 Accepted
 [Fri Jun 12 11:14:31 2026] 127.0.0.1:64018 [200]: GET /assets/images/khotwa-stem-gallery.png
 [Fri Jun 12 11:14:31 2026] 127.0.0.1:51907 Accepted
-[Fri Jun 12 11:14:31 2026] 127.0.0.1:51907 [200]: GET /index2.js
+[Fri Jun 12 11:14:31 2026] 127.0.0.1:51907 [200]: GET /index.js
 [Fri Jun 12 11:14:31 2026] 127.0.0.1:51907 Closing
 [Fri Jun 12 11:14:31 2026] 127.0.0.1:55210 Closing
 [Fri Jun 12 11:14:31 2026] 127.0.0.1:64018 Closing
 [Fri Jun 12 11:16:54 2026] 127.0.0.1:52842 Accepted
-[Fri Jun 12 11:16:54 2026] 127.0.0.1:52842 [200]: GET /index2.html
+[Fri Jun 12 11:16:54 2026] 127.0.0.1:52842 [200]: GET /index.html
 [Fri Jun 12 11:16:54 2026] 127.0.0.1:52842 Closing
 [Fri Jun 12 11:17:04 2026] 127.0.0.1:55710 Accepted
-[Fri Jun 12 11:17:04 2026] 127.0.0.1:55710 [200]: GET /index2.html
+[Fri Jun 12 11:17:04 2026] 127.0.0.1:55710 [200]: GET /index.html
 [Fri Jun 12 11:17:04 2026] 127.0.0.1:55710 Closing
 [Fri Jun 12 11:17:04 2026] 127.0.0.1:57391 Accepted
-[Fri Jun 12 11:17:04 2026] 127.0.0.1:57391 [200]: GET /index2.css
+[Fri Jun 12 11:17:04 2026] 127.0.0.1:57391 [200]: GET /index.css
 [Fri Jun 12 11:17:04 2026] 127.0.0.1:49796 Accepted
 [Fri Jun 12 11:17:04 2026] 127.0.0.1:49796 [200]: GET /assets/images/khotwa-hero.png
 [Fri Jun 12 11:17:04 2026] 127.0.0.1:57391 Closing
@@ -345,17 +345,17 @@
 [Fri Jun 12 11:17:04 2026] 127.0.0.1:49179 Accepted
 [Fri Jun 12 11:17:04 2026] 127.0.0.1:61079 [200]: GET /assets/images/khotwa-stem-gallery.png
 [Fri Jun 12 11:17:04 2026] 127.0.0.1:55844 [200]: GET /language.js
-[Fri Jun 12 11:17:04 2026] 127.0.0.1:49179 [200]: GET /index2.js
+[Fri Jun 12 11:17:04 2026] 127.0.0.1:49179 [200]: GET /index.js
 [Fri Jun 12 11:17:04 2026] 127.0.0.1:55844 Closing
 [Fri Jun 12 11:17:04 2026] 127.0.0.1:49179 Closing
 [Fri Jun 12 11:17:04 2026] 127.0.0.1:61017 Closing
 [Fri Jun 12 11:17:04 2026] 127.0.0.1:61079 Closing
 [Fri Jun 12 11:17:49 2026] 127.0.0.1:60750 Accepted
-[Fri Jun 12 11:17:49 2026] 127.0.0.1:60750 [200]: GET /index2.html
+[Fri Jun 12 11:17:49 2026] 127.0.0.1:60750 [200]: GET /index.html
 [Fri Jun 12 11:17:49 2026] 127.0.0.1:60750 Closing
 [Fri Jun 12 11:17:49 2026] 127.0.0.1:62008 Accepted
 [Fri Jun 12 11:17:49 2026] 127.0.0.1:65194 Accepted
-[Fri Jun 12 11:17:49 2026] 127.0.0.1:62008 [200]: GET /index2.css
+[Fri Jun 12 11:17:49 2026] 127.0.0.1:62008 [200]: GET /index.css
 [Fri Jun 12 11:17:49 2026] 127.0.0.1:62008 Closing
 [Fri Jun 12 11:17:49 2026] 127.0.0.1:51751 Accepted
 [Fri Jun 12 11:17:49 2026] 127.0.0.1:65194 [200]: GET /assets/images/khotwa-hero.png
@@ -365,7 +365,7 @@
 [Fri Jun 12 11:17:49 2026] 127.0.0.1:60915 Accepted
 [Fri Jun 12 11:17:49 2026] 127.0.0.1:62585 Accepted
 [Fri Jun 12 11:17:49 2026] 127.0.0.1:60915 [200]: GET /language.js
-[Fri Jun 12 11:17:49 2026] 127.0.0.1:62585 [200]: GET /index2.js
+[Fri Jun 12 11:17:49 2026] 127.0.0.1:62585 [200]: GET /index.js
 [Fri Jun 12 11:17:49 2026] 127.0.0.1:60915 Closing
 [Fri Jun 12 11:17:49 2026] 127.0.0.1:62585 Closing
 [Fri Jun 12 11:17:49 2026] 127.0.0.1:65194 Closing
@@ -432,7 +432,7 @@
 [Fri Jun 12 11:48:01 2026] 127.0.0.1:49303 [404]: GET / - No such file or directory
 [Fri Jun 12 11:48:01 2026] 127.0.0.1:49303 Closing
 [Fri Jun 12 11:48:01 2026] 127.0.0.1:49305 Accepted
-[Fri Jun 12 11:48:01 2026] 127.0.0.1:49305 [200]: GET /index2.html
+[Fri Jun 12 11:48:01 2026] 127.0.0.1:49305 [200]: GET /index.html
 [Fri Jun 12 11:48:01 2026] 127.0.0.1:49305 Closing
 [Fri Jun 12 11:48:18 2026] 127.0.0.1:62270 Accepted
 [Fri Jun 12 11:48:18 2026] 127.0.0.1:62270 [302]: GET /admin.php
@@ -503,3 +503,162 @@
 [Fri Jun 12 11:48:59 2026] 127.0.0.1:57234 Accepted
 [Fri Jun 12 11:48:59 2026] 127.0.0.1:57234 [200]: GET /assets/images/khotwa-hero.png
 [Fri Jun 12 11:49:01 2026] 127.0.0.1:57234 Closing
+[Fri Jun 12 12:06:11 2026] 127.0.0.1:53017 Accepted
+[Fri Jun 12 12:06:12 2026] 127.0.0.1:53017 [302]: POST /login.php
+[Fri Jun 12 12:06:12 2026] 127.0.0.1:53017 Closing
+[Fri Jun 12 12:06:12 2026] 127.0.0.1:53020 Accepted
+[Fri Jun 12 12:06:12 2026] 127.0.0.1:53020 [200]: GET /admin.php
+[Fri Jun 12 12:06:12 2026] 127.0.0.1:53020 Closing
+[Fri Jun 12 12:06:12 2026] 127.0.0.1:53023 Accepted
+[Fri Jun 12 12:06:12 2026] 127.0.0.1:53023 [200]: GET /admin.php?view=overview
+[Fri Jun 12 12:06:12 2026] 127.0.0.1:53023 Closing
+[Fri Jun 12 12:06:12 2026] 127.0.0.1:53026 Accepted
+[Fri Jun 12 12:06:12 2026] 127.0.0.1:53026 [200]: GET /admin.php?view=students&new=1
+[Fri Jun 12 12:06:12 2026] 127.0.0.1:53026 Closing
+[Fri Jun 12 12:06:13 2026] 127.0.0.1:53029 Accepted
+[Fri Jun 12 12:06:13 2026] 127.0.0.1:53029 [200]: GET /admin.php?view=teachers&new=1
+[Fri Jun 12 12:06:13 2026] 127.0.0.1:53029 Closing
+[Fri Jun 12 12:06:13 2026] 127.0.0.1:53032 Accepted
+[Fri Jun 12 12:06:13 2026] 127.0.0.1:53032 [200]: GET /admin.php?view=attendance&new=1
+[Fri Jun 12 12:06:13 2026] 127.0.0.1:53032 Closing
+[Fri Jun 12 12:06:13 2026] 127.0.0.1:53035 Accepted
+[Fri Jun 12 12:06:13 2026] 127.0.0.1:53035 [200]: GET /admin.php?view=subjects&new=1
+[Fri Jun 12 12:06:13 2026] 127.0.0.1:53035 Closing
+[Fri Jun 12 12:06:13 2026] 127.0.0.1:53040 Accepted
+[Fri Jun 12 12:06:13 2026] 127.0.0.1:53040 [200]: GET /admin.php?view=enrollments&new=1
+[Fri Jun 12 12:06:13 2026] 127.0.0.1:53040 Closing
+[Fri Jun 12 12:06:13 2026] 127.0.0.1:53043 Accepted
+[Fri Jun 12 12:06:14 2026] 127.0.0.1:53043 [200]: GET /admin.php?view=subscriptions&new=1
+[Fri Jun 12 12:06:14 2026] 127.0.0.1:53043 Closing
+[Fri Jun 12 12:06:14 2026] 127.0.0.1:53046 Accepted
+[Fri Jun 12 12:06:14 2026] 127.0.0.1:53046 [200]: GET /admin.php?view=payments&new=1
+[Fri Jun 12 12:06:14 2026] 127.0.0.1:53046 Closing
+[Fri Jun 12 12:06:14 2026] 127.0.0.1:53049 Accepted
+[Fri Jun 12 12:06:14 2026] 127.0.0.1:53049 [200]: GET /admin.php?view=warnings&new=1
+[Fri Jun 12 12:06:14 2026] 127.0.0.1:53049 Closing
+[Fri Jun 12 12:06:14 2026] 127.0.0.1:53052 Accepted
+[Fri Jun 12 12:06:14 2026] 127.0.0.1:53052 [200]: GET /admin.php?view=users&new=1
+[Fri Jun 12 12:06:14 2026] 127.0.0.1:53052 Closing
+[Fri Jun 12 12:06:14 2026] 127.0.0.1:53055 Accepted
+[Fri Jun 12 12:06:15 2026] 127.0.0.1:53055 [200]: GET /admin-person.php?type=student&id=1
+[Fri Jun 12 12:06:15 2026] 127.0.0.1:53055 Closing
+[Fri Jun 12 12:06:15 2026] 127.0.0.1:53058 Accepted
+[Fri Jun 12 12:06:15 2026] 127.0.0.1:53058 [200]: GET /admin-person.php?type=teacher&id=1
+[Fri Jun 12 12:06:15 2026] 127.0.0.1:53058 Closing
+[Fri Jun 12 12:08:17 2026] 127.0.0.1:51414 Accepted
+[Fri Jun 12 12:08:18 2026] 127.0.0.1:51414 [302]: POST /login.php
+[Fri Jun 12 12:08:18 2026] 127.0.0.1:51414 Closing
+[Fri Jun 12 12:08:18 2026] 127.0.0.1:51418 Accepted
+[Fri Jun 12 12:08:18 2026] 127.0.0.1:51418 [200]: GET /admin.php
+[Fri Jun 12 12:08:18 2026] 127.0.0.1:51418 Closing
+[Fri Jun 12 12:08:18 2026] 127.0.0.1:51421 Accepted
+[Fri Jun 12 12:08:18 2026] 127.0.0.1:51421 [200]: GET /admin.php?view=students&new=1
+[Fri Jun 12 12:08:18 2026] 127.0.0.1:51421 Closing
+[Fri Jun 12 12:08:18 2026] 127.0.0.1:51424 Accepted
+[Fri Jun 12 12:08:18 2026] 127.0.0.1:51424 [200]: GET /admin.php?view=teachers&new=1
+[Fri Jun 12 12:08:18 2026] 127.0.0.1:51424 Closing
+[Fri Jun 12 12:08:18 2026] 127.0.0.1:51427 Accepted
+[Fri Jun 12 12:08:18 2026] 127.0.0.1:51427 [200]: GET /admin.php?view=attendance&new=1
+[Fri Jun 12 12:08:18 2026] 127.0.0.1:51427 Closing
+[Fri Jun 12 12:08:18 2026] 127.0.0.1:51430 Accepted
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51430 [200]: GET /admin.php?view=subjects&new=1
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51430 Closing
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51433 Accepted
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51433 [200]: GET /admin.php?view=enrollments&new=1
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51433 Closing
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51436 Accepted
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51436 [200]: GET /admin.php?view=subscriptions&new=1
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51436 Closing
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51439 Accepted
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51439 [200]: GET /admin.php?view=payments&new=1
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51439 Closing
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51442 Accepted
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51442 [200]: GET /admin.php?view=warnings&new=1
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51442 Closing
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51445 Accepted
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51445 [200]: GET /admin.php?view=users&new=1
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51445 Closing
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51448 Accepted
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51448 [200]: GET /admin-person.php?type=student&id=1&add_table=student_academic_records
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51448 Closing
+[Fri Jun 12 12:08:19 2026] 127.0.0.1:51451 Accepted
+[Fri Jun 12 12:08:20 2026] 127.0.0.1:51451 [200]: GET /admin-person.php?type=student&id=1&add_table=student_medical_info
+[Fri Jun 12 12:08:20 2026] 127.0.0.1:51451 Closing
+[Fri Jun 12 12:08:20 2026] 127.0.0.1:51455 Accepted
+[Fri Jun 12 12:08:20 2026] 127.0.0.1:51455 [200]: GET /admin-person.php?type=student&id=1&add_table=student_other_phone_numbers
+[Fri Jun 12 12:08:20 2026] 127.0.0.1:51455 Closing
+[Fri Jun 12 12:08:20 2026] 127.0.0.1:51458 Accepted
+[Fri Jun 12 12:08:20 2026] 127.0.0.1:51458 [200]: GET /admin-person.php?type=student&id=1&add_table=student_school_schedule
+[Fri Jun 12 12:08:20 2026] 127.0.0.1:51458 Closing
+[Fri Jun 12 12:08:20 2026] 127.0.0.1:51461 Accepted
+[Fri Jun 12 12:08:20 2026] 127.0.0.1:51461 [200]: GET /admin-person.php?type=student&id=1&add_table=student_subject_enrollments
+[Fri Jun 12 12:08:20 2026] 127.0.0.1:51461 Closing
+[Fri Jun 12 12:08:20 2026] 127.0.0.1:51464 Accepted
+[Fri Jun 12 12:08:21 2026] 127.0.0.1:51464 [200]: GET /admin-person.php?type=student&id=1&add_table=student_daily_attendance
+[Fri Jun 12 12:08:21 2026] 127.0.0.1:51464 Closing
+[Fri Jun 12 12:08:21 2026] 127.0.0.1:51468 Accepted
+[Fri Jun 12 12:08:21 2026] 127.0.0.1:51468 [200]: GET /admin-person.php?type=student&id=1&add_table=student_subject_attendance
+[Fri Jun 12 12:08:21 2026] 127.0.0.1:51468 Closing
+[Fri Jun 12 12:08:21 2026] 127.0.0.1:51471 Accepted
+[Fri Jun 12 12:08:21 2026] 127.0.0.1:51471 [200]: GET /admin-person.php?type=student&id=1&add_table=student_warnings
+[Fri Jun 12 12:08:21 2026] 127.0.0.1:51471 Closing
+[Fri Jun 12 12:08:21 2026] 127.0.0.1:51474 Accepted
+[Fri Jun 12 12:08:21 2026] 127.0.0.1:51474 [200]: GET /admin-person.php?type=student&id=1&add_table=student_subscriptions
+[Fri Jun 12 12:08:21 2026] 127.0.0.1:51474 Closing
+[Fri Jun 12 12:08:21 2026] 127.0.0.1:51477 Accepted
+[Fri Jun 12 12:08:21 2026] 127.0.0.1:51477 [200]: GET /admin-person.php?type=student&id=1&add_table=student_subscription_months
+[Fri Jun 12 12:08:21 2026] 127.0.0.1:51477 Closing
+[Fri Jun 12 12:08:21 2026] 127.0.0.1:51480 Accepted
+[Fri Jun 12 12:08:22 2026] 127.0.0.1:51480 [200]: GET /admin-person.php?type=student&id=1&add_table=student_subscription_payments
+[Fri Jun 12 12:08:22 2026] 127.0.0.1:51480 Closing
+[Fri Jun 12 12:08:22 2026] 127.0.0.1:51483 Accepted
+[Fri Jun 12 12:08:22 2026] 127.0.0.1:51483 [200]: GET /admin-person.php?type=teacher&id=1&add_table=users
+[Fri Jun 12 12:08:22 2026] 127.0.0.1:51483 Closing
+[Fri Jun 12 12:08:22 2026] 127.0.0.1:51486 Accepted
+[Fri Jun 12 12:08:22 2026] 127.0.0.1:51486 [200]: GET /admin-person.php?type=teacher&id=1&add_table=teacher_subjects
+[Fri Jun 12 12:08:22 2026] 127.0.0.1:51486 Closing
+[Fri Jun 12 12:08:22 2026] 127.0.0.1:51489 Accepted
+[Fri Jun 12 12:08:22 2026] 127.0.0.1:51489 [200]: GET /admin-person.php?type=teacher&id=1&add_table=student_subject_enrollments
+[Fri Jun 12 12:08:22 2026] 127.0.0.1:51489 Closing
+[Fri Jun 12 12:08:22 2026] 127.0.0.1:51492 Accepted
+[Fri Jun 12 12:08:22 2026] 127.0.0.1:51492 [200]: GET /admin-person.php?type=teacher&id=1&add_table=student_subject_attendance
+[Fri Jun 12 12:08:22 2026] 127.0.0.1:51492 Closing
+[Fri Jun 12 12:08:22 2026] 127.0.0.1:51495 Accepted
+[Fri Jun 12 12:08:23 2026] 127.0.0.1:51495 [200]: GET /admin-person.php?type=teacher&id=1&add_table=student_warnings
+[Fri Jun 12 12:08:23 2026] 127.0.0.1:51495 Closing
+[Fri Jun 12 12:08:52 2026] 127.0.0.1:55553 Accepted
+[Fri Jun 12 12:08:53 2026] 127.0.0.1:55553 [302]: POST /login.php
+[Fri Jun 12 12:08:53 2026] 127.0.0.1:55553 Closing
+[Fri Jun 12 12:08:53 2026] 127.0.0.1:55556 Accepted
+[Fri Jun 12 12:08:53 2026] 127.0.0.1:55556 [200]: GET /admin.php
+[Fri Jun 12 12:08:53 2026] 127.0.0.1:55556 Closing
+[Fri Jun 12 12:08:53 2026] 127.0.0.1:55559 Accepted
+[Fri Jun 12 12:08:53 2026] 127.0.0.1:55559 [200]: GET /admin.php?view=subjects&new=1
+[Fri Jun 12 12:08:53 2026] 127.0.0.1:55559 Closing
+[Fri Jun 12 12:08:53 2026] 127.0.0.1:55562 Accepted
+[Fri Jun 12 12:08:54 2026] 127.0.0.1:55562 [302]: POST /admin.php?view=subjects&new=1
+[Fri Jun 12 12:08:54 2026] 127.0.0.1:55562 Closing
+[Fri Jun 12 12:08:54 2026] 127.0.0.1:55565 Accepted
+[Fri Jun 12 12:08:54 2026] 127.0.0.1:55565 [200]: GET /admin.php?view=subjects&created=1
+[Fri Jun 12 12:08:54 2026] 127.0.0.1:55565 Closing
+[Fri Jun 12 12:08:54 2026] 127.0.0.1:55568 Accepted
+[Fri Jun 12 12:08:54 2026] 127.0.0.1:55568 [200]: GET /admin-person.php?type=student&id=1&add_table=student_other_phone_numbers
+[Fri Jun 12 12:08:54 2026] 127.0.0.1:55568 Closing
+[Fri Jun 12 12:08:54 2026] 127.0.0.1:55571 Accepted
+[Fri Jun 12 12:08:55 2026] 127.0.0.1:55571 [302]: POST /admin-person.php?type=student&id=1&add_table=student_other_phone_numbers
+[Fri Jun 12 12:08:55 2026] 127.0.0.1:55571 Closing
+[Fri Jun 12 12:08:55 2026] 127.0.0.1:55574 Accepted
+[Fri Jun 12 12:08:55 2026] 127.0.0.1:55574 [200]: GET /admin-person.php?type=student&id=1&saved=1
+[Fri Jun 12 12:08:55 2026] 127.0.0.1:55574 Closing
+[Fri Jun 12 12:09:38 2026] 127.0.0.1:50781 Accepted
+[Fri Jun 12 12:09:38 2026] 127.0.0.1:50781 [302]: POST /login.php
+[Fri Jun 12 12:09:38 2026] 127.0.0.1:50781 Closing
+[Fri Jun 12 12:09:38 2026] 127.0.0.1:58981 Accepted
+[Fri Jun 12 12:09:38 2026] 127.0.0.1:58981 [200]: GET /admin.php
+[Fri Jun 12 12:09:38 2026] 127.0.0.1:58981 Closing
+[Fri Jun 12 12:09:38 2026] 127.0.0.1:51946 Accepted
+[Fri Jun 12 12:09:39 2026] 127.0.0.1:51946 [200]: GET /admin.php?view=students
+[Fri Jun 12 12:09:39 2026] 127.0.0.1:51946 Closing
+[Fri Jun 12 12:09:39 2026] 127.0.0.1:51949 Accepted
+[Fri Jun 12 12:09:39 2026] 127.0.0.1:51949 [200]: GET /admin-person.php?type=teacher&id=1
+[Fri Jun 12 12:09:39 2026] 127.0.0.1:51949 Closing

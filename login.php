@@ -113,7 +113,7 @@ try {
       <div class="visual-wash"></div>
       <div class="visual-grid" aria-hidden="true"></div>
 
-      <a class="auth-brand brand-on-image" href="index2.html" aria-label="Khotwa Education Center home">
+      <a class="auth-brand brand-on-image" href="index.html" aria-label="Khotwa Education Center home">
         <span class="brand-mark">K<span>.</span></span>
         <span>
           <strong>Khotwa</strong>
@@ -146,7 +146,7 @@ try {
 
     <main class="auth-main">
       <div class="auth-topbar">
-        <a class="auth-brand brand-mobile" href="index2.html">
+        <a class="auth-brand brand-mobile" href="index.html">
           <span class="brand-mark">K<span>.</span></span>
           <span>
             <strong>Khotwa</strong>
@@ -159,7 +159,7 @@ try {
             <i></i>
             <span data-language-label>العربية</span>
           </button>
-          <a class="back-link" href="index2.html">
+          <a class="back-link" href="index.html">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg>
             Back to website
           </a>
