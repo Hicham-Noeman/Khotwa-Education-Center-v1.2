@@ -1,0 +1,428 @@
+.teacher-admin-page .teacher-summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.teacher-admin-page .add-record-button svg {
+  width: 17px;
+}
+
+.teacher-arabic-name {
+  font-family: "Tajawal", sans-serif;
+  direction: rtl;
+}
+
+.table-cell-detail {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.62rem;
+}
+
+.status-unmarked {
+  color: #925b00;
+  background: rgba(244, 159, 15, 0.12);
+}
+
+.teacher-filter-panel {
+  margin-bottom: 18px;
+}
+
+.teacher-control-row {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.teacher-control-row form {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+
+.teacher-control-row .admin-field {
+  min-width: 160px;
+}
+
+.teacher-control-row .secondary-action {
+  min-height: 45px;
+}
+
+.teacher-attendance-heading {
+  align-items: end;
+}
+
+.teacher-bulk-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.teacher-bulk-actions .secondary-action {
+  min-height: 39px;
+  font-size: 0.68rem;
+}
+
+.teacher-roster {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.student-attendance-card {
+  padding: 19px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fbfcfe;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.student-attendance-card[data-status="attended"] {
+  border-color: rgba(79, 187, 55, 0.34);
+  box-shadow: inset 4px 0 var(--green);
+}
+
+.student-attendance-card[data-status="missed"] {
+  border-color: rgba(229, 28, 111, 0.3);
+  box-shadow: inset 4px 0 var(--pink);
+}
+
+.student-card-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+}
+
+.student-initial {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 13px;
+  color: var(--paper);
+  background: var(--navy);
+  font-weight: 800;
+}
+
+.student-card-heading h3 {
+  margin: 0;
+  color: var(--navy);
+  font-family: var(--display);
+  font-size: 1rem;
+}
+
+.student-card-heading p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-family: "Tajawal", sans-serif;
+  font-size: 0.75rem;
+}
+
+.attendance-state {
+  padding: 7px 9px;
+  border-radius: 999px;
+  color: #925b00;
+  background: rgba(244, 159, 15, 0.12);
+  font-size: 0.64rem;
+  font-weight: 800;
+}
+
+[data-status="attended"] .attendance-state {
+  color: #2f7d22;
+  background: rgba(79, 187, 55, 0.12);
+}
+
+[data-status="missed"] .attendance-state {
+  color: #a30e4e;
+  background: rgba(229, 28, 111, 0.1);
+}
+
+.student-context {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.student-context span {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.student-context small,
+.student-notes label > span,
+.attendance-choice legend {
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 800;
+}
+
+.student-context strong {
+  color: var(--navy);
+  font-size: 0.72rem;
+}
+
+.attendance-choice {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 0;
+  border: 0;
+}
+
+.attendance-choice legend {
+  grid-column: 1 / -1;
+  margin-bottom: 7px;
+}
+
+.attendance-choice label {
+  position: relative;
+  cursor: pointer;
+}
+
+.attendance-choice input {
+  position: absolute;
+  opacity: 0;
+}
+
+.attendance-choice span {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--paper);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.choice-came input:checked + span {
+  color: #2f7d22;
+  border-color: rgba(79, 187, 55, 0.45);
+  background: rgba(79, 187, 55, 0.11);
+}
+
+.choice-missed input:checked + span {
+  color: #a30e4e;
+  border-color: rgba(229, 28, 111, 0.4);
+  background: rgba(229, 28, 111, 0.09);
+}
+
+.student-notes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.student-notes label {
+  display: grid;
+  gap: 6px;
+}
+
+.student-notes textarea {
+  width: 100%;
+  min-height: 82px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  outline: none;
+  resize: vertical;
+  background: var(--paper);
+  font-size: 0.76rem;
+}
+
+.student-notes textarea:focus {
+  border-color: rgba(34, 63, 107, 0.45);
+  box-shadow: 0 0 0 4px rgba(34, 63, 107, 0.06);
+}
+
+.teacher-search-empty {
+  padding: 50px 20px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.teacher-save-bar {
+  position: sticky;
+  bottom: 14px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 18px;
+  padding: 13px 14px 13px 17px;
+  border: 1px solid rgba(34, 63, 107, 0.15);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 50px rgba(20, 42, 73, 0.16);
+  backdrop-filter: blur(16px);
+}
+
+.teacher-save-bar span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.teacher-save-bar span.is-dirty {
+  color: #925b00;
+}
+
+.profile-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+  gap: 18px;
+}
+
+.teacher-profile-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.teacher-profile-fields > div {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+}
+
+.teacher-profile-fields span,
+.teacher-profile-note > span {
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.teacher-profile-fields strong {
+  color: var(--navy);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.teacher-profile-note {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(244, 159, 15, 0.08);
+}
+
+.teacher-profile-note p {
+  margin: 6px 0 0;
+  color: var(--ink);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.teacher-subject-list {
+  display: grid;
+  gap: 9px;
+}
+
+.teacher-subject-list > div {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+}
+
+.teacher-subject-list > div > span {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 11px;
+  color: var(--paper);
+  background: var(--navy);
+}
+
+.teacher-subject-list svg {
+  width: 19px;
+}
+
+.teacher-subject-list > div > div {
+  display: grid;
+  gap: 3px;
+}
+
+.teacher-subject-list strong {
+  color: var(--navy);
+  font-size: 0.78rem;
+}
+
+.teacher-subject-list small {
+  color: var(--muted);
+  font-family: "Tajawal", sans-serif;
+  font-size: 0.7rem;
+}
+
+.teacher-subject-list i {
+  font-style: normal;
+}
+
+@media (max-width: 1050px) {
+  .teacher-roster,
+  .profile-overview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .teacher-admin-page .teacher-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .teacher-control-row,
+  .teacher-attendance-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .teacher-control-row form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .teacher-control-row .secondary-action {
+    grid-column: 1 / -1;
+  }
+
+  .teacher-control-row .table-search {
+    width: 100%;
+  }
+}
+
+@media (max-width: 580px) {
+  .teacher-admin-page .teacher-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-bulk-actions,
+  .student-notes,
+  .student-context,
+  .teacher-profile-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-bulk-actions {
+    display: grid;
+    width: 100%;
+  }
+
+  .teacher-save-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

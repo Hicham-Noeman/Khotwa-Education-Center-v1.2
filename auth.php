@@ -34,6 +34,22 @@ function is_logged_in(): bool
     return current_user() !== null;
 }
 
+function app_csrf_token(): string
+{
+    if (!isset($_SESSION['app_csrf'])) {
+        $_SESSION['app_csrf'] = bin2hex(random_bytes(24));
+    }
+
+    return (string) $_SESSION['app_csrf'];
+}
+
+function verify_app_csrf(): void
+{
+    if (!hash_equals(app_csrf_token(), (string) ($_POST['csrf'] ?? ''))) {
+        throw new RuntimeException('The form session expired. Refresh the page and try again.');
+    }
+}
+
 function redirect_to_role_home(array $user): never
 {
     $target = match ($user['role']) {

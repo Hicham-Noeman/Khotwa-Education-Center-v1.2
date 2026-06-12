@@ -8,15 +8,14 @@
   <title>Khotwa Education Center | Every Step Builds a Future</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="index.css">
+  <link rel="preload" href="assets/images/khotwa-hero.webp" as="image" type="image/webp" fetchpriority="high">
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
+  <link rel="stylesheet" href="index.css?v=20260612-2">
 </head>
 <body>
   <div class="page-loader" aria-hidden="true">
-    <div class="loader-mark">
-      <span>K</span>
-      <i></i>
-    </div>
+    <div class="loader-mark"><span>K</span><i></i></div>
     <p>Building brighter steps</p>
   </div>
 
@@ -88,7 +87,7 @@
   <main>
     <section class="hero" id="home">
       <div class="hero-media" aria-hidden="true">
-        <img src="assets/images/khotwa-hero.png" alt="">
+        <img src="assets/images/khotwa-hero.webp" alt="" width="1600" height="854" fetchpriority="high">
         <div class="hero-overlay"></div>
         <div class="hero-grid"></div>
       </div>
@@ -214,7 +213,7 @@
           </article>
 
           <figure class="vision-photo" data-reveal>
-            <img src="assets/images/khotwa-classroom-gallery.png" alt="Teacher guiding students through a collaborative classroom activity">
+            <img src="assets/images/khotwa-classroom-gallery.webp" alt="Teacher guiding students through a collaborative classroom activity" width="1400" height="933" loading="lazy" decoding="async">
             <figcaption>
               <strong>Human guidance</strong>
               <span>at the center of every lesson</span>
@@ -484,20 +483,20 @@
         </div>
 
         <div class="gallery-grid">
-          <button class="gallery-item gallery-wide" type="button" data-image="assets/images/khotwa-classroom-gallery.png" data-caption="Collaborative learning">
-            <img src="assets/images/khotwa-classroom-gallery.png" alt="Students learning together with their teacher">
+          <button class="gallery-item gallery-wide" type="button" data-image="assets/images/khotwa-classroom-gallery.webp" data-caption="Collaborative learning">
+            <img src="assets/images/khotwa-classroom-gallery.webp" alt="Students learning together with their teacher" width="1400" height="933" loading="lazy" decoding="async">
             <span><b>Collaborative learning</b><i>View image ↗</i></span>
           </button>
-          <button class="gallery-item gallery-tall" type="button" data-image="assets/images/khotwa-stem-gallery.png" data-caption="Hands-on discovery">
-            <img src="assets/images/khotwa-stem-gallery.png" alt="Students building a project during a STEM activity">
+          <button class="gallery-item gallery-tall" type="button" data-image="assets/images/khotwa-stem-gallery.webp" data-caption="Hands-on discovery">
+            <img src="assets/images/khotwa-stem-gallery.webp" alt="Students building a project during a STEM activity" width="1400" height="933" loading="lazy" decoding="async">
             <span><b>Hands-on discovery</b><i>View image ↗</i></span>
           </button>
-          <button class="gallery-item gallery-crop-one" type="button" data-image="assets/images/khotwa-hero.png" data-caption="Guided academic support">
-            <img src="assets/images/khotwa-hero.png" alt="Teacher supporting students around a learning table">
+          <button class="gallery-item gallery-crop-one" type="button" data-image="assets/images/khotwa-hero.webp" data-caption="Guided academic support">
+            <img src="assets/images/khotwa-hero.webp" alt="Teacher supporting students around a learning table" width="1600" height="854" loading="lazy" decoding="async">
             <span><b>Guided support</b><i>View image ↗</i></span>
           </button>
-          <button class="gallery-item gallery-crop-two" type="button" data-image="assets/images/khotwa-stem-gallery.png" data-caption="Curiosity at work">
-            <img src="assets/images/khotwa-stem-gallery.png" alt="Young students focused on a classroom project">
+          <button class="gallery-item gallery-crop-two" type="button" data-image="assets/images/khotwa-stem-gallery.webp" data-caption="Curiosity at work">
+            <img src="assets/images/khotwa-stem-gallery.webp" alt="Young students focused on a classroom project" width="1400" height="933" loading="lazy" decoding="async">
             <span><b>Curiosity at work</b><i>View image ↗</i></span>
           </button>
           <div class="gallery-quote" data-reveal>
@@ -661,7 +660,7 @@
     </figure>
   </div>
 
-  <script src="language.js"></script>
-  <script src="index.js"></script>
+  <script src="language.js?v=20260612-2" defer></script>
+  <script src="index.js?v=20260612-2" defer></script>
 </body>
 </html>

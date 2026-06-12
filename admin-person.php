@@ -79,23 +79,21 @@ try {
         array_column(admin_editable_columns($pdo, $mainTable), 'COLUMN_NAME'),
         true
     );
-    $linkedData = [];
+
+    $linkedCounts = array_fill_keys(array_keys($linkedTables), 0);
+    $countQueries = [];
+    $countValues = [];
     foreach ($linkedTables as $table => $label) {
-        $editableColumns = admin_editable_columns($pdo, $table);
-        $statement = $pdo->prepare(
-            'SELECT * FROM ' . admin_quote_identifier($table)
-            . ' WHERE ' . admin_quote_identifier($relationColumn) . ' = ? ORDER BY id DESC'
-        );
-        $statement->execute([$personId]);
-        $linkedData[$table] = [
-            'label' => $label,
-            'columns' => admin_columns($pdo, $table),
-            'editable_columns' => $editableColumns,
-            'editable_names' => array_fill_keys(array_column($editableColumns, 'COLUMN_NAME'), true),
-            'rows' => $statement->fetchAll(),
-        ];
-        foreach (admin_hidden_derived_columns($table) as $derivedColumn) {
-            unset($linkedData[$table]['editable_names'][$derivedColumn]);
+        $countQueries[] = 'SELECT ' . $pdo->quote($table) . ' table_name, COUNT(*) record_count'
+            . ' FROM ' . admin_quote_identifier($table)
+            . ' WHERE ' . admin_quote_identifier($relationColumn) . ' = ?';
+        $countValues[] = $personId;
+    }
+    if ($countQueries !== []) {
+        $countStatement = $pdo->prepare(implode(' UNION ALL ', $countQueries));
+        $countStatement->execute($countValues);
+        foreach ($countStatement->fetchAll() as $countRow) {
+            $linkedCounts[(string) $countRow['table_name']] = (int) $countRow['record_count'];
         }
     }
 } catch (Throwable $exception) {
@@ -111,8 +109,9 @@ try {
   <title><?= e($personName ?? 'Profile') ?> | Khotwa Administration</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="admin.css">
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
+  <link rel="stylesheet" href="admin.css?v=<?= e((string) filemtime(__DIR__ . '/admin.css')) ?>">
 </head>
 <body class="admin-page">
   <div class="admin-shell" data-admin-shell>
@@ -180,88 +179,21 @@ try {
           </section>
 
           <div class="linked-records">
-            <?php foreach ($linkedData as $table => $data): ?>
+            <?php foreach ($linkedTables as $table => $label): ?>
               <?php $isAddingHere = $addTable === $table; ?>
-              <details class="linked-section"<?= $isAddingHere ? ' open' : '' ?>>
+              <details
+                class="linked-section"
+                id="linked-<?= e($table) ?>"
+                data-linked-section
+                data-linked-url="admin-linked-records.php?type=<?= e($type) ?>&id=<?= e((string) $personId) ?>&table=<?= e($table) ?><?= $isAddingHere ? '&add=1' : '' ?>"
+                <?= $isAddingHere ? ' open' : '' ?>
+              >
                 <summary>
-                  <span><strong><?= e($data['label']) ?></strong><small><?= e(admin_table_label($table)) ?></small></span>
-                  <i><?= e((string) count($data['rows'])) ?></i>
+                  <span><strong><?= e($label) ?></strong><small><?= e(admin_table_label($table)) ?></small></span>
+                  <i><?= e((string) ($linkedCounts[$table] ?? 0)) ?></i>
                 </summary>
-                <div class="linked-section-body">
-                  <div class="linked-section-actions">
-                    <a class="add-record-button" href="admin-person.php?type=<?= e($type) ?>&id=<?= e((string) $personId) ?>&add_table=<?= e($table) ?>">
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-                      Add linked record
-                    </a>
-                  </div>
-
-                  <?php if ($isAddingHere): ?>
-                    <form class="linked-record-form is-new" method="post">
-                      <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
-                      <input type="hidden" name="action" value="add_linked">
-                      <input type="hidden" name="table" value="<?= e($table) ?>">
-                      <div class="record-form-grid compact-grid">
-                        <?php foreach ($data['editable_columns'] as $column): ?>
-                          <?php admin_render_field(
-                              $pdo,
-                              $table,
-                              $column,
-                              admin_default_field_value($column),
-                              [$relationColumn => $personId]
-                          ); ?>
-                        <?php endforeach; ?>
-                      </div>
-                      <div class="record-form-actions">
-                        <button class="primary-action" type="submit">Save linked record</button>
-                        <a class="secondary-action" href="admin-person.php?type=<?= e($type) ?>&id=<?= e((string) $personId) ?>">Cancel</a>
-                      </div>
-                    </form>
-                  <?php endif; ?>
-
-                  <?php if ($data['rows'] === []): ?>
-                    <p class="linked-empty">No linked records in this table.</p>
-                  <?php else: ?>
-                    <?php foreach ($data['rows'] as $index => $row): ?>
-                      <details class="linked-row">
-                        <summary>Record #<?= e((string) $row['id']) ?><span><?= e((string) ($index + 1)) ?> of <?= e((string) count($data['rows'])) ?></span></summary>
-                        <form class="linked-record-form" method="post" data-edit-form>
-                          <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
-                          <input type="hidden" name="action" value="update_linked">
-                          <input type="hidden" name="table" value="<?= e($table) ?>">
-                          <input type="hidden" name="record_id" value="<?= e((string) $row['id']) ?>">
-                          <fieldset class="record-fieldset" disabled data-edit-fields>
-                            <div class="record-form-grid compact-grid">
-                              <?php foreach ($data['columns'] as $column): ?>
-                                <?php
-                                $columnName = (string) $column['COLUMN_NAME'];
-                                $locked = [];
-                                if (!isset($data['editable_names'][$columnName])) {
-                                    $locked[$columnName] = $row[$columnName] ?? '';
-                                }
-                                if ($columnName === $relationColumn) {
-                                    $locked[$columnName] = $personId;
-                                }
-                                admin_render_field(
-                                    $pdo,
-                                    $table,
-                                    $column,
-                                    $row[$columnName] ?? '',
-                                    $locked,
-                                    true
-                                );
-                                ?>
-                              <?php endforeach; ?>
-                            </div>
-                          </fieldset>
-                          <div class="record-form-actions">
-                            <button class="secondary-action edit-record-button" type="button" data-edit-toggle>Edit</button>
-                            <button class="primary-action" type="submit" hidden data-save-record>Save</button>
-                            <button class="secondary-action" type="button" hidden data-cancel-edit>Cancel</button>
-                          </div>
-                        </form>
-                      </details>
-                    <?php endforeach; ?>
-                  <?php endif; ?>
+                <div class="linked-section-body" data-linked-content>
+                  <p class="linked-empty">Open this section to load its records.</p>
                 </div>
               </details>
             <?php endforeach; ?>
@@ -271,7 +203,7 @@ try {
     </div>
     <button class="sidebar-scrim" type="button" aria-label="Close navigation panel" data-sidebar-scrim></button>
   </div>
-  <script src="language.js"></script>
-  <script src="admin.js"></script>
+  <script src="language.js?v=<?= e((string) filemtime(__DIR__ . '/language.js')) ?>" defer></script>
+  <script src="admin.js?v=<?= e((string) filemtime(__DIR__ . '/admin.js')) ?>" defer></script>
 </body>
 </html>

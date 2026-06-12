@@ -1,0 +1,536 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/auth.php';
+
+$user = require_roles(['teacher']);
+$teacherId = (int) ($user['teacher_id'] ?? 0);
+$views = [
+    'students' => ['label' => 'Students', 'description' => 'Students actively assigned to your subjects.'],
+    'attendance' => ['label' => 'Attendance', 'description' => 'Record attendance and session notes for your assigned students.'],
+    'profile' => ['label' => 'My Profile', 'description' => 'Your teacher information, account details, and assigned subjects.'],
+];
+$view = (string) ($_GET['view'] ?? 'students');
+if (!isset($views[$view])) {
+    $view = 'students';
+}
+
+$today = date('Y-m-d');
+$attendanceDate = (string) ($_POST['attendance_date'] ?? $_GET['date'] ?? $today);
+$sessionNumber = (int) ($_POST['session_number'] ?? $_GET['session'] ?? 1);
+$message = isset($_GET['saved'])
+    ? max(0, (int) $_GET['saved']) . ' attendance record(s) saved.'
+    : '';
+$error = '';
+$studentRows = [];
+$attendanceRows = [];
+$teacherProfile = [];
+$assignedSubjects = [];
+
+$dateObject = DateTimeImmutable::createFromFormat('!Y-m-d', $attendanceDate);
+if (!$dateObject || $dateObject->format('Y-m-d') !== $attendanceDate || $attendanceDate > $today) {
+    $attendanceDate = $today;
+}
+$sessionNumber = max(1, min(8, $sessionNumber));
+
+function teacher_icon(string $name): string
+{
+    $paths = [
+        'students' => '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+        'attendance' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18m-5 5 2 2 4-4"/>',
+        'profile' => '<circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/><path d="M18 4h3v3"/>',
+        'logout' => '<path d="M10 17l5-5-5-5M15 12H3"/><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/>',
+    ];
+
+    return '<svg viewBox="0 0 24 24" aria-hidden="true">' . ($paths[$name] ?? $paths['students']) . '</svg>';
+}
+
+function render_teacher_sidebar(array $user, string $activeView): void
+{
+    ?>
+    <aside class="admin-sidebar" id="admin-sidebar" aria-label="Teacher navigation">
+      <div class="sidebar-top">
+        <a class="admin-brand" href="teacher.php" aria-label="Khotwa teacher portal home">
+          <span class="admin-brand-mark">K<span>.</span></span>
+          <span class="admin-brand-copy"><strong>Khotwa</strong><small>Teacher Portal</small></span>
+        </a>
+        <button class="sidebar-toggle" type="button" aria-label="Close navigation panel" aria-controls="admin-sidebar" aria-expanded="true" data-sidebar-toggle>
+          <svg class="collapse-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+          <svg class="expand-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      </div>
+      <nav class="admin-nav">
+        <section class="nav-group">
+          <h2>My Workspace</h2>
+          <?php foreach (['students' => 'Students', 'attendance' => 'Attendance', 'profile' => 'My Profile'] as $key => $label): ?>
+            <a class="<?= $activeView === $key ? 'is-active' : '' ?>" href="teacher.php?view=<?= e($key) ?>" title="<?= e($label) ?>">
+              <?= teacher_icon($key) ?><span><?= e($label) ?></span>
+              <?php if ($activeView === $key): ?><i></i><?php endif; ?>
+            </a>
+          <?php endforeach; ?>
+        </section>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="sidebar-language" type="button" data-language-toggle>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+          <span><strong data-language-current>EN</strong><small data-language-label>AR</small></span>
+        </button>
+        <div class="sidebar-account">
+          <span class="account-avatar"><?= e(strtoupper(substr((string) $user['first_name'], 0, 1))) ?></span>
+          <span class="account-copy">
+            <strong><?= e(trim((string) $user['first_name'] . ' ' . (string) $user['last_name'])) ?></strong>
+            <small>Teacher</small>
+          </span>
+          <a href="logout.php" aria-label="Log out" title="Log out"><?= teacher_icon('logout') ?></a>
+        </div>
+      </div>
+    </aside>
+    <?php
+}
+
+try {
+    if ($teacherId < 1) {
+        throw new RuntimeException('This account is not linked to a teacher profile.');
+    }
+
+    $pdo = khotwa_db();
+    $profileStatement = $pdo->prepare(
+        "SELECT teachers.id, teachers.first_name, teachers.last_name, teachers.phone_number,
+                teachers.email AS teacher_email, teachers.status, teachers.notes,
+                teachers.created_at, users.email AS account_email, users.last_login_at
+         FROM teachers
+         INNER JOIN users ON users.teacher_id = teachers.id
+         WHERE teachers.id = ? AND users.id = ? AND teachers.status = 'active'
+         LIMIT 1"
+    );
+    $profileStatement->execute([$teacherId, (int) $user['id']]);
+    $teacherProfile = $profileStatement->fetch();
+    if (!$teacherProfile) {
+        throw new RuntimeException('The linked teacher profile is unavailable.');
+    }
+
+    if ($view === 'attendance' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+        try {
+            verify_app_csrf();
+            $submittedRows = (array) ($_POST['attendance'] ?? []);
+            $allowedStatuses = ['attended', 'missed'];
+            $savedCount = 0;
+            $dailyIds = [];
+
+            $enrollmentStatement = $pdo->prepare(
+                "SELECT student_id, teacher_subject_id, teacher_id, subject_id
+                 FROM student_subject_enrollments
+                 WHERE id = ? AND teacher_id = ? AND status = 'active'
+                 LIMIT 1"
+            );
+            $dailyStatement = $pdo->prepare(
+                "INSERT INTO student_daily_attendance (student_id, attendance_date, status)
+                 VALUES (?, ?, ?)
+                 ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)"
+            );
+            $dailyIdStatement = $pdo->prepare(
+                'SELECT id FROM student_daily_attendance WHERE student_id = ? AND attendance_date = ?'
+            );
+            $subjectStatement = $pdo->prepare(
+                "INSERT INTO student_subject_attendance (
+                    daily_attendance_id, student_id, attendance_date, teacher_subject_id,
+                    teacher_id, subject_id, session_number, status, homework_note, notes
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE
+                    status = VALUES(status),
+                    homework_note = VALUES(homework_note),
+                    notes = VALUES(notes)"
+            );
+            $dailyStatusStatement = $pdo->prepare(
+                "UPDATE student_daily_attendance
+                 SET status = CASE
+                    WHEN status IN ('late', 'excused', 'left_early') THEN status
+                    WHEN EXISTS (
+                        SELECT 1 FROM student_subject_attendance
+                        WHERE daily_attendance_id = ? AND status = 'attended'
+                    ) THEN 'present'
+                    ELSE 'absent'
+                 END
+                 WHERE id = ?"
+            );
+
+            $pdo->beginTransaction();
+            foreach ($submittedRows as $enrollmentId => $payload) {
+                if (!is_array($payload)) {
+                    continue;
+                }
+
+                $status = (string) ($payload['status'] ?? '');
+                $lessonNote = trim((string) ($payload['note'] ?? ''));
+                $homeworkNote = trim((string) ($payload['homework_note'] ?? ''));
+                if ($status === '') {
+                    if ($lessonNote !== '' || $homeworkNote !== '') {
+                        throw new RuntimeException('Choose Came or Did not come before saving notes.');
+                    }
+                    continue;
+                }
+                if (!in_array($status, $allowedStatuses, true)) {
+                    throw new RuntimeException('An invalid attendance status was submitted.');
+                }
+
+                $enrollmentStatement->execute([(int) $enrollmentId, $teacherId]);
+                $enrollment = $enrollmentStatement->fetch();
+                if (!$enrollment) {
+                    throw new RuntimeException('One submitted student is not assigned to this teacher.');
+                }
+
+                $dailyStatement->execute([
+                    (int) $enrollment['student_id'],
+                    $attendanceDate,
+                    $status === 'attended' ? 'present' : 'absent',
+                ]);
+                $dailyIdStatement->execute([(int) $enrollment['student_id'], $attendanceDate]);
+                $dailyAttendanceId = (int) $dailyIdStatement->fetchColumn();
+                $subjectStatement->execute([
+                    $dailyAttendanceId,
+                    (int) $enrollment['student_id'],
+                    $attendanceDate,
+                    (int) $enrollment['teacher_subject_id'],
+                    (int) $enrollment['teacher_id'],
+                    (int) $enrollment['subject_id'],
+                    $sessionNumber,
+                    $status,
+                    $homeworkNote === '' ? null : substr($homeworkNote, 0, 255),
+                    $lessonNote === '' ? null : substr($lessonNote, 0, 255),
+                ]);
+                $dailyIds[$dailyAttendanceId] = true;
+                $savedCount++;
+            }
+
+            foreach (array_keys($dailyIds) as $dailyAttendanceId) {
+                $dailyStatusStatement->execute([$dailyAttendanceId, $dailyAttendanceId]);
+            }
+            $pdo->commit();
+
+            header(
+                'Location: teacher.php?view=attendance&date=' . rawurlencode($attendanceDate)
+                . '&session=' . $sessionNumber . '&saved=' . $savedCount
+            );
+            exit;
+        } catch (Throwable $exception) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            $error = $exception->getMessage();
+        }
+    }
+
+    if ($view === 'students') {
+        $statement = $pdo->prepare(
+            "SELECT student_subject_enrollments.id AS enrollment_id,
+                    students.id AS student_id,
+                    CONCAT(students.first_name_en, ' ', students.last_name_en) AS student_name,
+                    CONCAT(students.first_name_ar, ' ', students.last_name_ar) AS student_name_ar,
+                    COALESCE(student_academic_records.grade_name, 'Not set') AS grade_name,
+                    subjects.name_en AS subject_name,
+                    subjects.name_ar AS subject_name_ar,
+                    student_subject_enrollments.academic_year,
+                    student_subject_enrollments.start_date,
+                    latest_attendance.attendance_date AS latest_attendance_date,
+                    latest_attendance.status AS latest_attendance_status
+             FROM student_subject_enrollments
+             INNER JOIN students ON students.id = student_subject_enrollments.student_id
+             INNER JOIN subjects ON subjects.id = student_subject_enrollments.subject_id
+             LEFT JOIN student_academic_records
+                ON student_academic_records.student_id = students.id
+                AND student_academic_records.is_current = 1
+             LEFT JOIN student_subject_attendance latest_attendance
+                ON latest_attendance.id = (
+                    SELECT attendance.id
+                    FROM student_subject_attendance attendance
+                    WHERE attendance.student_id = students.id
+                      AND attendance.teacher_subject_id = student_subject_enrollments.teacher_subject_id
+                    ORDER BY attendance.attendance_date DESC, attendance.session_number DESC
+                    LIMIT 1
+                )
+             WHERE student_subject_enrollments.teacher_id = ?
+               AND student_subject_enrollments.status = 'active'
+               AND students.status = 'active'
+             ORDER BY students.last_name_en, students.first_name_en, subjects.name_en"
+        );
+        $statement->execute([$teacherId]);
+        $studentRows = $statement->fetchAll();
+    } elseif ($view === 'attendance') {
+        $statement = $pdo->prepare(
+            "SELECT student_subject_enrollments.id AS enrollment_id,
+                    students.id AS student_id,
+                    CONCAT(students.first_name_en, ' ', students.last_name_en) AS student_name,
+                    CONCAT(students.first_name_ar, ' ', students.last_name_ar) AS student_name_ar,
+                    COALESCE(student_academic_records.grade_name, 'Not set') AS grade_name,
+                    subjects.name_en AS subject_name,
+                    student_subject_attendance.status AS attendance_status,
+                    student_subject_attendance.homework_note,
+                    student_subject_attendance.notes AS attendance_note,
+                    student_subject_attendance.updated_at AS attendance_updated_at
+             FROM student_subject_enrollments
+             INNER JOIN students ON students.id = student_subject_enrollments.student_id
+             INNER JOIN subjects ON subjects.id = student_subject_enrollments.subject_id
+             LEFT JOIN student_academic_records
+                ON student_academic_records.student_id = students.id
+                AND student_academic_records.is_current = 1
+             LEFT JOIN student_daily_attendance
+                ON student_daily_attendance.student_id = students.id
+                AND student_daily_attendance.attendance_date = ?
+             LEFT JOIN student_subject_attendance
+                ON student_subject_attendance.daily_attendance_id = student_daily_attendance.id
+                AND student_subject_attendance.teacher_subject_id = student_subject_enrollments.teacher_subject_id
+                AND student_subject_attendance.session_number = ?
+             WHERE student_subject_enrollments.teacher_id = ?
+               AND student_subject_enrollments.status = 'active'
+               AND students.status = 'active'
+             ORDER BY grade_name, students.last_name_en, students.first_name_en, subjects.name_en"
+        );
+        $statement->execute([$attendanceDate, $sessionNumber, $teacherId]);
+        $attendanceRows = $statement->fetchAll();
+    } else {
+        $subjectStatement = $pdo->prepare(
+            "SELECT subjects.name_en, subjects.name_ar, teacher_subjects.status, teacher_subjects.notes
+             FROM teacher_subjects
+             INNER JOIN subjects ON subjects.id = teacher_subjects.subject_id
+             WHERE teacher_subjects.teacher_id = ?
+             ORDER BY subjects.name_en"
+        );
+        $subjectStatement->execute([$teacherId]);
+        $assignedSubjects = $subjectStatement->fetchAll();
+    }
+} catch (Throwable $exception) {
+    $error = $exception->getMessage();
+}
+
+$teacherName = trim(
+    (string) ($teacherProfile['first_name'] ?? $user['first_name'])
+    . ' '
+    . (string) ($teacherProfile['last_name'] ?? $user['last_name'])
+);
+$uniqueStudents = count(array_unique(array_column($attendanceRows, 'student_id')));
+$attendedCount = count(array_filter(
+    $attendanceRows,
+    static fn (array $row): bool => $row['attendance_status'] === 'attended'
+));
+$missedCount = count(array_filter(
+    $attendanceRows,
+    static fn (array $row): bool => $row['attendance_status'] === 'missed'
+));
+$unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0B1C34">
+  <title><?= e($views[$view]['label']) ?> | Khotwa Teacher Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
+  <link rel="stylesheet" href="admin.css?v=<?= e((string) filemtime(__DIR__ . '/admin.css')) ?>">
+  <link rel="stylesheet" href="teacher.css?v=<?= e((string) filemtime(__DIR__ . '/teacher.css')) ?>">
+</head>
+<body class="admin-page teacher-admin-page">
+  <div class="admin-shell" data-admin-shell>
+    <?php render_teacher_sidebar($user, $view); ?>
+    <div class="admin-stage">
+      <button class="mobile-panel-toggle" type="button" aria-label="Open navigation panel" aria-controls="admin-sidebar" aria-expanded="false" data-mobile-sidebar-toggle>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <main class="admin-content">
+        <section class="content-heading">
+          <div>
+            <span class="content-kicker">Teacher workspace</span>
+            <h1><?= e($views[$view]['label']) ?></h1>
+            <p><?= e($views[$view]['description']) ?></p>
+          </div>
+          <div class="live-indicator"><span></span><?= e($teacherName) ?></div>
+        </section>
+
+        <?php if ($message !== ''): ?><div class="form-notice success-notice"><?= e($message) ?></div><?php endif; ?>
+        <?php if ($error !== ''): ?><div class="form-notice error-notice"><?= e($error) ?></div><?php endif; ?>
+
+        <?php if ($view === 'students'): ?>
+          <section class="metrics-grid teacher-summary-grid" aria-label="Student summary">
+            <article class="metric-card metric-orange"><span class="metric-dot"></span><strong><?= e((string) count(array_unique(array_column($studentRows, 'student_id')))) ?></strong><p>Assigned students</p></article>
+            <article class="metric-card metric-green"><span class="metric-dot"></span><strong><?= e((string) count($studentRows)) ?></strong><p>Active assignments</p></article>
+            <article class="metric-card metric-pink"><span class="metric-dot"></span><strong><?= e((string) count(array_unique(array_column($studentRows, 'subject_name')))) ?></strong><p>Subjects taught</p></article>
+          </section>
+
+          <section class="data-panel">
+            <div class="panel-heading table-panel-heading">
+              <div><span>My roster</span><h2>Assigned Students</h2></div>
+              <label class="table-search">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
+                <input type="search" placeholder="Search students" data-table-search>
+              </label>
+              <div class="table-heading-actions">
+                <strong class="record-count"><?= e((string) count($studentRows)) ?> assignments</strong>
+                <a class="add-record-button" href="teacher.php?view=attendance">
+                  <?= teacher_icon('attendance') ?> Take attendance
+                </a>
+              </div>
+            </div>
+            <div class="table-scroll">
+              <table data-admin-table>
+                <thead>
+                  <tr>
+                    <?php foreach (['Student', 'Arabic name', 'Grade', 'Subject', 'Academic year', 'Latest attendance'] as $index => $label): ?>
+                      <th aria-sort="none"><button class="sort-button" type="button" data-sort-column="<?= $index ?>"><?= e($label) ?><span aria-hidden="true"></span></button></th>
+                    <?php endforeach; ?>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php if ($studentRows === []): ?>
+                    <tr><td class="empty-row" colspan="6">No active students are assigned to this teacher.</td></tr>
+                  <?php else: ?>
+                    <?php foreach ($studentRows as $row): ?>
+                      <?php
+                      $attendanceLabel = $row['latest_attendance_status'] === 'attended'
+                          ? 'Came'
+                          : ($row['latest_attendance_status'] === 'missed' ? 'Did not come' : 'Not recorded');
+                      ?>
+                      <tr data-record-row>
+                        <td data-sort-value="<?= e((string) $row['student_name']) ?>"><strong><?= e((string) $row['student_name']) ?></strong></td>
+                        <td data-sort-value="<?= e((string) $row['student_name_ar']) ?>" class="teacher-arabic-name"><?= e((string) $row['student_name_ar']) ?></td>
+                        <td data-sort-value="<?= e((string) $row['grade_name']) ?>"><?= e((string) $row['grade_name']) ?></td>
+                        <td data-sort-value="<?= e((string) $row['subject_name']) ?>"><?= e((string) $row['subject_name']) ?></td>
+                        <td data-sort-value="<?= e((string) $row['academic_year']) ?>"><?= e((string) $row['academic_year']) ?></td>
+                        <td data-sort-value="<?= e((string) ($row['latest_attendance_date'] ?? '')) ?>">
+                          <span class="status-pill status-<?= e((string) ($row['latest_attendance_status'] ?? 'unmarked')) ?>"><?= e($attendanceLabel) ?></span>
+                          <?php if ($row['latest_attendance_date']): ?><small class="table-cell-detail"><?= e((string) $row['latest_attendance_date']) ?></small><?php endif; ?>
+                        </td>
+                      </tr>
+                    <?php endforeach; ?>
+                  <?php endif; ?>
+                  <tr class="search-empty" hidden><td colspan="6">No matching students.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+        <?php elseif ($view === 'attendance'): ?>
+          <section class="data-panel teacher-filter-panel">
+            <div class="panel-heading">
+              <div><span>Session setup</span><h2><?= e(date('l, F j, Y', strtotime($attendanceDate))) ?></h2></div>
+            </div>
+            <div class="teacher-control-row">
+              <form method="get" data-date-form>
+                <input type="hidden" name="view" value="attendance">
+                <label class="admin-field"><span>Attendance date</span><input type="date" name="date" value="<?= e($attendanceDate) ?>" max="<?= e($today) ?>"></label>
+                <label class="admin-field"><span>Session</span><select name="session"><?php for ($session = 1; $session <= 8; $session++): ?><option value="<?= $session ?>" <?= $sessionNumber === $session ? 'selected' : '' ?>>Session <?= $session ?></option><?php endfor; ?></select></label>
+                <button class="secondary-action" type="submit">Load session</button>
+              </form>
+              <label class="table-search">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
+                <input type="search" placeholder="Search this roster" data-roster-search>
+              </label>
+            </div>
+          </section>
+
+          <section class="metrics-grid" aria-label="Attendance summary">
+            <article class="metric-card metric-navy"><span class="metric-dot"></span><strong><?= e((string) $uniqueStudents) ?></strong><p>Students</p></article>
+            <article class="metric-card metric-green"><span class="metric-dot"></span><strong data-attended-count><?= e((string) $attendedCount) ?></strong><p>Came</p></article>
+            <article class="metric-card metric-pink"><span class="metric-dot"></span><strong data-missed-count><?= e((string) $missedCount) ?></strong><p>Did not come</p></article>
+            <article class="metric-card metric-orange"><span class="metric-dot"></span><strong data-unmarked-count><?= e((string) $unmarkedCount) ?></strong><p>Not marked</p></article>
+          </section>
+
+          <section class="data-panel">
+            <div class="panel-heading teacher-attendance-heading">
+              <div><span>Assigned roster</span><h2><?= e((string) count($attendanceRows)) ?> subject assignment(s)</h2></div>
+              <?php if ($attendanceRows !== []): ?>
+                <div class="teacher-bulk-actions">
+                  <button class="secondary-action" type="button" data-mark-all="attended">Mark visible as came</button>
+                  <button class="secondary-action" type="button" data-mark-all="missed">Mark visible as absent</button>
+                </div>
+              <?php endif; ?>
+            </div>
+
+            <?php if ($attendanceRows === []): ?>
+              <p class="linked-empty">No active students are assigned to this teacher.</p>
+            <?php else: ?>
+              <form method="post" data-attendance-form>
+                <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
+                <input type="hidden" name="attendance_date" value="<?= e($attendanceDate) ?>">
+                <input type="hidden" name="session_number" value="<?= e((string) $sessionNumber) ?>">
+                <div class="teacher-roster" data-roster>
+                  <?php foreach ($attendanceRows as $row): ?>
+                    <?php $rowStatus = (string) ($row['attendance_status'] ?? ''); ?>
+                    <article class="student-attendance-card" data-roster-row data-status="<?= e($rowStatus) ?>">
+                      <div class="student-card-heading">
+                        <span class="student-initial"><?= e(strtoupper(substr((string) $row['student_name'], 0, 1))) ?></span>
+                        <div><h3><?= e((string) $row['student_name']) ?></h3><p><?= e((string) $row['student_name_ar']) ?></p></div>
+                        <span class="attendance-state" data-status-label><?= $rowStatus === 'attended' ? 'Came' : ($rowStatus === 'missed' ? 'Did not come' : 'Not marked') ?></span>
+                      </div>
+                      <div class="student-context">
+                        <span><small>Grade</small><strong><?= e((string) $row['grade_name']) ?></strong></span>
+                        <span><small>Subject</small><strong><?= e((string) $row['subject_name']) ?></strong></span>
+                        <span><small>Session</small><strong><?= e((string) $sessionNumber) ?></strong></span>
+                      </div>
+                      <fieldset class="attendance-choice">
+                        <legend>Attendance</legend>
+                        <label class="choice-came"><input type="radio" name="attendance[<?= e((string) $row['enrollment_id']) ?>][status]" value="attended" <?= $rowStatus === 'attended' ? 'checked' : '' ?>><span>Came</span></label>
+                        <label class="choice-missed"><input type="radio" name="attendance[<?= e((string) $row['enrollment_id']) ?>][status]" value="missed" <?= $rowStatus === 'missed' ? 'checked' : '' ?>><span>Did not come</span></label>
+                      </fieldset>
+                      <div class="student-notes">
+                        <label><span>Session note</span><textarea name="attendance[<?= e((string) $row['enrollment_id']) ?>][note]" maxlength="255" placeholder="Participation, progress, behavior, or follow-up"><?= e((string) ($row['attendance_note'] ?? '')) ?></textarea></label>
+                        <label><span>Homework note</span><textarea name="attendance[<?= e((string) $row['enrollment_id']) ?>][homework_note]" maxlength="255" placeholder="Homework assigned or completion note"><?= e((string) ($row['homework_note'] ?? '')) ?></textarea></label>
+                      </div>
+                    </article>
+                  <?php endforeach; ?>
+                </div>
+                <p class="teacher-search-empty" hidden data-search-empty>No assigned students match this search.</p>
+                <div class="teacher-save-bar">
+                  <span data-save-state>Changes are saved only when you press Save attendance.</span>
+                  <button class="primary-action" type="submit">Save attendance</button>
+                </div>
+              </form>
+            <?php endif; ?>
+          </section>
+
+        <?php elseif ($teacherProfile !== []): ?>
+          <section class="profile-overview-grid">
+            <article class="data-panel teacher-profile-card">
+              <div class="panel-heading"><div><span>Teacher profile</span><h2><?= e($teacherName) ?></h2></div><span class="profile-id">ID <?= e((string) $teacherId) ?></span></div>
+              <div class="teacher-profile-fields">
+                <div><span>First name</span><strong><?= e((string) $teacherProfile['first_name']) ?></strong></div>
+                <div><span>Last name</span><strong><?= e((string) $teacherProfile['last_name']) ?></strong></div>
+                <div><span>Phone number</span><strong><?= e((string) ($teacherProfile['phone_number'] ?: 'Not provided')) ?></strong></div>
+                <div><span>Teacher email</span><strong><?= e((string) $teacherProfile['teacher_email']) ?></strong></div>
+                <div><span>Portal account</span><strong><?= e((string) $teacherProfile['account_email']) ?></strong></div>
+                <div><span>Status</span><strong><span class="status-pill status-active">Active</span></strong></div>
+                <div><span>Last login</span><strong><?= e((string) ($teacherProfile['last_login_at'] ?: 'First login')) ?></strong></div>
+                <div><span>Member since</span><strong><?= e((string) $teacherProfile['created_at']) ?></strong></div>
+              </div>
+              <?php if ($teacherProfile['notes']): ?><div class="teacher-profile-note"><span>Profile note</span><p><?= e((string) $teacherProfile['notes']) ?></p></div><?php endif; ?>
+            </article>
+
+            <article class="data-panel">
+              <div class="panel-heading"><div><span>Teaching assignment</span><h2>My Subjects</h2></div><strong class="record-count"><?= e((string) count($assignedSubjects)) ?> subjects</strong></div>
+              <?php if ($assignedSubjects === []): ?>
+                <p class="linked-empty">No subjects are assigned to this teacher.</p>
+              <?php else: ?>
+                <div class="teacher-subject-list">
+                  <?php foreach ($assignedSubjects as $subject): ?>
+                    <div><span><?= teacher_icon('attendance') ?></span><div><strong><?= e((string) $subject['name_en']) ?></strong><small><?= e((string) $subject['name_ar']) ?></small></div><i class="status-pill status-<?= e((string) $subject['status']) ?>"><?= e(ucfirst((string) $subject['status'])) ?></i></div>
+                  <?php endforeach; ?>
+                </div>
+              <?php endif; ?>
+            </article>
+          </section>
+        <?php else: ?>
+          <section class="data-panel">
+            <p class="linked-empty">Your teacher profile could not be loaded. Please contact an administrator.</p>
+          </section>
+        <?php endif; ?>
+      </main>
+    </div>
+    <button class="sidebar-scrim" type="button" aria-label="Close navigation panel" data-sidebar-scrim></button>
+  </div>
+  <script src="language.js?v=<?= e((string) filemtime(__DIR__ . '/language.js')) ?>" defer></script>
+  <script src="admin.js?v=<?= e((string) filemtime(__DIR__ . '/admin.js')) ?>" defer></script>
+  <script src="teacher.js?v=<?= e((string) filemtime(__DIR__ . '/teacher.js')) ?>" defer></script>
+</body>
+</html>

@@ -19,6 +19,9 @@ $dbUser = 'root';
 $dbPass = '';
 $dbCharset = 'utf8mb4';
 
+// Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
+const KHOTWA_SCHEMA_VERSION = 1;
+
 function getDatabaseConnection(): PDO
 {
     global $dbHost, $dbName, $dbUser, $dbPass, $dbCharset;
@@ -27,23 +30,64 @@ function getDatabaseConnection(): PDO
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES => false,
+        PDO::ATTR_PERSISTENT => true,
     ];
 
-    $serverDsn = "mysql:host={$dbHost};charset={$dbCharset}";
-    $serverConnection = new PDO($serverDsn, $dbUser, $dbPass, $options);
-    $serverConnection->exec(
-        "CREATE DATABASE IF NOT EXISTS `{$dbName}`
-         CHARACTER SET {$dbCharset}
-         COLLATE {$dbCharset}_unicode_ci"
-    );
-
     $databaseDsn = "mysql:host={$dbHost};dbname={$dbName};charset={$dbCharset}";
-    $pdo = new PDO($databaseDsn, $dbUser, $dbPass, $options);
+    try {
+        $pdo = new PDO($databaseDsn, $dbUser, $dbPass, $options);
+    } catch (PDOException $exception) {
+        if ((int) ($exception->errorInfo[1] ?? 0) !== 1049) {
+            throw $exception;
+        }
+
+        $serverDsn = "mysql:host={$dbHost};charset={$dbCharset}";
+        $serverConnection = new PDO($serverDsn, $dbUser, $dbPass, $options);
+        $serverConnection->exec(
+            "CREATE DATABASE IF NOT EXISTS `{$dbName}`
+             CHARACTER SET {$dbCharset}
+             COLLATE {$dbCharset}_unicode_ci"
+        );
+        $pdo = new PDO($databaseDsn, $dbUser, $dbPass, $options);
+    }
+
+    ensureKhotwaSchema($pdo);
+
+    return $pdo;
+}
+
+function ensureKhotwaSchema(PDO $pdo): void
+{
+    try {
+        $schemaVersion = (int) $pdo->query(
+            'SELECT schema_version FROM khotwa_schema_meta WHERE id = 1'
+        )->fetchColumn();
+    } catch (PDOException $exception) {
+        if ((string) $exception->getCode() !== '42S02') {
+            throw $exception;
+        }
+        $schemaVersion = 0;
+    }
+
+    if ($schemaVersion >= KHOTWA_SCHEMA_VERSION) {
+        return;
+    }
 
     createKhotwaTables($pdo);
     applyKhotwaMigrations($pdo);
-
-    return $pdo;
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS khotwa_schema_meta (
+            id TINYINT UNSIGNED NOT NULL,
+            schema_version INT UNSIGNED NOT NULL,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+    $statement = $pdo->prepare(
+        'INSERT INTO khotwa_schema_meta (id, schema_version) VALUES (1, ?)
+         ON DUPLICATE KEY UPDATE schema_version = VALUES(schema_version)'
+    );
+    $statement->execute([KHOTWA_SCHEMA_VERSION]);
 }
 
 function createKhotwaTables(PDO $pdo): void

@@ -34,6 +34,11 @@ body {
   overflow-x: hidden;
 }
 
+main > section:not(.hero) {
+  content-visibility: auto;
+  contain-intrinsic-size: 800px;
+}
+
 body.menu-open,
 body.lightbox-open {
   overflow: hidden;
@@ -98,7 +103,7 @@ svg {
   gap: 18px;
   color: var(--paper);
   background: var(--navy-deep);
-  transition: opacity 0.6s ease, visibility 0.6s ease;
+  transition: opacity 0.38s ease, visibility 0.38s ease;
 }
 
 .page-loader.is-hidden {
@@ -141,7 +146,7 @@ svg {
   border-top: 3px solid var(--orange);
   border-right: 3px solid transparent;
   border-radius: 24px;
-  animation: loaderSpin 1s linear infinite;
+  animation: loaderSpin 0.85s linear infinite;
 }
 
 .scroll-progress {
@@ -2318,13 +2323,13 @@ html[dir="rtl"] .future-line-break {
   font-size: 1.8rem;
 }
 
-@keyframes loaderSpin {
-  to { transform: rotate(360deg); }
-}
-
 @keyframes heroZoom {
   from { transform: scale(1.02); }
   to { transform: scale(1.09); }
+}
+
+@keyframes loaderSpin {
+  to { transform: rotate(360deg); }
 }
 
 @keyframes heroEnter {

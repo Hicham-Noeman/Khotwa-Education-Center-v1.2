@@ -104,7 +104,11 @@ const filterTableRows = () => {
   updateSelectionControls();
 };
 
-searchInput?.addEventListener("input", filterTableRows);
+let searchFrame;
+searchInput?.addEventListener("input", () => {
+  window.cancelAnimationFrame(searchFrame);
+  searchFrame = window.requestAnimationFrame(filterTableRows);
+});
 searchInput?.addEventListener("keydown", (event) => {
   if (event.key === "Enter") event.preventDefault();
 });
@@ -192,39 +196,80 @@ tableActionsForm?.addEventListener("submit", (event) => {
   event.preventDefault();
 });
 
-document.querySelectorAll("[data-edit-form]").forEach((form) => {
-  const fieldset = form.querySelector("[data-edit-fields]");
-  const editButton = form.querySelector("[data-edit-toggle]");
-  const saveButton = form.querySelector("[data-save-record]");
-  const cancelButton = form.querySelector("[data-cancel-edit]");
-  const panel = form.closest(".data-panel, .linked-row");
-  const status = panel?.querySelector("[data-edit-status]");
+const setupEditForms = (root = document) => {
+  root.querySelectorAll("[data-edit-form]:not([data-edit-ready])").forEach((form) => {
+    form.dataset.editReady = "true";
+    const fieldset = form.querySelector("[data-edit-fields]");
+    const editButton = form.querySelector("[data-edit-toggle]");
+    const saveButton = form.querySelector("[data-save-record]");
+    const cancelButton = form.querySelector("[data-cancel-edit]");
+    const panel = form.closest(".data-panel, .linked-row");
+    const status = panel?.querySelector("[data-edit-status]");
 
-  const setEditMode = (isEditing) => {
-    if (fieldset) fieldset.disabled = !isEditing;
-    if (editButton) editButton.hidden = isEditing;
-    if (saveButton) saveButton.hidden = !isEditing;
-    if (cancelButton) cancelButton.hidden = !isEditing;
-    if (status) {
-      status.textContent = isEditing ? "Editing" : "Read only";
-      status.classList.toggle("is-editing", isEditing);
-    }
+    const setEditMode = (isEditing) => {
+      if (fieldset) fieldset.disabled = !isEditing;
+      if (editButton) editButton.hidden = isEditing;
+      if (saveButton) saveButton.hidden = !isEditing;
+      if (cancelButton) cancelButton.hidden = !isEditing;
+      if (status) {
+        status.textContent = isEditing ? "Editing" : "Read only";
+        status.classList.toggle("is-editing", isEditing);
+      }
 
-    if (isEditing) {
-      fieldset
-        ?.querySelector("input:not([type='hidden']):not(:disabled), select:not(:disabled), textarea:not(:disabled)")
-        ?.focus();
-    }
-  };
+      if (isEditing) {
+        fieldset
+          ?.querySelector("input:not([type='hidden']):not(:disabled), select:not(:disabled), textarea:not(:disabled)")
+          ?.focus();
+      }
+    };
 
-  editButton?.addEventListener("click", () => setEditMode(true));
-  cancelButton?.addEventListener("click", () => {
-    form.reset();
-    setEditMode(false);
+    editButton?.addEventListener("click", () => setEditMode(true));
+    cancelButton?.addEventListener("click", () => {
+      form.reset();
+      setEditMode(false);
+    });
+    form.addEventListener("submit", () => {
+      if (fieldset) fieldset.disabled = false;
+    });
   });
-  form.addEventListener("submit", () => {
-    if (fieldset) fieldset.disabled = false;
+};
+
+setupEditForms();
+
+const loadLinkedSection = async (section) => {
+  if (section.dataset.loaded === "true" || section.dataset.loading === "true") return;
+
+  const content = section.querySelector("[data-linked-content]");
+  if (!content) return;
+
+  section.dataset.loading = "true";
+  content.setAttribute("aria-busy", "true");
+  content.innerHTML = '<p class="linked-empty">Loading records...</p>';
+
+  try {
+    const response = await fetch(section.dataset.linkedUrl, {
+      credentials: "same-origin",
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+    });
+    if (!response.ok) throw new Error("Linked records request failed.");
+
+    content.innerHTML = await response.text();
+    section.dataset.loaded = "true";
+    setupEditForms(content);
+  } catch (error) {
+    content.innerHTML =
+      '<p class="linked-empty linked-load-error">These records could not be loaded. Close and reopen this section to try again.</p>';
+  } finally {
+    delete section.dataset.loading;
+    content.removeAttribute("aria-busy");
+  }
+};
+
+document.querySelectorAll("[data-linked-section]").forEach((section) => {
+  section.addEventListener("toggle", () => {
+    if (section.open) loadLinkedSection(section);
   });
+  if (section.open) loadLinkedSection(section);
 });
 
 updateSelectionControls();

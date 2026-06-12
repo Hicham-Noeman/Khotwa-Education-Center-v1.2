@@ -7,11 +7,23 @@ const cursorGlow = document.querySelector(".cursor-glow");
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const translate = (value) => window.KhotwaI18n?.t(value) || value;
 
-window.addEventListener("load", () => {
-  window.setTimeout(() => {
-    document.querySelector(".page-loader")?.classList.add("is-hidden");
-  }, reduceMotion ? 0 : 850);
-});
+const loader = document.querySelector(".page-loader");
+const loaderStartedAt = performance.now();
+let loaderHidden = false;
+
+const hidePageLoader = () => {
+  if (loaderHidden) return;
+  loaderHidden = true;
+  const elapsed = performance.now() - loaderStartedAt;
+  window.setTimeout(() => loader?.classList.add("is-hidden"), Math.max(0, 420 - elapsed));
+};
+
+if (document.readyState === "complete") {
+  hidePageLoader();
+} else {
+  window.addEventListener("load", hidePageLoader, { once: true });
+}
+window.setTimeout(hidePageLoader, 2600);
 
 const updateScrollState = () => {
   const scrollTop = window.scrollY;

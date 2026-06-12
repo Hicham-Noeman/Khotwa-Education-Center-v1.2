@@ -36,6 +36,19 @@ document.querySelectorAll("[data-demo-button]").forEach((button) => {
   });
 });
 
+document.querySelectorAll("[data-fill-login]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const form = document.querySelector("#login-form");
+    const email = form?.querySelector('input[name="email"]');
+    const password = form?.querySelector('input[name="password"]');
+    if (!email || !password) return;
+
+    email.value = button.dataset.email || "";
+    password.value = button.dataset.password || "";
+    email.focus();
+  });
+});
+
 const recoveryPanels = [...document.querySelectorAll(".recovery-panel")];
 const progressSteps = [...document.querySelectorAll(".progress-step")];
 

@@ -104,6 +104,11 @@ function admin_quote_identifier(string $identifier): string
 
 function admin_columns(PDO $pdo, string $table): array
 {
+    static $cache = [];
+    if (isset($cache[$table])) {
+        return $cache[$table];
+    }
+
     $statement = $pdo->prepare(
         "SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA
          FROM INFORMATION_SCHEMA.COLUMNS
@@ -112,7 +117,8 @@ function admin_columns(PDO $pdo, string $table): array
     );
     $statement->execute([$table]);
 
-    return $statement->fetchAll();
+    $cache[$table] = $statement->fetchAll();
+    return $cache[$table];
 }
 
 function admin_editable_columns(PDO $pdo, string $table): array
@@ -139,6 +145,11 @@ function admin_enum_options(string $columnType): array
 
 function admin_relation_options(PDO $pdo, string $column): array
 {
+    static $cache = [];
+    if (isset($cache[$column])) {
+        return $cache[$column];
+    }
+
     $queries = [
         'student_id' => "SELECT id, CONCAT(first_name_en, ' ', last_name_en) label FROM students ORDER BY last_name_en, first_name_en",
         'teacher_id' => "SELECT id, TRIM(CONCAT(first_name, ' ', COALESCE(last_name, ''))) label FROM teachers ORDER BY last_name, first_name",
@@ -153,7 +164,8 @@ function admin_relation_options(PDO $pdo, string $column): array
         return [];
     }
 
-    return $pdo->query($queries[$column])->fetchAll();
+    $cache[$column] = $pdo->query($queries[$column])->fetchAll();
+    return $cache[$column];
 }
 
 function admin_hidden_derived_columns(string $table): array

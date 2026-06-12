@@ -3,55 +3,16 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/auth.php';
 
-if (is_logged_in() && (current_user()['role'] ?? '') === 'admin') {
-    header('Location: admin.php');
-    exit;
+if (is_logged_in()) {
+    redirect_to_role_home((array) current_user());
 }
 
 $error = '';
-$email = 'admin@khotwa.test';
+$email = '';
 
-try {
-    $pdo = khotwa_db();
-    $statement = $pdo->prepare(
-        "SELECT id, password_hash
-         FROM users
-         WHERE email = ?
-         LIMIT 1"
-    );
-    $statement->execute(['admin@khotwa.test']);
-    $demoAdmin = $statement->fetch();
-
-    if (!$demoAdmin) {
-        $insert = $pdo->prepare(
-            "INSERT INTO users (
-                teacher_id, first_name, last_name, email, password_hash,
-                role, status, must_change_password, notes
-             ) VALUES (NULL, ?, ?, ?, ?, 'admin', 'active', 0, ?)"
-        );
-        $insert->execute([
-            'Khotwa',
-            'Administrator',
-            'admin@khotwa.test',
-            password_hash('admin123', PASSWORD_DEFAULT),
-            'Demo administrator account for the v1.2 portal',
-        ]);
-    } else {
-        $demoPasswordHash = password_verify('admin123', (string) $demoAdmin['password_hash'])
-            ? (string) $demoAdmin['password_hash']
-            : password_hash('admin123', PASSWORD_DEFAULT);
-        $updateDemo = $pdo->prepare(
-            "UPDATE users
-             SET password_hash = ?, role = 'admin', status = 'active', must_change_password = 0
-             WHERE id = ?"
-        );
-        $updateDemo->execute([
-            $demoPasswordHash,
-            (int) $demoAdmin['id'],
-        ]);
-    }
-
-    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    try {
+        $pdo = khotwa_db();
         $email = trim((string) ($_POST['email'] ?? ''));
         $password = (string) ($_POST['password'] ?? '');
 
@@ -64,13 +25,32 @@ try {
         $login->execute([$email]);
         $user = $login->fetch();
 
+        if (!$user && $email === 'admin@khotwa.test' && $password === 'admin123') {
+            $insert = $pdo->prepare(
+                "INSERT INTO users (
+                    teacher_id, first_name, last_name, email, password_hash,
+                    role, status, must_change_password, notes
+                 ) VALUES (NULL, ?, ?, ?, ?, 'admin', 'active', 0, ?)"
+            );
+            $insert->execute([
+                'Khotwa',
+                'Administrator',
+                $email,
+                password_hash($password, PASSWORD_DEFAULT),
+                'Demo administrator account for the v1.2 portal',
+            ]);
+            $login->execute([$email]);
+            $user = $login->fetch();
+        }
+
         if (
             !$user ||
-            $user['role'] !== 'admin' ||
+            !in_array($user['role'], ['admin', 'teacher'], true) ||
             $user['status'] !== 'active' ||
+            ($user['role'] === 'teacher' && $user['teacher_id'] === null) ||
             !password_verify($password, (string) $user['password_hash'])
         ) {
-            $error = 'Invalid administrator email or password.';
+            $error = 'Invalid email or password, or this account is not ready for portal access.';
         } else {
             session_regenerate_id(true);
             $_SESSION['user'] = [
@@ -85,12 +65,11 @@ try {
             $updateLogin = $pdo->prepare('UPDATE users SET last_login_at = NOW() WHERE id = ?');
             $updateLogin->execute([(int) $user['id']]);
 
-            header('Location: admin.php');
-            exit;
+            redirect_to_role_home($_SESSION['user']);
         }
+    } catch (Throwable $exception) {
+        $error = 'The database is unavailable. Start MySQL in XAMPP and try again.';
     }
-} catch (Throwable $exception) {
-    $error = 'The database is unavailable. Start MySQL in XAMPP and try again.';
 }
 ?>
 <!DOCTYPE html>
@@ -103,13 +82,18 @@ try {
   <title>Log In | Khotwa Education Center</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="auth.css">
+  <link rel="preload" href="assets/images/khotwa-hero.webp" as="image" type="image/webp" fetchpriority="high">
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
+  <link rel="prefetch" href="admin.css" as="style">
+  <link rel="prefetch" href="admin.js" as="script">
+  <link rel="prefetch" href="language.js" as="script">
+  <link rel="stylesheet" href="auth.css?v=<?= e((string) filemtime(__DIR__ . '/auth.css')) ?>">
 </head>
 <body class="auth-page">
   <div class="auth-shell">
     <section class="auth-visual" aria-label="Khotwa learning community">
-      <img src="assets/images/khotwa-hero.png" alt="Students learning together at Khotwa Education Center">
+      <img src="assets/images/khotwa-hero.webp" alt="Students learning together at Khotwa Education Center" width="1600" height="854" fetchpriority="high">
       <div class="visual-wash"></div>
       <div class="visual-grid" aria-hidden="true"></div>
 
@@ -177,10 +161,17 @@ try {
           <div class="auth-error" role="alert"><?= e($error) ?></div>
         <?php endif; ?>
 
-        <div class="demo-credentials">
-          <span>Administrator demo</span>
-          <strong>admin@khotwa.test</strong>
-          <code>admin123</code>
+        <div class="demo-credential-list">
+          <button class="demo-credentials" type="button" data-fill-login data-email="admin@khotwa.test" data-password="admin123">
+            <span>Administrator demo</span>
+            <strong>admin@khotwa.test</strong>
+            <code>admin123</code>
+          </button>
+          <button class="demo-credentials teacher-demo" type="button" data-fill-login data-email="maya.math@khotwa.test" data-password="teacher123">
+            <span>Teacher demo</span>
+            <strong>maya.math@khotwa.test</strong>
+            <code>teacher123</code>
+          </button>
         </div>
 
         <form class="auth-form" id="login-form" method="post" action="login.php">
@@ -196,7 +187,7 @@ try {
             <span>Password</span>
             <span class="input-wrap">
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
-              <input type="password" name="password" value="admin123" placeholder="Enter your password" autocomplete="current-password" required>
+              <input type="password" name="password" placeholder="Enter your password" autocomplete="current-password" required>
               <button class="password-toggle" type="button" aria-label="Show password">
                 <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
                 <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 16 16M10.6 6.2A10.8 10.8 0 0 1 12 6c6 0 9.5 6 9.5 6a17 17 0 0 1-2.3 3.1M8.3 7.1C4.6 8.8 2.5 12 2.5 12s3.5 6 9.5 6c1.1 0 2.1-.2 3-.5M9.8 9.8a3.1 3.1 0 0 0 4.4 4.4"/></svg>
@@ -244,7 +235,7 @@ try {
     <span></span>
     <div><strong>Design preview</strong><small>No account data is being submitted.</small></div>
   </div>
-  <script src="language.js"></script>
-  <script src="auth.js"></script>
+  <script src="language.js?v=<?= e((string) filemtime(__DIR__ . '/language.js')) ?>" defer></script>
+  <script src="auth.js?v=<?= e((string) filemtime(__DIR__ . '/auth.js')) ?>" defer></script>
 </body>
 </html>
