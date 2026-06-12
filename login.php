@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/auth.php';
 
 if (is_logged_in() && (current_user()['role'] ?? '') === 'admin') {
     header('Location: admin.php');
