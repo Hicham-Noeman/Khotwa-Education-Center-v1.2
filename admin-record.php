@@ -68,6 +68,7 @@ try {
         unset($editableNames[$derivedColumn]);
     }
     $pageTitle = (string) $navigation[$view]['label'];
+    $columnsByName = array_column($allColumns, null, 'COLUMN_NAME');
 } catch (Throwable $exception) {
     $databaseError = $exception->getMessage();
 }
@@ -108,41 +109,160 @@ try {
           <?php if ($message !== ''): ?><div class="form-notice success-notice"><?= e($message) ?></div><?php endif; ?>
           <?php if ($error !== ''): ?><div class="form-notice error-notice"><?= e($error) ?></div><?php endif; ?>
 
-          <section class="data-panel profile-main-card">
-            <div class="panel-heading">
-              <div><span>Full record</span><h2><?= e(admin_table_label($table)) ?></h2></div>
-              <span class="read-only-status" data-edit-status>Read only</span>
-            </div>
+          <section class="data-panel profile-main-card<?= $view === 'website-content' ? ' website-content-record' : '' ?>">
             <form method="post" data-edit-form>
               <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
               <input type="hidden" name="action" value="update_record">
               <input type="hidden" name="view" value="<?= e($view) ?>">
               <input type="hidden" name="record_id" value="<?= e((string) $recordId) ?>">
-              <fieldset class="record-fieldset" disabled data-edit-fields>
-                <div class="record-form-grid">
-                  <?php foreach ($allColumns as $column): ?>
-                    <?php
-                    $columnName = (string) $column['COLUMN_NAME'];
-                    $locked = isset($editableNames[$columnName])
-                        ? []
-                        : [$columnName => $record[$columnName] ?? ''];
-                    admin_render_field(
-                        $pdo,
-                        $table,
-                        $column,
-                        $record[$columnName] ?? '',
-                        $locked,
-                        true
-                    );
-                    ?>
-                  <?php endforeach; ?>
+              <div class="panel-heading record-panel-heading">
+                <div><span>Full record</span><h2><?= e(admin_table_label($table)) ?></h2></div>
+                <div class="record-header-tools">
+                  <span class="read-only-status" data-edit-status>Read only</span>
+                  <button class="secondary-action edit-record-button" type="button" data-edit-toggle>Edit record</button>
+                  <button class="primary-action" type="submit" hidden data-save-record>Save changes</button>
+                  <button class="secondary-action" type="button" hidden data-cancel-edit>Cancel</button>
                 </div>
-              </fieldset>
-              <div class="record-form-actions">
-                <button class="secondary-action edit-record-button" type="button" data-edit-toggle>Edit</button>
-                <button class="primary-action" type="submit" hidden data-save-record>Save</button>
-                <button class="secondary-action" type="button" hidden data-cancel-edit>Cancel</button>
               </div>
+              <fieldset class="record-fieldset" disabled data-edit-fields>
+                <?php if ($view === 'website-content'): ?>
+                  <?php
+                  $renderWebsiteField = static function (string $columnName, string $wrapperClass = '') use (
+                      $columnsByName,
+                      $editableNames,
+                      $record,
+                      $pdo,
+                      $table
+                  ): void {
+                      if (!isset($columnsByName[$columnName])) {
+                          return;
+                      }
+
+                      $locked = isset($editableNames[$columnName])
+                          ? []
+                          : [$columnName => $record[$columnName] ?? ''];
+                      echo '<div class="website-field ' . e($wrapperClass) . '">';
+                      admin_render_field(
+                          $pdo,
+                          $table,
+                          $columnsByName[$columnName],
+                          $record[$columnName] ?? '',
+                          $locked,
+                          true
+                      );
+                      echo '</div>';
+                  };
+                  $isProgramContent = ($record['content_type'] ?? '') === 'program';
+                  ?>
+
+                  <div class="website-content-editor">
+                    <section class="content-editor-section content-settings-section">
+                      <header class="content-section-heading">
+                        <span class="content-section-number">01</span>
+                        <div>
+                          <h3>Content settings</h3>
+                          <p>Control where this block appears and whether it is visible on the homepage.</p>
+                        </div>
+                      </header>
+                      <div class="website-settings-grid">
+                        <?php $renderWebsiteField('content_key'); ?>
+                        <?php $renderWebsiteField('content_type'); ?>
+                        <?php $renderWebsiteField('sort_order'); ?>
+                        <?php $renderWebsiteField('status'); ?>
+                      </div>
+                    </section>
+
+                    <div class="content-language-grid">
+                      <section class="content-editor-section language-content-card language-content-en">
+                        <header class="language-card-heading">
+                          <span>EN</span>
+                          <div>
+                            <h3>English content</h3>
+                            <p>Text shown when the website language is English.</p>
+                          </div>
+                        </header>
+                        <div class="language-fields">
+                          <?php $renderWebsiteField('eyebrow_en'); ?>
+                          <?php if ($isProgramContent): ?><?php $renderWebsiteField('category_en'); ?><?php endif; ?>
+                          <?php $renderWebsiteField('title_en'); ?>
+                          <?php $renderWebsiteField('description_en', 'website-field-description'); ?>
+                        </div>
+                      </section>
+
+                      <section class="content-editor-section language-content-card language-content-ar">
+                        <header class="language-card-heading">
+                          <span>ع</span>
+                          <div>
+                            <h3>Arabic content</h3>
+                            <p>Text shown when the website language is Arabic.</p>
+                          </div>
+                        </header>
+                        <div class="language-fields">
+                          <?php $renderWebsiteField('eyebrow_ar'); ?>
+                          <?php if ($isProgramContent): ?><?php $renderWebsiteField('category_ar'); ?><?php endif; ?>
+                          <?php $renderWebsiteField('title_ar'); ?>
+                          <?php $renderWebsiteField('description_ar', 'website-field-description'); ?>
+                        </div>
+                      </section>
+                    </div>
+
+                    <?php if ($isProgramContent): ?>
+                      <section class="content-editor-section program-points-section">
+                        <header class="content-section-heading">
+                          <span class="content-section-number">02</span>
+                          <div>
+                            <h3>Program points</h3>
+                            <p>The three highlights displayed below this program in both languages.</p>
+                          </div>
+                        </header>
+                        <div class="program-points-grid">
+                          <?php for ($point = 1; $point <= 3; $point++): ?>
+                            <article class="program-point-row">
+                              <span class="program-point-number"><?= e((string) $point) ?></span>
+                              <?php $renderWebsiteField('point_' . $point . '_en'); ?>
+                              <?php $renderWebsiteField('point_' . $point . '_ar'); ?>
+                            </article>
+                          <?php endfor; ?>
+                        </div>
+                      </section>
+                    <?php endif; ?>
+
+                    <section class="content-editor-section record-information-section">
+                      <header class="content-section-heading">
+                        <span class="content-section-number"><?= $isProgramContent ? '03' : '02' ?></span>
+                        <div>
+                          <h3>Record information</h3>
+                          <p>System-managed identifiers and timestamps for this content block.</p>
+                        </div>
+                      </header>
+                      <div class="record-information-grid">
+                        <?php $renderWebsiteField('id'); ?>
+                        <?php $renderWebsiteField('created_at'); ?>
+                        <?php $renderWebsiteField('updated_at'); ?>
+                      </div>
+                    </section>
+                  </div>
+                <?php else: ?>
+                  <div class="record-form-grid">
+                    <?php foreach ($allColumns as $column): ?>
+                      <?php
+                      $columnName = (string) $column['COLUMN_NAME'];
+                      $locked = isset($editableNames[$columnName])
+                          ? []
+                          : [$columnName => $record[$columnName] ?? ''];
+                      admin_render_field(
+                          $pdo,
+                          $table,
+                          $column,
+                          $record[$columnName] ?? '',
+                          $locked,
+                          true
+                      );
+                      ?>
+                    <?php endforeach; ?>
+                  </div>
+                <?php endif; ?>
+              </fieldset>
             </form>
           </section>
         <?php endif; ?>

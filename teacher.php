@@ -6,7 +6,8 @@ require_once __DIR__ . '/auth.php';
 $user = require_roles(['teacher']);
 $teacherId = (int) ($user['teacher_id'] ?? 0);
 $views = [
-    'attendance' => ['label' => 'Attendance', 'description' => 'Mark attendance quickly, then add session notes when you have time.'],
+    'attendance' => ['label' => 'Attendance', 'description' => 'Mark today\'s attendance quickly, then add notes when you have time.'],
+    'submission' => ['label' => "Today's Submission", 'description' => 'Review and validate today\'s attendance before the final database save.'],
     'students' => ['label' => 'Students', 'description' => 'Students actively assigned to your subjects.'],
     'profile' => ['label' => 'My Profile', 'description' => 'Your teacher information, account details, and assigned subjects.'],
 ];
@@ -16,8 +17,7 @@ if (!isset($views[$view])) {
 }
 
 $today = date('Y-m-d');
-$attendanceDate = (string) ($_POST['attendance_date'] ?? $_GET['date'] ?? $today);
-$sessionNumber = (int) ($_POST['session_number'] ?? $_GET['session'] ?? 1);
+$attendanceDate = $today;
 $message = isset($_GET['saved'])
     ? max(0, (int) $_GET['saved']) . ' attendance record(s) saved.'
     : '';
@@ -27,17 +27,12 @@ $attendanceRows = [];
 $teacherProfile = [];
 $assignedSubjects = [];
 
-$dateObject = DateTimeImmutable::createFromFormat('!Y-m-d', $attendanceDate);
-if (!$dateObject || $dateObject->format('Y-m-d') !== $attendanceDate || $attendanceDate > $today) {
-    $attendanceDate = $today;
-}
-$sessionNumber = max(1, min(8, $sessionNumber));
-
 function teacher_icon(string $name): string
 {
     $paths = [
         'students' => '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
         'attendance' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18m-5 5 2 2 4-4"/>',
+        'submission' => '<path d="M9 11l2 2 4-4"/><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 17h8"/>',
         'profile' => '<circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/><path d="M18 4h3v3"/>',
         'logout' => '<path d="M10 17l5-5-5-5M15 12H3"/><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/>',
     ];
@@ -62,8 +57,9 @@ function render_teacher_sidebar(array $user, string $activeView): void
       <nav class="admin-nav">
         <section class="nav-group">
           <h2>My Workspace</h2>
-          <?php foreach (['attendance' => 'Attendance', 'students' => 'Students', 'profile' => 'My Profile'] as $key => $label): ?>
-            <a class="<?= $activeView === $key ? 'is-active' : '' ?>" href="teacher.php?view=<?= e($key) ?>" title="<?= e($label) ?>">
+          <?php foreach (['attendance' => 'Attendance', 'submission' => "Today's Submission", 'students' => 'Students', 'profile' => 'My Profile'] as $key => $label): ?>
+            <?php $href = 'teacher.php?view=' . rawurlencode($key); ?>
+            <a class="<?= $activeView === $key ? 'is-active' : '' ?>" href="<?= e($href) ?>" title="<?= e($label) ?>">
               <?= teacher_icon($key) ?><span><?= e($label) ?></span>
               <?php if ($activeView === $key): ?><i></i><?php endif; ?>
             </a>
@@ -109,7 +105,7 @@ try {
         throw new RuntimeException('The linked teacher profile is unavailable.');
     }
 
-    if ($view === 'attendance' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    if ($view === 'submission' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         try {
             verify_app_csrf();
             $submittedRows = (array) ($_POST['attendance'] ?? []);
@@ -134,8 +130,8 @@ try {
             $subjectStatement = $pdo->prepare(
                 "INSERT INTO student_subject_attendance (
                     daily_attendance_id, student_id, attendance_date, teacher_subject_id,
-                    teacher_id, subject_id, session_number, status, homework_note, notes
-                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    teacher_id, subject_id, status, homework_note, notes
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                  ON DUPLICATE KEY UPDATE
                     status = VALUES(status),
                     homework_note = VALUES(homework_note),
@@ -193,7 +189,6 @@ try {
                     (int) $enrollment['teacher_subject_id'],
                     (int) $enrollment['teacher_id'],
                     (int) $enrollment['subject_id'],
-                    $sessionNumber,
                     $status,
                     $homeworkNote === '' ? null : substr($homeworkNote, 0, 255),
                     $lessonNote === '' ? null : substr($lessonNote, 0, 255),
@@ -207,10 +202,7 @@ try {
             }
             $pdo->commit();
 
-            header(
-                'Location: teacher.php?view=attendance&date=' . rawurlencode($attendanceDate)
-                . '&session=' . $sessionNumber . '&saved=' . $savedCount
-            );
+            header('Location: teacher.php?view=submission&saved=' . $savedCount);
             exit;
         } catch (Throwable $exception) {
             if ($pdo->inTransaction()) {
@@ -245,7 +237,7 @@ try {
                     FROM student_subject_attendance attendance
                     WHERE attendance.student_id = students.id
                       AND attendance.teacher_subject_id = student_subject_enrollments.teacher_subject_id
-                    ORDER BY attendance.attendance_date DESC, attendance.session_number DESC
+                    ORDER BY attendance.attendance_date DESC, attendance.updated_at DESC
                     LIMIT 1
                 )
              WHERE student_subject_enrollments.teacher_id = ?
@@ -255,7 +247,7 @@ try {
         );
         $statement->execute([$teacherId]);
         $studentRows = $statement->fetchAll();
-    } elseif ($view === 'attendance') {
+    } elseif (in_array($view, ['attendance', 'submission'], true)) {
         $statement = $pdo->prepare(
             "SELECT student_subject_enrollments.id AS enrollment_id,
                     students.id AS student_id,
@@ -279,13 +271,13 @@ try {
              LEFT JOIN student_subject_attendance
                 ON student_subject_attendance.daily_attendance_id = student_daily_attendance.id
                 AND student_subject_attendance.teacher_subject_id = student_subject_enrollments.teacher_subject_id
-                AND student_subject_attendance.session_number = ?
+                AND student_subject_attendance.session_number = 1
              WHERE student_subject_enrollments.teacher_id = ?
                AND student_subject_enrollments.status = 'active'
                AND students.status = 'active'
              ORDER BY grade_name, students.last_name_en, students.first_name_en, subjects.name_en"
         );
-        $statement->execute([$attendanceDate, $sessionNumber, $teacherId]);
+        $statement->execute([$attendanceDate, $teacherId]);
         $attendanceRows = $statement->fetchAll();
     } else {
         $subjectStatement = $pdo->prepare(
@@ -332,7 +324,12 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
   <link rel="stylesheet" href="admin.css?v=<?= e((string) filemtime(__DIR__ . '/admin.css')) ?>">
   <link rel="stylesheet" href="teacher.css?v=<?= e((string) filemtime(__DIR__ . '/teacher.css')) ?>">
 </head>
-<body class="admin-page teacher-admin-page">
+<body
+  class="admin-page teacher-admin-page teacher-view-<?= e($view) ?>"
+  data-teacher-id="<?= e((string) $teacherId) ?>"
+  data-attendance-date="<?= e($attendanceDate) ?>"
+  data-clear-attendance-draft="<?= isset($_GET['saved']) ? 'true' : 'false' ?>"
+>
   <div class="admin-shell" data-admin-shell>
     <?php render_teacher_sidebar($user, $view); ?>
     <div class="admin-stage">
@@ -418,29 +415,18 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
             </section>
           <?php else: ?>
             <section class="attendance-session-bar">
-              <form method="get" class="attendance-session-form" data-date-form>
-                <input type="hidden" name="view" value="attendance">
-                <label class="admin-field"><span>Date</span><input type="date" name="date" value="<?= e($attendanceDate) ?>" max="<?= e($today) ?>"></label>
-                <label class="admin-field"><span>Session</span><select name="session"><?php for ($session = 1; $session <= 8; $session++): ?><option value="<?= $session ?>" <?= $sessionNumber === $session ? 'selected' : '' ?>>Session <?= $session ?></option><?php endfor; ?></select></label>
-              </form>
-              <div class="attendance-progress" aria-label="Attendance progress">
-                <div class="attendance-progress-track"><span data-progress-fill style="width: <?= count($attendanceRows) > 0 ? round((($attendedCount + $missedCount) / count($attendanceRows)) * 100) : 0 ?>%"></span></div>
-                <div class="attendance-progress-stats">
-                  <span><strong data-attended-count><?= e((string) $attendedCount) ?></strong> came</span>
-                  <span><strong data-missed-count><?= e((string) $missedCount) ?></strong> absent</span>
-                  <span><strong data-unmarked-count><?= e((string) $unmarkedCount) ?></strong> left</span>
-                </div>
+              <div class="attendance-today">
+                <span>Today's attendance</span>
+                <time datetime="<?= e($attendanceDate) ?>"><?= e(date('l, F j, Y', strtotime($attendanceDate))) ?></time>
               </div>
             </section>
 
-            <form method="post" class="attendance-workspace" data-attendance-form>
-              <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
-              <input type="hidden" name="attendance_date" value="<?= e($attendanceDate) ?>">
-              <input type="hidden" name="session_number" value="<?= e((string) $sessionNumber) ?>">
+
+            <div class="attendance-workspace" data-attendance-form>
 
               <div class="attendance-mode-tabs" role="tablist" aria-label="Attendance workflow">
                 <button class="attendance-mode-tab is-active" type="button" role="tab" aria-selected="true" data-attendance-mode="mark">Quick mark</button>
-                <button class="attendance-mode-tab" type="button" role="tab" aria-selected="false" data-attendance-mode="notes">Session notes</button>
+                <button class="attendance-mode-tab" type="button" role="tab" aria-selected="false" data-attendance-mode="notes">Daily notes</button>
               </div>
 
               <section class="attendance-panel is-active" data-attendance-panel="mark" role="tabpanel">
@@ -455,19 +441,42 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                   </div>
                 </div>
                 <div class="attendance-filters">
-                  <div class="show-attended-container">
-                    <label class="show-attended-label">
-                      <span>Show Attended Students</span>
-                      <span class="show-attended-switch">
-                        <input type="checkbox" data-toggle-attended>
-                        <span class="show-attended-slider"></span>
-                      </span>
-                    </label>
-                  </div>
+                  <span class="letter-filter-label">Filter by first letter</span>
                   <div class="letter-filter-container" data-letter-filter-container>
                     <!-- Letter buttons will be dynamically generated by JS -->
                   </div>
                 </div>
+
+                <div class="attendance-swipe-zone" data-swipe-zone>
+                  <div class="swipe-stack" data-swipe-stack aria-live="polite"></div>
+                  <p class="swipe-skip-hint">Swipe up for next, down for previous</p>
+                  <div class="swipe-zone-empty" data-swipe-empty hidden>
+                    <strong data-swipe-empty-title>All students marked</strong>
+                    <p data-swipe-empty-message>Add any attendance notes, then save.</p>
+                    <button class="secondary-action" type="button" data-go-notes>Add notes</button>
+                  </div>
+                </div>
+
+                <div class="swipe-actions" data-swipe-actions>
+                  <button class="swipe-btn swipe-btn-missed" type="button" data-swipe-action="missed" aria-label="Mark absent">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    <span>Absent</span>
+                  </button>
+                  <button class="swipe-btn swipe-btn-came" type="button" data-swipe-action="attended" aria-label="Mark came">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 13 4 4L19 7"/></svg>
+                    <span>Came</span>
+                  </button>
+                </div>
+
+                <div class="attendance-progress" aria-label="Attendance progress">
+                  <div class="attendance-progress-track"><span data-progress-fill style="width: <?= count($attendanceRows) > 0 ? round((($attendedCount + $missedCount) / count($attendanceRows)) * 100) : 0 ?>%"></span></div>
+                  <div class="attendance-progress-stats">
+                    <span><strong data-attended-count><?= e((string) $attendedCount) ?></strong> came</span>
+                    <span><strong data-missed-count><?= e((string) $missedCount) ?></strong> absent</span>
+                    <span><strong data-unmarked-count><?= e((string) $unmarkedCount) ?></strong> left</span>
+                  </div>
+                </div>
+
 
                 <div class="attendance-quick-list" data-quick-list>
                   <?php foreach ($attendanceRows as $row): ?>
@@ -493,7 +502,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                       <div class="quick-row-copy">
                         <strong><?= e((string) $row['student_name']) ?></strong>
                         <small class="quick-row-arabic"><?= e((string) $row['student_name_ar']) ?></small>
-                        <span class="quick-row-meta"><?= e((string) $row['grade_name']) ?> · <?= e((string) $row['subject_name']) ?></span>
+                        <span class="quick-row-meta"><?= e((string) $row['grade_name']) ?> &middot; <?= e((string) $row['subject_name']) ?></span>
                       </div>
                       <div class="quick-row-actions">
                         <button class="quick-status-btn quick-status-came" type="button" data-set-status="attended" aria-pressed="<?= $rowStatus === 'attended' ? 'true' : 'false' ?>">Came</button>
@@ -511,7 +520,10 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
               </section>
 
               <section class="attendance-panel" data-attendance-panel="notes" role="tabpanel" hidden>
-                <p class="attendance-notes-intro">Add session and homework notes for students you already marked. Attendance status is shown read-only here.</p>
+                <div class="attendance-notes-heading">
+                  <button class="secondary-action" type="button" data-go-mark>Back to attendance</button>
+                  <p class="attendance-notes-intro">Add attendance and homework notes for students you already marked. Attendance status is shown read-only here.</p>
+                </div>
                 <div class="attendance-notes-list" data-notes-list>
                   <?php foreach ($attendanceRows as $row): ?>
                     <?php
@@ -522,12 +534,12 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                       <div class="notes-row-head">
                         <div>
                           <strong><?= e((string) $row['student_name']) ?></strong>
-                          <small><?= e((string) $row['subject_name']) ?> · <?= e((string) $row['grade_name']) ?></small>
+                          <small><?= e((string) $row['subject_name']) ?> &middot; <?= e((string) $row['grade_name']) ?></small>
                         </div>
                         <span class="attendance-state" data-notes-status-label><?= $rowStatus === 'attended' ? 'Came' : ($rowStatus === 'missed' ? 'Did not come' : 'Not marked') ?></span>
                       </div>
                       <div class="notes-row-fields">
-                        <label><span>Session note</span><textarea maxlength="255" data-note-field="<?= e($enrollmentId) ?>" placeholder="Participation, progress, or follow-up"><?= e((string) ($row['attendance_note'] ?? '')) ?></textarea></label>
+                        <label><span>Attendance note</span><textarea maxlength="255" data-note-field="<?= e($enrollmentId) ?>" placeholder="Participation, progress, or follow-up"><?= e((string) ($row['attendance_note'] ?? '')) ?></textarea></label>
                         <label><span>Homework note</span><textarea maxlength="255" data-homework-field="<?= e($enrollmentId) ?>" placeholder="Homework assigned or completion"><?= e((string) ($row['homework_note'] ?? '')) ?></textarea></label>
                       </div>
                     </article>
@@ -536,12 +548,76 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                 <p class="attendance-notes-empty" data-notes-empty <?= ($attendedCount + $missedCount) > 0 ? 'hidden' : '' ?>>Mark attendance in Quick mark first, then come back here to add notes.</p>
               </section>
 
-              <div class="teacher-save-bar">
-                <span data-save-state>Tap came or absent, save when ready.</span>
-                <button class="primary-action" type="submit">Save session</button>
-              </div>
-            </form>
+            </div>
           <?php endif; ?>
+
+        <?php elseif ($view === 'submission'): ?>
+          <section class="attendance-session-bar">
+            <div class="attendance-today">
+              <span>Review date</span>
+              <time datetime="<?= e($attendanceDate) ?>"><?= e(date('l, F j, Y', strtotime($attendanceDate))) ?></time>
+            </div>
+          </section>
+
+          <section class="metrics-grid submission-summary" aria-label="Submission summary">
+            <article class="metric-card metric-green"><span class="metric-dot"></span><strong data-review-came-count><?= e((string) $attendedCount) ?></strong><p>Came</p></article>
+            <article class="metric-card metric-pink"><span class="metric-dot"></span><strong data-review-absent-count><?= e((string) $missedCount) ?></strong><p>Absent</p></article>
+            <article class="metric-card metric-orange"><span class="metric-dot"></span><strong data-review-unmarked-count><?= e((string) $unmarkedCount) ?></strong><p>Not marked</p></article>
+          </section>
+
+          <form method="post" class="submission-workspace" data-submission-form>
+            <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
+            <input type="hidden" name="attendance_date" value="<?= e($attendanceDate) ?>">
+
+            <section class="data-panel">
+              <div class="panel-heading submission-heading">
+                <div><span>Final validation</span><h2>Today's Attendance Submission</h2></div>
+                <a class="secondary-action" href="teacher.php?view=attendance">Back to attendance</a>
+              </div>
+
+              <?php if ($attendanceRows === []): ?>
+                <p class="linked-empty">No active students are assigned to this teacher.</p>
+              <?php else: ?>
+                <div class="submission-list" data-submission-list>
+                  <?php foreach ($attendanceRows as $row): ?>
+                    <?php
+                    $rowStatus = (string) ($row['attendance_status'] ?? '');
+                    $enrollmentId = (string) $row['enrollment_id'];
+                    ?>
+                    <article class="submission-row" data-review-row data-enrollment-id="<?= e($enrollmentId) ?>" data-status="<?= e($rowStatus) ?>">
+                      <div class="submission-row-head">
+                        <span class="quick-row-avatar"><?= e(strtoupper(substr((string) $row['student_name'], 0, 1))) ?></span>
+                        <div>
+                          <strong><?= e((string) $row['student_name']) ?></strong>
+                          <small><?= e((string) $row['grade_name']) ?> &middot; <?= e((string) $row['subject_name']) ?></small>
+                        </div>
+                        <span class="attendance-state" data-review-status-label><?= $rowStatus === 'attended' ? 'Came' : ($rowStatus === 'missed' ? 'Absent' : 'Not marked') ?></span>
+                      </div>
+                      <div class="submission-row-body">
+                        <div class="submission-status-actions">
+                          <button class="quick-status-btn quick-status-came" type="button" data-review-status="attended" aria-pressed="<?= $rowStatus === 'attended' ? 'true' : 'false' ?>">Came</button>
+                          <button class="quick-status-btn quick-status-missed" type="button" data-review-status="missed" aria-pressed="<?= $rowStatus === 'missed' ? 'true' : 'false' ?>">Absent</button>
+                        </div>
+                        <div class="notes-row-fields">
+                          <label><span>Attendance note</span><textarea name="attendance[<?= e($enrollmentId) ?>][note]" maxlength="255" data-review-note placeholder="Participation, progress, or follow-up"><?= e((string) ($row['attendance_note'] ?? '')) ?></textarea></label>
+                          <label><span>Homework note</span><textarea name="attendance[<?= e($enrollmentId) ?>][homework_note]" maxlength="255" data-review-homework placeholder="Homework assigned or completion"><?= e((string) ($row['homework_note'] ?? '')) ?></textarea></label>
+                        </div>
+                      </div>
+                      <input type="radio" name="attendance[<?= e($enrollmentId) ?>][status]" value="attended" <?= $rowStatus === 'attended' ? 'checked' : '' ?> hidden>
+                      <input type="radio" name="attendance[<?= e($enrollmentId) ?>][status]" value="missed" <?= $rowStatus === 'missed' ? 'checked' : '' ?> hidden>
+                    </article>
+                  <?php endforeach; ?>
+                </div>
+              <?php endif; ?>
+            </section>
+
+            <?php if ($attendanceRows !== []): ?>
+              <div class="submission-final-bar">
+                <span>Draft changes are saved automatically. Review them before committing to the database.</span>
+                <button class="primary-action" type="submit" data-final-save>Final save all</button>
+              </div>
+            <?php endif; ?>
+          </form>
 
         <?php elseif ($teacherProfile !== []): ?>
           <section class="profile-overview-grid">

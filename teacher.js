@@ -4,7 +4,8 @@ const notesRows = [...document.querySelectorAll("[data-notes-row]")];
 const searchInput = document.querySelector("[data-roster-search]");
 const searchEmpty = document.querySelector("[data-search-empty]");
 const attendanceForm = document.querySelector("[data-attendance-form]");
-const saveState = document.querySelector("[data-save-state]");
+const submissionForm = document.querySelector("[data-submission-form]");
+const reviewRows = [...document.querySelectorAll("[data-review-row]")];
 const swipeStack = document.querySelector("[data-swipe-stack]");
 const swipeZone = document.querySelector("[data-swipe-zone]");
 const swipeEmpty = document.querySelector("[data-swipe-empty]");
@@ -12,9 +13,129 @@ const swipeActions = document.querySelector("[data-swipe-actions]");
 const swipeCounter = document.querySelector("[data-swipe-counter]");
 const notesEmpty = document.querySelector("[data-notes-empty]");
 const progressFill = document.querySelector("[data-progress-fill]");
-const quickList = document.querySelector("[data-quick-list]");
+let currentSelectedLetter = 'ALL';
+let activeList = [];
+let deckOrder = rosterRows.map((row) => row.dataset.enrollmentId);
+const draftKey = [
+  "khotwa-teacher-attendance-draft",
+  document.body.dataset.teacherId || "0",
+  document.body.dataset.attendanceDate || "",
+].join(":");
+
+const readDraft = () => {
+  try {
+    return JSON.parse(localStorage.getItem(draftKey) || "{}");
+  } catch {
+    return {};
+  }
+};
+
+const writeDraft = (draft) => {
+  localStorage.setItem(draftKey, JSON.stringify(draft));
+};
+
+const saveDraftEntry = (enrollmentId, entry) => {
+  const draft = readDraft();
+  draft[enrollmentId] = {
+    ...(draft[enrollmentId] || {}),
+    ...entry,
+    updatedAt: new Date().toISOString(),
+  };
+  writeDraft(draft);
+};
+
+if (document.body.dataset.clearAttendanceDraft === "true") {
+  localStorage.removeItem(draftKey);
+}
 
 const getStatus = (row) => row.querySelector('input[type="radio"]:checked')?.value || "";
+
+const getStudentLetter = (row) => {
+  const name = row.querySelector(".quick-row-copy strong")?.textContent || "";
+  const firstChar = name.trim().charAt(0).toUpperCase();
+  return (firstChar >= 'A' && firstChar <= 'Z') ? firstChar : '';
+};
+
+const renderLetterFilterBar = () => {
+  const container = document.querySelector("[data-letter-filter-container]");
+  if (!container) return;
+
+  const letters = new Set();
+  rosterRows.forEach(row => {
+    const letter = getStudentLetter(row);
+    if (letter) {
+      letters.add(letter);
+    }
+  });
+
+  const sortedLetters = Array.from(letters).sort();
+
+  if (currentSelectedLetter !== 'ALL' && !sortedLetters.includes(currentSelectedLetter)) {
+    currentSelectedLetter = 'ALL';
+  }
+
+  container.innerHTML = "";
+
+  const allBtn = document.createElement("button");
+  allBtn.type = "button";
+  allBtn.className = `letter-btn ${currentSelectedLetter === 'ALL' ? 'is-active' : ''}`;
+  allBtn.textContent = "All";
+  allBtn.addEventListener("click", () => {
+    currentSelectedLetter = 'ALL';
+    applyFilters();
+  });
+  container.appendChild(allBtn);
+
+  sortedLetters.forEach(letter => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `letter-btn ${currentSelectedLetter === letter ? 'is-active' : ''}`;
+    btn.textContent = letter;
+    btn.addEventListener("click", () => {
+      currentSelectedLetter = letter;
+      applyFilters();
+    });
+    container.appendChild(btn);
+  });
+};
+
+const applyFilters = () => {
+  const query = searchInput ? searchInput.value.trim().toLowerCase() : "";
+  let visibleCount = 0;
+
+  renderLetterFilterBar();
+
+  activeList = [];
+  const deckPosition = new Map(deckOrder.map((enrollmentId, index) => [enrollmentId, index]));
+
+  rosterRows.forEach(row => {
+    const studentLetter = getStudentLetter(row);
+    const haystack = (row.dataset.searchText || row.textContent).toLowerCase();
+    const matchesLetter = currentSelectedLetter === 'ALL' || studentLetter === currentSelectedLetter;
+    const matchesSearch = query === "" || haystack.includes(query);
+
+    const isVisible = matchesLetter && matchesSearch;
+    row.hidden = !isVisible;
+
+    if (isVisible) {
+      visibleCount++;
+    }
+    if (isVisible && getStatus(row) === "") {
+      activeList.push(row);
+    }
+  });
+  activeList.sort(
+    (left, right) =>
+      (deckPosition.get(left.dataset.enrollmentId) ?? 0)
+      - (deckPosition.get(right.dataset.enrollmentId) ?? 0)
+  );
+
+  if (searchEmpty) {
+    searchEmpty.hidden = visibleCount !== 0;
+  }
+
+  renderCardStack();
+};
 
 const syncNoteFields = (enrollmentId) => {
   const row = rosterRows.find((item) => item.dataset.enrollmentId === enrollmentId);
@@ -32,7 +153,15 @@ const syncAllNoteFields = () => {
   notesRows.forEach((notesRow) => syncNoteFields(notesRow.dataset.enrollmentId));
 };
 
-const setRowStatus = (row, status) => {
+const persistAttendanceRow = (row) => {
+  saveDraftEntry(row.dataset.enrollmentId, {
+    status: getStatus(row),
+    note: row.querySelector("[data-note-input]")?.value || "",
+    homeworkNote: row.querySelector("[data-homework-input]")?.value || "",
+  });
+};
+
+const setRowStatus = (row, status, persist = true) => {
   const radio = row.querySelector(`input[type="radio"][value="${status}"]`);
   if (radio) radio.checked = true;
 
@@ -51,6 +180,7 @@ const setRowStatus = (row, status) => {
       label.textContent = status === "attended" ? "Came" : status === "missed" ? "Did not come" : "Not marked";
     }
   }
+  if (persist) persistAttendanceRow(row);
 };
 
 const updateMetrics = () => {
@@ -80,13 +210,28 @@ const updateMetrics = () => {
   if (swipeActions) swipeActions.hidden = unmarked === 0;
 };
 
-const markDirty = () => {
-  if (!saveState) return;
-  saveState.textContent = "You have unsaved changes.";
-  saveState.classList.add("is-dirty");
+const rotateDeck = (direction) => {
+  if (activeList.length < 2) return;
+
+  const activeIds = activeList.map((row) => row.dataset.enrollmentId);
+  const activeSet = new Set(activeIds);
+  const activeSlots = deckOrder
+    .map((enrollmentId, index) => activeSet.has(enrollmentId) ? index : -1)
+    .filter((index) => index !== -1);
+
+  if (direction === "previous") {
+    activeIds.unshift(activeIds.pop());
+  } else {
+    activeIds.push(activeIds.shift());
+  }
+
+  activeSlots.forEach((slot, index) => {
+    deckOrder[slot] = activeIds[index];
+  });
+  applyFilters();
 };
 
-const buildSwipeCard = (row) => {
+const buildSwipeCard = (row, isTop) => {
   const card = document.createElement("article");
   card.className = "swipe-card";
   card.dataset.enrollmentId = row.dataset.enrollmentId;
@@ -103,9 +248,14 @@ const buildSwipeCard = (row) => {
     <span class="swipe-card-meta">${meta}</span>
   `;
 
+  if (!isTop) return card;
+
   let startX = 0;
+  let startY = 0;
   let currentX = 0;
+  let currentY = 0;
   let dragging = false;
+  let gestureAxis = "";
 
   const resetPosition = (animate = true) => {
     card.style.transition = animate ? "transform 0.22s ease, opacity 0.22s ease" : "";
@@ -120,66 +270,140 @@ const buildSwipeCard = (row) => {
     window.setTimeout(() => {
       setRowStatus(row, status);
       updateMetrics();
-      markDirty();
-      refreshSwipeStack();
+      applyFilters();
     }, 220);
+  };
+
+  const skipCard = (direction) => {
+    const translateY = direction === "previous" ? 120 : -120;
+    card.style.transition = "transform 0.22s ease, opacity 0.22s ease";
+    card.style.transform = `translateY(${translateY}%)`;
+    card.style.opacity = "0";
+    window.setTimeout(() => rotateDeck(direction), 200);
   };
 
   card.addEventListener("pointerdown", (event) => {
     if (!event.isPrimary) return;
     dragging = true;
+    gestureAxis = "";
     startX = event.clientX;
+    startY = event.clientY;
     currentX = 0;
-    card.setPointerCapture(event.pointerId);
+    currentY = 0;
     card.style.transition = "";
   });
 
   card.addEventListener("pointermove", (event) => {
     if (!dragging) return;
     currentX = event.clientX - startX;
-    const rotate = currentX * 0.04;
-    card.style.transform = `translateX(${currentX}px) rotate(${rotate}deg)`;
-    card.classList.toggle("is-swipe-right", currentX > 40);
-    card.classList.toggle("is-swipe-left", currentX < -40);
+    currentY = event.clientY - startY;
+
+    if (gestureAxis === "") {
+      if (Math.max(Math.abs(currentX), Math.abs(currentY)) < 8) return;
+      gestureAxis = Math.abs(currentX) > Math.abs(currentY) ? "horizontal" : "vertical";
+      card.setPointerCapture(event.pointerId);
+    }
+
+    if (gestureAxis === "horizontal") {
+      const rotate = currentX * 0.04;
+      card.style.transform = `translateX(${currentX}px) rotate(${rotate}deg)`;
+      card.classList.toggle("is-swipe-right", currentX > 40);
+      card.classList.toggle("is-swipe-left", currentX < -40);
+      card.classList.remove("is-swipe-up", "is-swipe-down");
+    } else {
+      card.style.transform = `translateY(${currentY}px)`;
+      card.classList.toggle("is-swipe-up", currentY < -40);
+      card.classList.toggle("is-swipe-down", currentY > 40);
+      card.classList.remove("is-swipe-right", "is-swipe-left");
+    }
   });
 
   const finishSwipe = () => {
     if (!dragging) return;
     dragging = false;
-    card.classList.remove("is-swipe-right", "is-swipe-left");
+    card.classList.remove("is-swipe-right", "is-swipe-left", "is-swipe-up", "is-swipe-down");
 
-    if (currentX > 90) {
-      dismissCard("attended", 1);
+    if (gestureAxis === "") {
+      resetPosition();
       return;
     }
-    if (currentX < -90) {
-      dismissCard("missed", -1);
-      return;
+
+    if (gestureAxis === "horizontal") {
+      if (currentX > 90) {
+        dismissCard("attended", 1);
+        return;
+      }
+      if (currentX < -90) {
+        dismissCard("missed", -1);
+        return;
+      }
+    } else {
+      if (currentY < -90) {
+        skipCard("next");
+        return;
+      }
+      if (currentY > 90) {
+        skipCard("previous");
+        return;
+      }
     }
     resetPosition();
   };
 
   card.addEventListener("pointerup", finishSwipe);
-  card.addEventListener("pointercancel", finishSwipe);
+  card.addEventListener("pointercancel", () => {
+    dragging = false;
+    gestureAxis = "";
+    card.classList.remove("is-swipe-right", "is-swipe-left", "is-swipe-up", "is-swipe-down");
+    resetPosition();
+  });
 
   return card;
 };
 
-const refreshSwipeStack = () => {
+const renderCardStack = () => {
   if (!swipeStack) return;
 
   swipeStack.innerHTML = "";
-  const unmarked = rosterRows.filter((row) => !row.hidden && getStatus(row) === "");
-  const stackItems = unmarked.slice(0, 3).reverse();
+  const stackItems = activeList.slice(0, 3);
 
-  stackItems.forEach((row, index) => {
-    const card = buildSwipeCard(row);
-    card.style.zIndex = String(index + 1);
-    card.style.transform = index > 0 ? `scale(${1 - index * 0.04}) translateY(${index * 8}px)` : "";
+  if (stackItems.length === 0) {
+    const remainingCount = rosterRows.filter((row) => getStatus(row) === "").length;
+    const emptyTitle = document.querySelector("[data-swipe-empty-title]");
+    const emptyMessage = document.querySelector("[data-swipe-empty-message]");
+    const notesButton = document.querySelector("[data-go-notes]");
+    if (emptyTitle) {
+      emptyTitle.textContent = remainingCount === 0
+        ? "All students marked"
+        : "No unmarked students for this letter";
+    }
+    if (emptyMessage) {
+      emptyMessage.textContent = remainingCount === 0
+        ? "Add any attendance notes, then save."
+        : "Choose All or another letter to continue.";
+    }
+    if (notesButton) notesButton.hidden = remainingCount !== 0;
+    swipeStack.hidden = true;
+    if (swipeEmpty) swipeEmpty.hidden = false;
+    if (swipeActions) swipeActions.hidden = true;
+    return;
+  }
+
+  swipeStack.hidden = false;
+  if (swipeEmpty) swipeEmpty.hidden = true;
+  if (swipeActions) swipeActions.hidden = false;
+
+  for (let i = stackItems.length - 1; i >= 0; i--) {
+    const row = stackItems[i];
+    const card = buildSwipeCard(row, i === 0);
+    card.style.zIndex = String(stackItems.length - i);
+    const scale = 1 - i * 0.04;
+    const translateY = i * 8;
+    card.style.transform = `scale(${scale}) translateY(${translateY}px)`;
     swipeStack.appendChild(card);
-  });
+  }
 
-  swipeStack.dataset.activeId = stackItems.length ? stackItems[stackItems.length - 1].dataset.enrollmentId : "";
+  swipeStack.dataset.activeId = stackItems.length ? stackItems[0].dataset.enrollmentId : "";
 };
 
 const markTopSwipeCard = (status) => {
@@ -198,8 +422,7 @@ const markTopSwipeCard = (status) => {
   window.setTimeout(() => {
     setRowStatus(row, status);
     updateMetrics();
-    markDirty();
-    refreshSwipeStack();
+    applyFilters();
   }, 180);
 };
 
@@ -224,8 +447,7 @@ rosterRows.forEach((row) => {
     button.addEventListener("click", () => {
       setRowStatus(row, button.dataset.setStatus);
       updateMetrics();
-      markDirty();
-      refreshSwipeStack();
+      applyFilters();
     });
   });
 
@@ -235,15 +457,13 @@ rosterRows.forEach((row) => {
       event.preventDefault();
       setRowStatus(row, "attended");
       updateMetrics();
-      markDirty();
-      refreshSwipeStack();
+      applyFilters();
     }
     if (event.key === "a" || event.key === "A") {
       event.preventDefault();
       setRowStatus(row, "missed");
       updateMetrics();
-      markDirty();
-      refreshSwipeStack();
+      applyFilters();
     }
   });
 });
@@ -259,17 +479,10 @@ document.querySelectorAll("[data-attendance-mode]").forEach((tab) => {
 });
 
 document.querySelector("[data-go-notes]")?.addEventListener("click", () => setAttendanceMode("notes"));
+document.querySelector("[data-go-mark]")?.addEventListener("click", () => setAttendanceMode("mark"));
 
 document.querySelectorAll("[data-swipe-action]").forEach((button) => {
   button.addEventListener("click", () => markTopSwipeCard(button.dataset.swipeAction));
-});
-
-document.querySelector("[data-swipe-list-toggle]")?.addEventListener("click", () => {
-  swipeZone?.classList.toggle("show-list");
-  const toggle = document.querySelector("[data-swipe-list-toggle]");
-  if (toggle) {
-    toggle.textContent = swipeZone?.classList.contains("show-list") ? "Use swipe" : "Show list";
-  }
 });
 
 document.querySelectorAll("[data-mark-all]").forEach((button) => {
@@ -277,49 +490,128 @@ document.querySelectorAll("[data-mark-all]").forEach((button) => {
     const status = button.dataset.markAll;
     rosterRows.filter((row) => !row.hidden).forEach((row) => setRowStatus(row, status));
     updateMetrics();
-    markDirty();
-    refreshSwipeStack();
+    applyFilters();
   });
 });
 
 document.querySelectorAll("[data-note-field], [data-homework-field]").forEach((field) => {
   field.addEventListener("input", () => {
     const enrollmentId = field.dataset.noteField || field.dataset.homeworkField;
-    if (enrollmentId) syncNoteFields(enrollmentId);
-    markDirty();
+    if (enrollmentId) {
+      syncNoteFields(enrollmentId);
+      const row = rosterRows.find((item) => item.dataset.enrollmentId === enrollmentId);
+      if (row) persistAttendanceRow(row);
+    }
   });
 });
 
-attendanceForm?.addEventListener("submit", () => {
-  syncAllNoteFields();
+const hydrateAttendanceDraft = () => {
+  const draft = readDraft();
+  rosterRows.forEach((row) => {
+    const entry = draft[row.dataset.enrollmentId];
+    if (!entry) return;
+
+    const noteInput = row.querySelector("[data-note-input]");
+    const homeworkInput = row.querySelector("[data-homework-input]");
+    const noteField = document.querySelector(`[data-note-field="${row.dataset.enrollmentId}"]`);
+    const homeworkField = document.querySelector(`[data-homework-field="${row.dataset.enrollmentId}"]`);
+    if (noteInput) noteInput.value = entry.note || "";
+    if (homeworkInput) homeworkInput.value = entry.homeworkNote || "";
+    if (noteField) noteField.value = entry.note || "";
+    if (homeworkField) homeworkField.value = entry.homeworkNote || "";
+    if (entry.status === "attended" || entry.status === "missed") {
+      setRowStatus(row, entry.status, false);
+    }
+  });
+};
+
+const getReviewStatus = (row) =>
+  row.querySelector('input[type="radio"]:checked')?.value || "";
+
+const persistReviewRow = (row) => {
+  saveDraftEntry(row.dataset.enrollmentId, {
+    status: getReviewStatus(row),
+    note: row.querySelector("[data-review-note]")?.value || "",
+    homeworkNote: row.querySelector("[data-review-homework]")?.value || "",
+  });
+};
+
+const setReviewStatus = (row, status, persist = true) => {
+  const radio = row.querySelector(`input[type="radio"][value="${status}"]`);
+  if (radio) radio.checked = true;
+  row.dataset.status = status;
+  row.querySelectorAll("[data-review-status]").forEach((button) => {
+    button.setAttribute("aria-pressed", button.dataset.reviewStatus === status ? "true" : "false");
+  });
+  const label = row.querySelector("[data-review-status-label]");
+  if (label) label.textContent = status === "attended" ? "Came" : status === "missed" ? "Absent" : "Not marked";
+  if (persist) persistReviewRow(row);
+};
+
+const updateReviewMetrics = () => {
+  let came = 0;
+  let absent = 0;
+  reviewRows.forEach((row) => {
+    const status = getReviewStatus(row);
+    if (status === "attended") came += 1;
+    if (status === "missed") absent += 1;
+  });
+  const cameNode = document.querySelector("[data-review-came-count]");
+  const absentNode = document.querySelector("[data-review-absent-count]");
+  const unmarkedNode = document.querySelector("[data-review-unmarked-count]");
+  const finalSaveButton = document.querySelector("[data-final-save]");
+  if (cameNode) cameNode.textContent = String(came);
+  if (absentNode) absentNode.textContent = String(absent);
+  if (unmarkedNode) unmarkedNode.textContent = String(reviewRows.length - came - absent);
+  if (finalSaveButton) finalSaveButton.disabled = came + absent === 0;
+};
+
+const hydrateSubmissionDraft = () => {
+  const draft = readDraft();
+  reviewRows.forEach((row) => {
+    const entry = draft[row.dataset.enrollmentId];
+    if (!entry) {
+      setReviewStatus(row, getReviewStatus(row), false);
+      return;
+    }
+    const note = row.querySelector("[data-review-note]");
+    const homework = row.querySelector("[data-review-homework]");
+    if (note) note.value = entry.note || "";
+    if (homework) homework.value = entry.homeworkNote || "";
+    if (entry.status === "attended" || entry.status === "missed") {
+      setReviewStatus(row, entry.status, false);
+    }
+  });
+  updateReviewMetrics();
+};
+
+reviewRows.forEach((row) => {
+  row.querySelectorAll("[data-review-status]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setReviewStatus(row, button.dataset.reviewStatus);
+      updateReviewMetrics();
+    });
+  });
+  row.querySelectorAll("[data-review-note], [data-review-homework]").forEach((field) => {
+    field.addEventListener("input", () => persistReviewRow(row));
+  });
+});
+
+submissionForm?.addEventListener("submit", () => {
+  reviewRows.forEach(persistReviewRow);
 });
 
 let searchFrame;
 searchInput?.addEventListener("input", () => {
   window.cancelAnimationFrame(searchFrame);
   searchFrame = window.requestAnimationFrame(() => {
-    const query = searchInput.value.trim().toLocaleLowerCase();
-    let visibleCount = 0;
-
-    rosterRows.forEach((row) => {
-      const haystack = row.dataset.searchText || row.textContent.toLocaleLowerCase();
-      const matches = haystack.includes(query);
-      row.hidden = !matches;
-      if (matches) visibleCount += 1;
-    });
-
-    if (searchEmpty) searchEmpty.hidden = visibleCount !== 0;
-    refreshSwipeStack();
+    applyFilters();
   });
 });
 
-document.querySelector("[data-date-form]")?.addEventListener("change", (event) => {
-  if (event.target.matches('input[type="date"], select')) {
-    event.currentTarget.submit();
-  }
-});
-
-rosterRows.forEach((row) => setRowStatus(row, getStatus(row)));
+rosterRows.forEach((row) => setRowStatus(row, getStatus(row), false));
+hydrateAttendanceDraft();
 updateMetrics();
-refreshSwipeStack();
+applyFilters();
+hydrateSubmissionDraft();
 })();

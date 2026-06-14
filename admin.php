@@ -263,6 +263,19 @@ try {
                     email, role, status, last_login_at
              FROM users ORDER BY role, user_name"
         )->fetchAll();
+    } elseif ($view === 'website-content') {
+        $pageDescription = 'Bilingual vision, mission, approach steps, and program content shown on the homepage.';
+        $columns = [
+            'id' => 'ID', 'content_type' => 'Type', 'content_key' => 'Content key',
+            'title_en' => 'English title', 'title_ar' => 'Arabic title',
+            'sort_order' => 'Order', 'status' => 'Status',
+        ];
+        $rows = $pdo->query(
+            "SELECT id, content_type, content_key, title_en, title_ar, sort_order, status
+             FROM homepage_content
+             ORDER BY FIELD(content_type, 'vision', 'mission', 'step', 'program'),
+                      sort_order, id"
+        )->fetchAll();
     }
 } catch (Throwable $exception) {
     $databaseError = 'The administrator panel could not read the database. Please confirm that MySQL is running.';

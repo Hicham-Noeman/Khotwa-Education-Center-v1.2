@@ -20,7 +20,7 @@ $dbPass = '';
 $dbCharset = 'utf8mb4';
 
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
-const KHOTWA_SCHEMA_VERSION = 1;
+const KHOTWA_SCHEMA_VERSION = 2;
 
 function getDatabaseConnection(): PDO
 {
@@ -75,6 +75,7 @@ function ensureKhotwaSchema(PDO $pdo): void
 
     createKhotwaTables($pdo);
     applyKhotwaMigrations($pdo);
+    seedHomepageContentDefaults($pdo);
     $pdo->exec(
         "CREATE TABLE IF NOT EXISTS khotwa_schema_meta (
             id TINYINT UNSIGNED NOT NULL,
@@ -478,6 +479,34 @@ function createKhotwaTables(PDO $pdo): void
                 ON UPDATE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
+        "CREATE TABLE IF NOT EXISTS homepage_content (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            content_key VARCHAR(80) NOT NULL,
+            content_type ENUM('vision', 'mission', 'step', 'program') NOT NULL,
+            sort_order SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            eyebrow_en VARCHAR(150) NULL,
+            eyebrow_ar VARCHAR(150) NULL,
+            category_en VARCHAR(150) NULL,
+            category_ar VARCHAR(150) NULL,
+            title_en VARCHAR(255) NOT NULL,
+            title_ar VARCHAR(255) NOT NULL,
+            description_en TEXT NOT NULL,
+            description_ar TEXT NOT NULL,
+            point_1_en VARCHAR(255) NULL,
+            point_1_ar VARCHAR(255) NULL,
+            point_2_en VARCHAR(255) NULL,
+            point_2_ar VARCHAR(255) NULL,
+            point_3_en VARCHAR(255) NULL,
+            point_3_ar VARCHAR(255) NULL,
+            status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_homepage_content_key (content_key),
+            INDEX idx_homepage_content_type_order (content_type, sort_order),
+            INDEX idx_homepage_content_status (status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
         "CREATE OR REPLACE VIEW student_warning_yearly_summary AS
             SELECT
                 students.id AS student_id,
@@ -581,6 +610,102 @@ function createKhotwaTables(PDO $pdo): void
 
     foreach ($queries as $query) {
         $pdo->exec($query);
+    }
+}
+
+function seedHomepageContentDefaults(PDO $pdo): void
+{
+    $rows = [
+        [
+            'vision', 'vision', 1, 'Our vision', 'رؤيتنا', null, null,
+            'Confident learners. Limitless futures.',
+            'متعلّمون واثقون. وآفاق بلا حدود.',
+            'To shape a generation of curious, capable students who understand how they learn and trust how far they can go.',
+            'أن نصنع جيلاً من الطلاب الفضوليين والقادرين، يفهمون كيف يتعلّمون ويثقون بقدرتهم على التقدّم.',
+            null, null, null, null, null, null,
+        ],
+        [
+            'mission', 'mission', 1, 'Our mission', 'رسالتنا', null, null,
+            'Make every learning step count.',
+            'نجعل لكل خطوة تعليمية قيمة.',
+            'We combine careful assessment, personalized instruction, purposeful practice, and consistent feedback to turn effort into progress.',
+            'نجمع بين التقييم الدقيق والتعليم المخصص والتدريب الهادف والتغذية الراجعة المستمرة لتحويل الجهد إلى تقدّم.',
+            null, null, null, null, null, null,
+        ],
+        [
+            'step_diagnose', 'step', 1, 'Step 01', 'الخطوة 01', null, null,
+            'Diagnose', 'نشخّص',
+            'We identify strengths, gaps, learning habits, and goals through focused assessment.',
+            'نحدّد نقاط القوة والفجوات وعادات التعلّم والأهداف من خلال تقييم مركّز.',
+            null, null, null, null, null, null,
+        ],
+        [
+            'step_build', 'step', 2, 'Step 02', 'الخطوة 02', null, null,
+            'Build', 'نبني',
+            'We create strong foundations with clear explanations and personalized strategies.',
+            'نبني أسساً قوية بشرح واضح واستراتيجيات مخصصة.',
+            null, null, null, null, null, null,
+        ],
+        [
+            'step_practice', 'step', 3, 'Step 03', 'الخطوة 03', null, null,
+            'Practice', 'نتدرّب',
+            'Students apply skills actively with coached repetition, challenge, and feedback.',
+            'يطبّق الطلاب مهاراتهم بفاعلية من خلال التكرار الموجّه والتحدّي والتغذية الراجعة.',
+            null, null, null, null, null, null,
+        ],
+        [
+            'step_progress', 'step', 4, 'Step 04', 'الخطوة 04', null, null,
+            'Progress', 'نتقدّم',
+            'We measure growth, celebrate milestones, and adjust the path for what comes next.',
+            'نقيس التطوّر، ونحتفل بالمحطات، ونعدّل المسار للخطوة التالية.',
+            null, null, null, null, null, null,
+        ],
+        [
+            'program_teaching', 'program', 1,
+            'Core program', 'البرنامج الأساسي', 'Teaching', 'التعليم',
+            'Academic support from KG to Grade 12',
+            'دعم أكاديمي من الروضة حتى الصف الثاني عشر',
+            'Personalized and small-group learning across core school subjects.',
+            'تعليم مخصص وضمن مجموعات صغيرة في المواد المدرسية الأساسية.',
+            'KG & primary foundations', 'أساسيات الروضة والمرحلة الابتدائية',
+            'Middle school support', 'دعم المرحلة المتوسطة',
+            'Grades 10, 11 & 12 preparation', 'تحضير الصفوف العاشر والحادي عشر والثاني عشر',
+        ],
+        [
+            'program_training', 'program', 2,
+            'Skills program', 'برنامج المهارات', 'Training', 'التدريب',
+            'Practical skills for learners and educators',
+            'مهارات عملية للمتعلمين والمعلّمين',
+            'Focused workshops that turn knowledge into confident action.',
+            'ورش مركّزة تحوّل المعرفة إلى تطبيق واثق.',
+            'Study and learning skills', 'مهارات الدراسة والتعلّم',
+            'Teacher development', 'تطوير المعلّمين',
+            'Digital and communication skills', 'المهارات الرقمية ومهارات التواصل',
+        ],
+        [
+            'program_activities', 'program', 3,
+            'Enrichment program', 'برنامج الإثراء', 'Activities', 'الأنشطة',
+            'Creative, social, and hands-on experiences',
+            'تجارب إبداعية واجتماعية وتطبيقية',
+            'Active sessions that spark curiosity and build future-ready abilities.',
+            'جلسات تفاعلية تثير الفضول وتبني قدرات جاهزة للمستقبل.',
+            'STEM and maker activities', 'أنشطة العلوم والتكنولوجيا والابتكار',
+            'Arts, reading, and expression', 'الفنون والقراءة والتعبير',
+            'Seasonal clubs and events', 'نوادٍ وفعاليات موسمية',
+        ],
+    ];
+
+    $statement = $pdo->prepare(
+        "INSERT IGNORE INTO homepage_content (
+            content_key, content_type, sort_order,
+            eyebrow_en, eyebrow_ar, category_en, category_ar,
+            title_en, title_ar, description_en, description_ar,
+            point_1_en, point_1_ar, point_2_en, point_2_ar, point_3_en, point_3_ar
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    );
+
+    foreach ($rows as $row) {
+        $statement->execute($row);
     }
 }
 

@@ -7,6 +7,44 @@ const cursorGlow = document.querySelector(".cursor-glow");
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const translate = (value) => window.KhotwaI18n?.t(value) || value;
 
+const homepageContentNodes = document.querySelectorAll("[data-homepage-content]");
+let homepageContent = new Map();
+
+const renderHomepageContent = (language = window.KhotwaI18n?.current() || "en") => {
+  homepageContentNodes.forEach((container) => {
+    const row = homepageContent.get(container.dataset.homepageContent);
+    if (!row) return;
+
+    container.querySelectorAll("[data-homepage-field]").forEach((element) => {
+      const field = element.dataset.homepageField;
+      const value = row[`${field}_${language}`];
+      const isPoint = field.startsWith("point_");
+
+      if (isPoint) element.hidden = !value;
+      if (typeof value === "string") element.textContent = value;
+    });
+  });
+};
+
+if (homepageContentNodes.length) {
+  fetch("homepage-content.php", { headers: { Accept: "application/json" } })
+    .then((response) => {
+      if (!response.ok) throw new Error(`Homepage content request failed: ${response.status}`);
+      return response.json();
+    })
+    .then(({ content = [] }) => {
+      homepageContent = new Map(content.map((row) => [row.content_key, row]));
+      renderHomepageContent();
+    })
+    .catch((error) => {
+      console.warn("Using the built-in homepage content.", error);
+    });
+
+  document.addEventListener("khotwa:languagechange", (event) => {
+    renderHomepageContent(event.detail?.language);
+  });
+}
+
 const loader = document.querySelector(".page-loader");
 const loaderStartedAt = performance.now();
 let loaderHidden = false;

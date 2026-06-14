@@ -14,6 +14,7 @@ function admin_navigation(): array
         'payments' => ['label' => 'Payments', 'group' => 'Finance'],
         'warnings' => ['label' => 'Warnings', 'group' => 'Management'],
         'users' => ['label' => 'Users', 'group' => 'Management'],
+        'website-content' => ['label' => 'Website Content', 'group' => 'Management'],
     ];
 }
 
@@ -29,6 +30,7 @@ function admin_view_tables(): array
         'payments' => 'student_subscription_payments',
         'warnings' => 'student_warnings',
         'users' => 'users',
+        'website-content' => 'homepage_content',
     ];
 }
 
@@ -72,6 +74,7 @@ function admin_icon(string $name): string
         'payments' => '<circle cx="12" cy="12" r="9"/><path d="M16 8h-5a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4H8m4-10v12"/>',
         'warnings' => '<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4M12 17h.01"/>',
         'users' => '<path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3Z"/><path d="m9 12 2 2 4-4"/>',
+        'website-content' => '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h3M8 17h8"/>',
     ];
 
     return '<svg viewBox="0 0 24 24" aria-hidden="true">' . ($paths[$name] ?? $paths['overview']) . '</svg>';
@@ -215,7 +218,15 @@ function admin_render_field(
     }
     $options = admin_relation_options($pdo, $name);
 
-    echo '<label class="admin-field"><span>' . e($label) . '</span>';
+    $languageClass = str_ends_with($name, '_ar')
+        ? ' admin-field-ar'
+        : (str_ends_with($name, '_en') ? ' admin-field-en' : '');
+    $languageAttributes = str_ends_with($name, '_ar')
+        ? ' lang="ar" dir="rtl"'
+        : (str_ends_with($name, '_en') ? ' lang="en" dir="ltr"' : '');
+    $translationSkipAttribute = $languageClass !== '' ? ' data-i18n-skip' : '';
+
+    echo '<label class="admin-field' . $languageClass . '" data-field-name="' . e($name) . '"><span>' . e($label) . '</span>';
 
     if ($isLocked) {
         $lockedLabel = (string) $value;
@@ -226,7 +237,7 @@ function admin_render_field(
             }
         }
         echo '<input type="hidden" name="fields[' . e($name) . ']" value="' . e((string) $value) . '">';
-        echo '<input type="text" value="' . e($lockedLabel) . '" disabled>';
+        echo '<input type="text" value="' . e($lockedLabel) . '" disabled' . $languageAttributes . $translationSkipAttribute . '>';
     } elseif ($options !== []) {
         echo '<select name="fields[' . e($name) . ']"' . $required . '>';
         if ($column['IS_NULLABLE'] === 'YES' || $value === '') {
@@ -250,7 +261,7 @@ function admin_render_field(
         }
         echo '</select>';
     } elseif (in_array($type, ['text', 'mediumtext', 'longtext'], true)) {
-        echo '<textarea name="fields[' . e($name) . ']"' . $required . '>' . e((string) $value) . '</textarea>';
+        echo '<textarea name="fields[' . e($name) . ']"' . $required . $languageAttributes . $translationSkipAttribute . '>' . e((string) $value) . '</textarea>';
     } else {
         $inputType = match ($type) {
             'date' => 'date',
@@ -260,7 +271,7 @@ function admin_render_field(
             default => $name === 'email' ? 'email' : ($name === 'password_hash' ? 'password' : 'text'),
         };
         $step = $type === 'decimal' ? ' step="0.01"' : '';
-        echo '<input type="' . e($inputType) . '" name="fields[' . e($name) . ']" value="' . e((string) $value) . '"' . $step . $required . '>';
+        echo '<input type="' . e($inputType) . '" name="fields[' . e($name) . ']" value="' . e((string) $value) . '"' . $step . $required . $languageAttributes . $translationSkipAttribute . '>';
     }
 
     echo '</label>';
