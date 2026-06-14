@@ -230,6 +230,7 @@ const renderTeam = (language) => {
     const subjects = document.createElement("span");
     subjects.className = "team-specialty";
     subjects.textContent = row[`subjects_${language}`] || row.subjects_en;
+    card.setAttribute("tabindex", "0");
     card.append(portrait, info, subjects);
     grid.append(card);
   });
@@ -626,3 +627,139 @@ document.querySelectorAll(".magnetic").forEach((element) => {
 });
 
 document.querySelector("#year").textContent = new Date().getFullYear();
+
+// ── Approach steps: auto-cycle animation ──────────────────────────────────
+// Sequence: step 1 on → 2s → step 2 on → 2s → step 3 on → 2s → step 4 on → 2s → step 1 on …
+(() => {
+  const steps = [...document.querySelectorAll(".approach-step")];
+  if (steps.length === 0 || reduceMotion) return;
+
+  let currentIndex = 0;
+
+  const activateStep = (index) => {
+    steps.forEach((step, i) => {
+      step.classList.toggle("is-auto-active", i === index);
+    });
+  };
+
+  const startCycle = () => {
+    activateStep(currentIndex);
+    window.setInterval(() => {
+      currentIndex = (currentIndex + 1) % steps.length;
+      activateStep(currentIndex);
+    }, 2000);
+  };
+
+  // Start once the approach section enters the viewport
+  if ("IntersectionObserver" in window) {
+    const approachSection = document.querySelector(".approach-section");
+    if (approachSection) {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (!entries[0].isIntersecting) return;
+          observer.disconnect();
+          startCycle();
+        },
+        { threshold: 0.25 }
+      );
+      observer.observe(approachSection);
+    }
+  } else {
+    startCycle();
+  }
+})();
+
+// ── Teacher info modal ────────────────────────────────────────────────────
+(() => {
+  const modal           = document.querySelector(".teacher-modal");
+  const modalInitials   = modal?.querySelector(".teacher-modal-initials");
+  const modalPhoto      = modal?.querySelector(".teacher-modal-photo");
+  const modalSpecialty  = modal?.querySelector(".teacher-modal-specialty");
+  const modalName       = modal?.querySelector(".teacher-modal-name");
+  const modalRole       = modal?.querySelector(".teacher-modal-role");
+  const modalContact    = modal?.querySelector(".teacher-modal-contact");
+  const modalClose      = modal?.querySelector(".teacher-modal-close");
+
+  if (!modal) return;
+
+  const openTeacherModal = (card) => {
+    const name      = card.querySelector("h3")?.textContent?.trim() || "";
+    const role      = card.querySelector(".team-info p")?.textContent?.trim() || "";
+    const specialty = card.querySelector(".team-specialty")?.textContent?.trim() || "";
+    const initials  = card.querySelector(".portrait-initials")?.textContent?.trim() || name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2);
+    const photoSrc  = card.querySelector(".team-portrait-image")?.src || "";
+    const contact   = card.querySelector(".team-info a")?.href || "#contact";
+
+    if (modalInitials)  modalInitials.textContent  = initials;
+    if (modalSpecialty) modalSpecialty.textContent  = specialty;
+    if (modalName)      modalName.textContent       = name;
+    if (modalRole)      modalRole.textContent       = role;
+    if (modalContact)   modalContact.href           = contact;
+
+    if (modalPhoto) {
+      if (photoSrc && !photoSrc.endsWith("#")) {
+        modalPhoto.src   = photoSrc;
+        modalPhoto.alt   = name;
+        modalPhoto.style.display = "";
+      } else {
+        modalPhoto.src   = "";
+        modalPhoto.style.display = "none";
+      }
+    }
+
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+    body.classList.add("lightbox-open");
+    modalClose?.focus();
+  };
+
+  const closeTeacherModal = () => {
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+    body.classList.remove("lightbox-open");
+  };
+
+  // Delegation – works for both static and dynamically rendered cards
+  document.querySelector(".team-grid")?.addEventListener("click", (event) => {
+    const card = event.target.closest(".team-card:not(.team-join)");
+    if (!card) return;
+    // Avoid triggering when the user clicks the ↗ contact link itself
+    if (event.target.closest(".team-info > a")) return;
+    openTeacherModal(card);
+  });
+
+  // Keyboard accessibility
+  document.querySelector(".team-grid")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const card = event.target.closest(".team-card:not(.team-join)");
+    if (!card) return;
+    event.preventDefault();
+    openTeacherModal(card);
+  });
+
+  // Make non-join cards keyboard-focusable
+  document.querySelectorAll(".team-card:not(.team-join)").forEach((card) => {
+    if (!card.getAttribute("tabindex")) card.setAttribute("tabindex", "0");
+  });
+
+  modalClose?.addEventListener("click", closeTeacherModal);
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeTeacherModal();
+  });
+
+  // Piggyback on the existing Escape handler
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && modal.classList.contains("is-open")) {
+      closeTeacherModal();
+    }
+  });
+
+  // Re-attach tabindex after dynamic team render
+  document.addEventListener("khotwa:languagechange", () => {
+    window.setTimeout(() => {
+      document.querySelectorAll(".team-card:not(.team-join)").forEach((card) => {
+        if (!card.getAttribute("tabindex")) card.setAttribute("tabindex", "0");
+      });
+    }, 100);
+  });
+})();

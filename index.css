@@ -3021,3 +3021,206 @@ html[dir="rtl"] .lightbox-close {
     left: auto;
   }
 }
+
+/* ── Brand Logo ───────────────────────────────────────────── */
+.brand-logo {
+  display: block;
+  height: 56px;
+  width: auto;
+  transition: opacity 0.35s ease;
+}
+
+.site-header.is-scrolled .brand-logo {
+  height: 46px;
+}
+
+/* Transparent header (over hero): show white, hide color */
+.site-header:not(.is-scrolled) .brand-logo-color {
+  opacity: 0;
+  position: absolute;
+  pointer-events: none;
+}
+
+/* Scrolled header: show color, hide white */
+.site-header.is-scrolled .brand-logo-white {
+  opacity: 0;
+  position: absolute;
+  pointer-events: none;
+}
+
+/* Footer logo – always white, no mark/copy wrappers needed */
+.footer-brand .brand-logo {
+  height: 36px;
+  margin-bottom: 4px;
+}
+
+/* Remove old brand-mark + brand-copy spacing from .brand when using logo */
+.brand:has(.brand-logo) {
+  gap: 0;
+}
+
+/* ── Approach step active animation glow ──────────────────── */
+.approach-step.is-auto-active .step-node {
+  color: var(--paper);
+  background: #E51C6F;
+  transform: translateY(-8px) rotate(-3deg);
+}
+
+/* ── Teacher Info Modal ────────────────────────────────────── */
+.teacher-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(11, 28, 52, 0.72);
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.32s var(--ease), visibility 0.32s var(--ease);
+}
+
+.teacher-modal.is-open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.teacher-modal-inner {
+  position: relative;
+  display: flex;
+  width: min(520px, 100%);
+  flex-direction: column;
+  gap: 28px;
+  padding: 40px 36px 36px;
+  border: 1px solid var(--line);
+  border-radius: 32px;
+  background: var(--paper);
+  box-shadow: 0 40px 100px rgba(10, 27, 51, 0.32);
+  transform: translateY(24px) scale(0.97);
+  transition: transform 0.38s var(--ease);
+}
+
+.teacher-modal.is-open .teacher-modal-inner {
+  transform: translateY(0) scale(1);
+}
+
+.teacher-modal-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.teacher-modal-close:hover {
+  background: var(--navy);
+  color: var(--paper);
+}
+
+.teacher-modal-portrait {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 28px;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--navy), var(--pink));
+  flex-shrink: 0;
+}
+
+.teacher-modal-initials {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--paper);
+  font-family: var(--display);
+  font-size: 1.8rem;
+  font-weight: 800;
+}
+
+.teacher-modal-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.teacher-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.teacher-modal-specialty {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--orange);
+  font-family: var(--display);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.teacher-modal-specialty::before {
+  width: 18px;
+  height: 2px;
+  border-radius: 9px;
+  background: currentColor;
+  content: "";
+}
+
+.teacher-modal-name {
+  margin: 4px 0 0;
+  color: var(--navy);
+  font-family: var(--display);
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+
+.teacher-modal-role {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.teacher-modal-contact {
+  align-self: flex-start;
+}
+
+.teacher-modal-contact svg {
+  width: 17px;
+}
+
+/* Team cards – make them look clickable */
+.team-card:not(.team-join) {
+  cursor: pointer;
+}
+
+.team-card:not(.team-join):focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 4px;
+}
+
+@media (max-width: 640px) {
+  .teacher-modal-inner {
+    padding: 32px 22px 24px;
+  }
+
+  .teacher-modal-name {
+    font-size: 1.4rem;
+  }
+}
