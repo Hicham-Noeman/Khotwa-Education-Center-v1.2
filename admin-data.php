@@ -14,7 +14,12 @@ function admin_navigation(): array
         'payments' => ['label' => 'Payments', 'group' => 'Finance'],
         'warnings' => ['label' => 'Warnings', 'group' => 'Management'],
         'users' => ['label' => 'Users', 'group' => 'Management'],
-        'website-content' => ['label' => 'Website Content', 'group' => 'Management'],
+        'website-content' => ['label' => 'Website Content', 'group' => 'Website'],
+        'website-slides' => ['label' => 'Vision Slides', 'group' => 'Website', 'sidebar' => false],
+        'website-statistics' => ['label' => 'Statistics', 'group' => 'Website', 'sidebar' => false],
+        'website-gallery' => ['label' => 'Gallery Images', 'group' => 'Website', 'sidebar' => false],
+        'website-partners' => ['label' => 'Partner Logos', 'group' => 'Website', 'sidebar' => false],
+        'website-contacts' => ['label' => 'Contact & Social', 'group' => 'Website'],
     ];
 }
 
@@ -31,6 +36,11 @@ function admin_view_tables(): array
         'warnings' => 'student_warnings',
         'users' => 'users',
         'website-content' => 'homepage_content',
+        'website-slides' => 'homepage_slides',
+        'website-statistics' => 'homepage_statistics',
+        'website-gallery' => 'homepage_gallery_images',
+        'website-partners' => 'homepage_partners',
+        'website-contacts' => 'homepage_contact_links',
     ];
 }
 
@@ -75,6 +85,12 @@ function admin_icon(string $name): string
         'warnings' => '<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4M12 17h.01"/>',
         'users' => '<path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3Z"/><path d="m9 12 2 2 4-4"/>',
         'website-content' => '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h3M8 17h8"/>',
+        'website-slides' => '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8" cy="9" r="1.5"/><path d="m3 17 5-5 4 4 3-3 6 6"/>',
+        'website-statistics' => '<path d="M4 20V10M10 20V4M16 20v-7M22 20V7"/>',
+        'website-team' => '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20a6 6 0 0 1 12 0M14 20a5 5 0 0 1 8 0"/>',
+        'website-gallery' => '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>',
+        'website-partners' => '<path d="M8 12h8M12 8v8"/><circle cx="12" cy="12" r="9"/>',
+        'website-contacts' => '<path d="M4 4h16v16H4zM4 7l8 6 8-6"/><path d="M8 17h8"/>',
     ];
 
     return '<svg viewBox="0 0 24 24" aria-hidden="true">' . ($paths[$name] ?? $paths['overview']) . '</svg>';
@@ -85,9 +101,47 @@ function admin_table_label(string $table): string
     return ucwords(str_replace('_', ' ', $table));
 }
 
+function admin_website_workspace_views(): array
+{
+    return [
+        'website-content' => 'page-content',
+        'website-slides' => 'vision-slides',
+        'website-statistics' => 'statistics',
+        'website-gallery' => 'gallery-images',
+        'website-partners' => 'partner-logos',
+    ];
+}
+
+function admin_workspace_url(string $view, array $query = []): string
+{
+    $workspaceViews = admin_website_workspace_views();
+    if (!isset($workspaceViews[$view])) {
+        $parameters = ['view' => $view, ...$query];
+        return 'admin.php?' . http_build_query($parameters);
+    }
+
+    $parameters = ['view' => 'website-content', ...$query];
+    return 'admin.php?' . http_build_query($parameters) . '#' . $workspaceViews[$view];
+}
+
 function admin_column_label(string $column): string
 {
-    $special = ['id' => 'ID', 'en' => 'EN', 'ar' => 'AR'];
+    $labels = [
+        'image_path' => 'Image',
+        'logo_path' => 'Logo',
+        'stat_key' => 'Statistic Key',
+        'stat_value' => 'Number',
+        'link_key' => 'Link Key',
+        'link_type' => 'Link Type',
+        'layout_style' => 'Layout',
+        'contact_url' => 'Contact Link',
+        'website_url' => 'Website Link',
+    ];
+    if (isset($labels[$column])) {
+        return $labels[$column];
+    }
+
+    $special = ['id' => 'ID', 'en' => 'EN', 'ar' => 'AR', 'url' => 'URL'];
     $words = explode('_', $column);
 
     return implode(' ', array_map(
@@ -194,6 +248,93 @@ function admin_default_field_value(array $column): string
     return '';
 }
 
+function admin_upload_columns(string $table): array
+{
+    return match ($table) {
+        'homepage_slides', 'homepage_team_members', 'homepage_gallery_images' => ['image_path'],
+        'homepage_partners' => ['logo_path'],
+        default => [],
+    };
+}
+
+function admin_prepare_uploads(string $table, array $fields, array $uploads): array
+{
+    $created = [];
+    $replaced = [];
+
+    foreach (admin_upload_columns($table) as $column) {
+        $error = (int) ($uploads['error'][$column] ?? UPLOAD_ERR_NO_FILE);
+        if ($error === UPLOAD_ERR_NO_FILE) {
+            continue;
+        }
+        if ($error !== UPLOAD_ERR_OK) {
+            throw new RuntimeException('The image upload did not complete. Please try again.');
+        }
+
+        $size = (int) ($uploads['size'][$column] ?? 0);
+        $temporaryPath = (string) ($uploads['tmp_name'][$column] ?? '');
+        if ($size < 1 || $size > 8 * 1024 * 1024 || !is_uploaded_file($temporaryPath)) {
+            throw new RuntimeException('Images must be valid uploaded files no larger than 8 MB.');
+        }
+
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($temporaryPath);
+        $extensions = [
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+        ];
+        if (!isset($extensions[$mime])) {
+            throw new RuntimeException('Use a JPEG, PNG, GIF, or WebP image.');
+        }
+
+        $directory = __DIR__ . '/assets/uploads/' . $table;
+        if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+            throw new RuntimeException('The upload folder could not be created.');
+        }
+
+        $fileName = bin2hex(random_bytes(16)) . '.' . $extensions[$mime];
+        $absolutePath = $directory . '/' . $fileName;
+        if (!move_uploaded_file($temporaryPath, $absolutePath)) {
+            throw new RuntimeException('The image could not be saved.');
+        }
+
+        $oldPath = trim((string) ($fields[$column] ?? ''));
+        if ($oldPath !== '' && str_starts_with($oldPath, 'assets/uploads/')) {
+            $replaced[] = $oldPath;
+        }
+
+        $relativePath = 'assets/uploads/' . $table . '/' . $fileName;
+        $fields[$column] = $relativePath;
+        $created[] = $relativePath;
+    }
+
+    return ['fields' => $fields, 'created' => $created, 'replaced' => $replaced];
+}
+
+function admin_remove_uploaded_files(array $paths): void
+{
+    $uploadRoot = realpath(__DIR__ . '/assets/uploads');
+    if ($uploadRoot === false) {
+        return;
+    }
+
+    foreach ($paths as $path) {
+        if (!is_string($path) || !str_starts_with($path, 'assets/uploads/')) {
+            continue;
+        }
+
+        $absolutePath = realpath(__DIR__ . '/' . $path);
+        if (
+            $absolutePath !== false
+            && str_starts_with($absolutePath, $uploadRoot . DIRECTORY_SEPARATOR)
+            && is_file($absolutePath)
+        ) {
+            unlink($absolutePath);
+        }
+    }
+}
+
 function admin_render_field(
     PDO $pdo,
     string $table,
@@ -228,7 +369,17 @@ function admin_render_field(
 
     echo '<label class="admin-field' . $languageClass . '" data-field-name="' . e($name) . '"><span>' . e($label) . '</span>';
 
-    if ($isLocked) {
+    if (in_array($name, admin_upload_columns($table), true)) {
+        if ((string) $value !== '') {
+            echo '<span class="admin-image-preview"><img src="' . e((string) $value) . '" alt=""></span>';
+        }
+        echo '<input type="hidden" name="fields[' . e($name) . ']" value="' . e((string) $value) . '">';
+        if (!$isLocked) {
+            $fileRequired = $required !== '' && (string) $value === '' ? ' required' : '';
+            echo '<input class="admin-file-input" type="file" name="uploads[' . e($name) . ']" accept="image/jpeg,image/png,image/gif,image/webp"' . $fileRequired . '>';
+            echo '<small class="admin-field-help">JPEG, PNG, GIF, or WebP. Maximum 8 MB.</small>';
+        }
+    } elseif ($isLocked) {
         $lockedLabel = (string) $value;
         foreach ($options as $option) {
             if ((string) $option['id'] === (string) $value) {
@@ -386,6 +537,24 @@ function admin_delete_records(PDO $pdo, string $table, array $recordIds, int $cu
     }
 
     $placeholders = implode(', ', array_fill(0, count($recordIds), '?'));
+    $uploadedPaths = [];
+    $uploadColumns = admin_upload_columns($table);
+    if ($uploadColumns !== []) {
+        $pathStatement = $pdo->prepare(
+            'SELECT ' . implode(', ', array_map('admin_quote_identifier', $uploadColumns))
+            . ' FROM ' . admin_quote_identifier($table)
+            . ' WHERE id IN (' . $placeholders . ')'
+        );
+        $pathStatement->execute($recordIds);
+        foreach ($pathStatement->fetchAll() as $pathRow) {
+            foreach ($uploadColumns as $column) {
+                if (!empty($pathRow[$column])) {
+                    $uploadedPaths[] = (string) $pathRow[$column];
+                }
+            }
+        }
+    }
+
     $statement = $pdo->prepare(
         'DELETE FROM ' . admin_quote_identifier($table) . ' WHERE id IN (' . $placeholders . ')'
     );
@@ -395,6 +564,7 @@ function admin_delete_records(PDO $pdo, string $table, array $recordIds, int $cu
         $statement->execute($recordIds);
         $deletedCount = $statement->rowCount();
         $pdo->commit();
+        admin_remove_uploaded_files($uploadedPaths);
 
         return $deletedCount;
     } catch (PDOException $exception) {
@@ -431,7 +601,13 @@ function admin_render_sidebar(array $user, string $activeView): void
 {
     $groups = [];
     foreach (admin_navigation() as $key => $item) {
+        if (($item['sidebar'] ?? true) === false) {
+            continue;
+        }
         $groups[$item['group']][$key] = $item;
+    }
+    if (isset(admin_website_workspace_views()[$activeView])) {
+        $activeView = 'website-content';
     }
     ?>
     <aside class="admin-sidebar" id="admin-sidebar" aria-label="Administrator navigation">

@@ -212,12 +212,19 @@
             </div>
           </article>
 
-          <figure class="vision-photo" data-reveal>
-            <img src="assets/images/khotwa-classroom-gallery.webp" alt="Teacher guiding students through a collaborative classroom activity" width="1400" height="933" loading="lazy" decoding="async">
-            <figcaption>
+          <figure class="vision-photo vision-slideshow" data-vision-slideshow data-reveal>
+            <div class="vision-slides" data-vision-slides>
+              <img class="vision-slide is-active" src="assets/images/khotwa-classroom-gallery.webp" alt="Teacher guiding students through a collaborative classroom activity" width="1400" height="933" loading="lazy" decoding="async">
+            </div>
+            <figcaption data-vision-caption>
               <strong>Human guidance</strong>
               <span>at the center of every lesson</span>
             </figcaption>
+            <div class="vision-slider-controls" data-vision-controls hidden>
+              <button type="button" aria-label="Previous slide" data-vision-previous>←</button>
+              <div class="vision-slider-dots" data-vision-dots></div>
+              <button type="button" aria-label="Next slide" data-vision-next>→</button>
+            </div>
           </figure>
         </div>
       </div>
@@ -380,7 +387,7 @@
 
     <section class="stats-section" aria-label="Quick statistics">
       <div class="stats-pattern" aria-hidden="true"></div>
-      <div class="section-shell stats-grid">
+      <div class="section-shell stats-grid" data-homepage-statistics>
         <div class="stats-heading" data-reveal>
           <span class="eyebrow">Khotwa in numbers</span>
           <h2>Small steps.<br>Big momentum.</h2>
@@ -412,7 +419,7 @@
           <p>Our educators bring subject expertise, thoughtful guidance, and the belief that every learner can make meaningful progress.</p>
         </div>
 
-        <div class="team-grid">
+        <div class="team-grid" data-homepage-team>
           <article class="team-card" data-reveal>
             <div class="team-portrait portrait-one">
               <span class="portrait-initials">RM</span>
@@ -482,7 +489,7 @@
           <p>A glimpse of the energy, focus, collaboration, and joy that fill our classrooms, workshops, and learning activities.</p>
         </div>
 
-        <div class="gallery-grid">
+        <div class="gallery-grid" data-homepage-gallery>
           <button class="gallery-item gallery-wide" type="button" data-image="assets/images/khotwa-classroom-gallery.webp" data-caption="Collaborative learning">
             <img src="assets/images/khotwa-classroom-gallery.webp" alt="Students learning together with their teacher" width="1400" height="933" loading="lazy" decoding="async">
             <span><b>Collaborative learning</b><i>View image ↗</i></span>
@@ -511,7 +518,7 @@
     <section class="partners-section" aria-label="Our partners">
       <div class="section-shell">
         <p>Growing through trusted partnerships</p>
-        <div class="partner-logos">
+        <div class="partner-logos" data-homepage-partners>
           <span><i class="partner-mark mark-one"></i>EduCore</span>
           <span><i class="partner-mark mark-two"></i>BrightLab</span>
           <span><i class="partner-mark mark-three"></i>Northstar</span>
@@ -590,11 +597,11 @@
           <h2>Let’s build a learning plan<br>that fits.</h2>
         </div>
         <div class="contact-actions">
-          <a class="button button-light magnetic" href="mailto:hello@khotwa.edu">
+          <a class="button button-light magnetic" href="mailto:hello@khotwa.edu" data-contact-link="primary_email">
             Book a free consultation
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </a>
-          <a href="tel:+9611000000">+961 1 000 000</a>
+          <a href="tel:+9611000000" data-contact-link="primary_phone">+961 1 000 000</a>
         </div>
       </div>
     </section>
@@ -612,7 +619,7 @@
             </span>
           </a>
           <p>One step at a time, toward stronger skills, greater confidence, and a future full of possibility.</p>
-          <div class="social-links" aria-label="Social media links">
+          <div class="social-links" aria-label="Social media links" data-homepage-socials>
             <a href="#" aria-label="Instagram">ig</a>
             <a href="#" aria-label="Facebook">f</a>
             <a href="#" aria-label="TikTok">tk</a>
@@ -637,10 +644,11 @@
           </div>
           <div>
             <h3>Visit</h3>
-            <p>Beirut, Lebanon</p>
-            <a href="mailto:hello@khotwa.edu">hello@khotwa.edu</a>
-            <a href="tel:+9611000000">+961 1 000 000</a>
-            <p>Mon–Sat, 9:00–19:00</p>
+            <p data-contact-value="address">Beirut, Lebanon</p>
+            <a href="mailto:hello@khotwa.edu" data-contact-link="primary_email">hello@khotwa.edu</a>
+            <a href="tel:+9611000000" data-contact-link="primary_phone">+961 1 000 000</a>
+            <a href="https://maps.google.com/?q=Beirut%2C+Lebanon" data-contact-link="google_map">Google Maps</a>
+            <p data-contact-value="opening_hours">Mon–Sat, 9:00–19:00</p>
           </div>
         </div>
       </div>

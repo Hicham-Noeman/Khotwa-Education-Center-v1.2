@@ -20,7 +20,7 @@ $dbPass = '';
 $dbCharset = 'utf8mb4';
 
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
-const KHOTWA_SCHEMA_VERSION = 2;
+const KHOTWA_SCHEMA_VERSION = 3;
 
 function getDatabaseConnection(): PDO
 {
@@ -76,6 +76,7 @@ function ensureKhotwaSchema(PDO $pdo): void
     createKhotwaTables($pdo);
     applyKhotwaMigrations($pdo);
     seedHomepageContentDefaults($pdo);
+    seedHomepageCollectionsDefaults($pdo);
     $pdo->exec(
         "CREATE TABLE IF NOT EXISTS khotwa_schema_meta (
             id TINYINT UNSIGNED NOT NULL,
@@ -507,6 +508,109 @@ function createKhotwaTables(PDO $pdo): void
             INDEX idx_homepage_content_status (status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
+        "CREATE TABLE IF NOT EXISTS homepage_slides (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            image_path VARCHAR(255) NOT NULL,
+            alt_en VARCHAR(255) NOT NULL,
+            alt_ar VARCHAR(255) NOT NULL,
+            title_en VARCHAR(180) NULL,
+            title_ar VARCHAR(180) NULL,
+            description_en VARCHAR(255) NULL,
+            description_ar VARCHAR(255) NULL,
+            sort_order SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            INDEX idx_homepage_slides_order (status, sort_order)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "CREATE TABLE IF NOT EXISTS homepage_statistics (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            stat_key VARCHAR(80) NOT NULL,
+            stat_value INT UNSIGNED NOT NULL DEFAULT 0,
+            suffix VARCHAR(12) NULL,
+            label_en VARCHAR(150) NOT NULL,
+            label_ar VARCHAR(150) NOT NULL,
+            sort_order SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_homepage_statistics_key (stat_key),
+            INDEX idx_homepage_statistics_order (status, sort_order)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "CREATE TABLE IF NOT EXISTS homepage_team_members (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            name_en VARCHAR(180) NOT NULL,
+            name_ar VARCHAR(180) NOT NULL,
+            role_en VARCHAR(180) NOT NULL,
+            role_ar VARCHAR(180) NOT NULL,
+            subjects_en VARCHAR(255) NOT NULL,
+            subjects_ar VARCHAR(255) NOT NULL,
+            initials VARCHAR(12) NULL,
+            image_path VARCHAR(255) NULL,
+            contact_url VARCHAR(500) NULL,
+            sort_order SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            INDEX idx_homepage_team_order (status, sort_order)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "CREATE TABLE IF NOT EXISTS homepage_gallery_images (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            image_path VARCHAR(255) NOT NULL,
+            alt_en VARCHAR(255) NOT NULL,
+            alt_ar VARCHAR(255) NOT NULL,
+            caption_en VARCHAR(180) NOT NULL,
+            caption_ar VARCHAR(180) NOT NULL,
+            layout_style ENUM('wide', 'tall', 'standard', 'crop_one', 'crop_two') NOT NULL DEFAULT 'standard',
+            sort_order SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            INDEX idx_homepage_gallery_order (status, sort_order)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "CREATE TABLE IF NOT EXISTS homepage_partners (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            name_en VARCHAR(180) NOT NULL,
+            name_ar VARCHAR(180) NOT NULL,
+            logo_path VARCHAR(255) NULL,
+            website_url VARCHAR(500) NULL,
+            sort_order SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            INDEX idx_homepage_partners_order (status, sort_order)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "CREATE TABLE IF NOT EXISTS homepage_contact_links (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            link_key VARCHAR(80) NOT NULL,
+            link_type ENUM(
+                'phone', 'email', 'whatsapp', 'instagram', 'facebook',
+                'google_map', 'address', 'hours', 'tiktok', 'linkedin'
+            ) NOT NULL,
+            label_en VARCHAR(150) NOT NULL,
+            label_ar VARCHAR(150) NOT NULL,
+            value_en VARCHAR(255) NOT NULL,
+            value_ar VARCHAR(255) NOT NULL,
+            url VARCHAR(500) NULL,
+            sort_order SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_homepage_contact_key (link_key),
+            INDEX idx_homepage_contact_type_order (status, link_type, sort_order)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
         "CREATE OR REPLACE VIEW student_warning_yearly_summary AS
             SELECT
                 students.id AS student_id,
@@ -706,6 +810,196 @@ function seedHomepageContentDefaults(PDO $pdo): void
 
     foreach ($rows as $row) {
         $statement->execute($row);
+    }
+}
+
+function seedHomepageCollectionsDefaults(PDO $pdo): void
+{
+    $slides = [
+        [
+            'assets/images/khotwa-classroom-gallery.webp',
+            'Teacher guiding students through a collaborative classroom activity',
+            'معلّم يوجّه الطلاب خلال نشاط صفي تعاوني',
+            'Human guidance', 'توجيه إنساني',
+            'at the center of every lesson', 'في قلب كل حصة',
+            1,
+        ],
+        [
+            'assets/images/khotwa-stem-gallery.webp',
+            'Students building a project during a STEM activity',
+            'طلاب يبنون مشروعاً خلال نشاط علمي',
+            'Active discovery', 'اكتشاف تفاعلي',
+            'through practical learning experiences', 'من خلال تجارب تعليمية عملية',
+            2,
+        ],
+        [
+            'assets/images/khotwa-hero.webp',
+            'Teacher supporting students around a learning table',
+            'معلّم يدعم الطلاب حول طاولة التعلّم',
+            'Personal support', 'دعم شخصي',
+            'for every learner and every goal', 'لكل متعلّم ولكل هدف',
+            3,
+        ],
+    ];
+    if ((int) $pdo->query('SELECT COUNT(*) FROM homepage_slides')->fetchColumn() === 0) {
+        $slideStatement = $pdo->prepare(
+            "INSERT INTO homepage_slides (
+                image_path, alt_en, alt_ar, title_en, title_ar,
+                description_en, description_ar, sort_order
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        );
+        foreach ($slides as $row) {
+            $slideStatement->execute($row);
+        }
+    }
+
+    $statistics = [
+        ['learners_supported', 450, '+', 'learners supported', 'متعلّم تلقى الدعم', 1],
+        ['expert_educators', 18, '+', 'expert educators', 'معلّماً خبيراً', 2],
+        ['family_satisfaction', 92, '%', 'family satisfaction', 'رضا العائلات', 3],
+        ['years_experience', 12, '+', 'years of experience', 'عاماً من الخبرة', 4],
+    ];
+    $statStatement = $pdo->prepare(
+        "INSERT IGNORE INTO homepage_statistics (
+            stat_key, stat_value, suffix, label_en, label_ar, sort_order
+        ) VALUES (?, ?, ?, ?, ?, ?)"
+    );
+    foreach ($statistics as $row) {
+        $statStatement->execute($row);
+    }
+
+    $teamMembers = [
+        [
+            'Rana Mansour', 'رنا منصور', 'Academic Director', 'المديرة الأكاديمية',
+            'Learning strategy', 'استراتيجيات التعلّم', 'RM', null, '#contact', 1,
+        ],
+        [
+            'Omar Saad', 'عمر سعد', 'Math & Science Lead', 'مسؤول الرياضيات والعلوم',
+            'Mathematics & Science', 'الرياضيات والعلوم', 'OS', null, '#contact', 2,
+        ],
+        [
+            'Layla Nasser', 'ليلى ناصر', 'Languages Coordinator', 'منسقة اللغات',
+            'Arabic & English Languages', 'اللغتان العربية والإنجليزية', 'LN', null, '#contact', 3,
+        ],
+    ];
+    if ((int) $pdo->query('SELECT COUNT(*) FROM homepage_team_members')->fetchColumn() === 0) {
+        $teamStatement = $pdo->prepare(
+            "INSERT INTO homepage_team_members (
+                name_en, name_ar, role_en, role_ar, subjects_en, subjects_ar,
+                initials, image_path, contact_url, sort_order
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        );
+        foreach ($teamMembers as $row) {
+            $teamStatement->execute($row);
+        }
+    }
+
+    $galleryImages = [
+        [
+            'assets/images/khotwa-classroom-gallery.webp',
+            'Students learning together with their teacher',
+            'طلاب يتعلّمون مع معلّمهم',
+            'Collaborative learning', 'تعلّم تعاوني', 'wide', 1,
+        ],
+        [
+            'assets/images/khotwa-stem-gallery.webp',
+            'Students building a project during a STEM activity',
+            'طلاب يبنون مشروعاً خلال نشاط علمي',
+            'Hands-on discovery', 'اكتشاف بالتجربة', 'tall', 2,
+        ],
+        [
+            'assets/images/khotwa-hero.webp',
+            'Teacher supporting students around a learning table',
+            'معلّم يدعم الطلاب حول طاولة التعلّم',
+            'Guided support', 'دعم موجّه', 'crop_one', 3,
+        ],
+        [
+            'assets/images/khotwa-stem-gallery.webp',
+            'Young students focused on a classroom project',
+            'طلاب صغار يركّزون على مشروع صفي',
+            'Curiosity at work', 'فضول يتحوّل إلى عمل', 'crop_two', 4,
+        ],
+    ];
+    if ((int) $pdo->query('SELECT COUNT(*) FROM homepage_gallery_images')->fetchColumn() === 0) {
+        $galleryStatement = $pdo->prepare(
+            "INSERT INTO homepage_gallery_images (
+                image_path, alt_en, alt_ar, caption_en, caption_ar, layout_style, sort_order
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        );
+        foreach ($galleryImages as $row) {
+            $galleryStatement->execute($row);
+        }
+    }
+
+    $partners = [
+        ['EduCore', 'إديوكور', null, null, 1],
+        ['BrightLab', 'برايت لاب', null, null, 2],
+        ['Northstar', 'نورث ستار', null, null, 3],
+        ['Skillwise', 'سكيل وايز', null, null, 4],
+        ['LearnHub', 'ليرن هب', null, null, 5],
+    ];
+    if ((int) $pdo->query('SELECT COUNT(*) FROM homepage_partners')->fetchColumn() === 0) {
+        $partnerStatement = $pdo->prepare(
+            "INSERT INTO homepage_partners (
+                name_en, name_ar, logo_path, website_url, sort_order
+            ) VALUES (?, ?, ?, ?, ?)"
+        );
+        foreach ($partners as $row) {
+            $partnerStatement->execute($row);
+        }
+    }
+
+    $contacts = [
+        [
+            'primary_email', 'email', 'Email', 'البريد الإلكتروني',
+            'hello@khotwa.edu', 'hello@khotwa.edu', 'mailto:hello@khotwa.edu', 1,
+        ],
+        [
+            'primary_phone', 'phone', 'Phone', 'الهاتف',
+            '+961 1 000 000', '+961 1 000 000', 'tel:+9611000000', 2,
+        ],
+        [
+            'whatsapp', 'whatsapp', 'WhatsApp', 'واتساب',
+            'WhatsApp', 'واتساب', 'https://wa.me/9611000000', 3,
+        ],
+        [
+            'instagram', 'instagram', 'Instagram', 'إنستغرام',
+            'Instagram', 'إنستغرام', '#', 4,
+        ],
+        [
+            'facebook', 'facebook', 'Facebook', 'فيسبوك',
+            'Facebook', 'فيسبوك', '#', 5,
+        ],
+        [
+            'google_map', 'google_map', 'Google Maps', 'خرائط Google',
+            'Beirut, Lebanon', 'بيروت، لبنان',
+            'https://maps.google.com/?q=Beirut%2C+Lebanon', 6,
+        ],
+        [
+            'address', 'address', 'Address', 'العنوان',
+            'Beirut, Lebanon', 'بيروت، لبنان', null, 7,
+        ],
+        [
+            'opening_hours', 'hours', 'Opening hours', 'ساعات العمل',
+            'Mon–Sat, 9:00–19:00', 'الاثنين–السبت، 9:00–19:00', null, 8,
+        ],
+        [
+            'tiktok', 'tiktok', 'TikTok', 'تيك توك',
+            'TikTok', 'تيك توك', '#', 9,
+        ],
+        [
+            'linkedin', 'linkedin', 'LinkedIn', 'لينكدإن',
+            'LinkedIn', 'لينكدإن', '#', 10,
+        ],
+    ];
+    $contactStatement = $pdo->prepare(
+        "INSERT IGNORE INTO homepage_contact_links (
+            link_key, link_type, label_en, label_ar,
+            value_en, value_ar, url, sort_order
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    );
+    foreach ($contacts as $row) {
+        $contactStatement->execute($row);
     }
 }
 

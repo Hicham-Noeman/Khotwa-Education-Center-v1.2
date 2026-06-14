@@ -37,7 +37,18 @@ try {
                 throw new RuntimeException('Invalid record action.');
             }
 
-            admin_save_record($pdo, $table, (array) ($_POST['fields'] ?? []), $recordId);
+            $uploadResult = admin_prepare_uploads(
+                $table,
+                (array) ($_POST['fields'] ?? []),
+                (array) ($_FILES['uploads'] ?? [])
+            );
+            try {
+                admin_save_record($pdo, $table, $uploadResult['fields'], $recordId);
+                admin_remove_uploaded_files($uploadResult['replaced']);
+            } catch (Throwable $exception) {
+                admin_remove_uploaded_files($uploadResult['created']);
+                throw $exception;
+            }
             header(
                 'Location: admin-record.php?view=' . rawurlencode($view)
                 . '&id=' . $recordId . '&saved=1'
@@ -99,7 +110,7 @@ try {
         <?php else: ?>
           <section class="content-heading profile-heading">
             <div>
-              <a class="back-to-table" href="admin.php?view=<?= e($view) ?>">Go back to <?= e($pageTitle) ?></a>
+              <a class="back-to-table" href="<?= e(admin_workspace_url($view)) ?>">Go back to <?= e($pageTitle) ?></a>
               <h1><?= e($pageTitle) ?> record</h1>
               <p>Every stored field for this record is shown below.</p>
             </div>
@@ -110,7 +121,7 @@ try {
           <?php if ($error !== ''): ?><div class="form-notice error-notice"><?= e($error) ?></div><?php endif; ?>
 
           <section class="data-panel profile-main-card<?= $view === 'website-content' ? ' website-content-record' : '' ?>">
-            <form method="post" data-edit-form>
+            <form method="post" enctype="multipart/form-data" data-edit-form>
               <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
               <input type="hidden" name="action" value="update_record">
               <input type="hidden" name="view" value="<?= e($view) ?>">

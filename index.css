@@ -1107,8 +1107,25 @@ html[dir="rtl"] .future-line-break {
 .vision-photo::after {
   position: absolute;
   inset: 0;
+  z-index: 1;
   background: linear-gradient(0deg, rgba(10, 28, 52, 0.75), transparent 50%);
   content: "";
+}
+
+.vision-slides {
+  position: absolute;
+  inset: 0;
+}
+
+.vision-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.75s ease, transform 0.8s var(--ease);
+}
+
+.vision-slide.is-active {
+  opacity: 1;
 }
 
 .vision-photo img {
@@ -1127,7 +1144,7 @@ html[dir="rtl"] .future-line-break {
   right: 34px;
   bottom: 30px;
   left: 34px;
-  z-index: 1;
+  z-index: 2;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -1141,6 +1158,49 @@ html[dir="rtl"] .future-line-break {
 
 .vision-photo figcaption span {
   color: rgba(255, 255, 255, 0.65);
+}
+
+.vision-slider-controls {
+  position: absolute;
+  right: 30px;
+  bottom: 82px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vision-slider-controls > button {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  color: var(--paper);
+  background: rgba(11, 28, 52, 0.36);
+  backdrop-filter: blur(10px);
+}
+
+.vision-slider-dots {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.vision-slider-dots button {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.45);
+  transition: width 0.25s ease, background 0.25s ease;
+}
+
+.vision-slider-dots button.is-active {
+  width: 24px;
+  background: var(--orange);
 }
 
 .approach-section {
@@ -1551,7 +1611,7 @@ html[dir="rtl"] .future-line-break {
 .stats-grid {
   position: relative;
   display: grid;
-  grid-template-columns: 1.3fr repeat(4, 1fr);
+  grid-template-columns: 1.3fr repeat(var(--stat-count, 4), 1fr);
   gap: 20px;
   align-items: center;
 }
@@ -1633,6 +1693,17 @@ html[dir="rtl"] .future-line-break {
   place-items: center;
   border-radius: 20px;
   overflow: hidden;
+}
+
+.team-portrait-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.55s var(--ease);
+}
+
+.team-card:hover .team-portrait-image {
+  transform: scale(1.05);
 }
 
 .portrait-one { background: #fce3b8; }
@@ -1925,7 +1996,8 @@ html[dir="rtl"] .future-line-break {
   opacity: 0.55;
 }
 
-.partner-logos span {
+.partner-logos > span,
+.partner-logos > a {
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -1936,10 +2008,23 @@ html[dir="rtl"] .future-line-break {
   transition: filter 0.25s ease, opacity 0.25s ease, transform 0.25s ease;
 }
 
-.partner-logos span:hover {
+.partner-logos > span:hover,
+.partner-logos > a:hover {
   filter: grayscale(0);
   opacity: 1;
   transform: translateY(-3px);
+}
+
+.partner-logos img {
+  width: auto;
+  max-width: 150px;
+  height: 46px;
+  object-fit: contain;
+}
+
+.partner-logos > span > span,
+.partner-logos > a > span {
+  display: inline;
 }
 
 .partner-mark {

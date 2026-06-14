@@ -45,6 +45,13 @@ $columns = [];
 $rows = [];
 $metrics = [];
 $recentAttendance = [];
+$websiteCollections = [
+    'content' => [],
+    'slides' => [],
+    'statistics' => [],
+    'gallery' => [],
+    'partners' => [],
+];
 $databaseError = '';
 $formError = '';
 $message = isset($_GET['created']) ? 'Record added successfully.' : '';
@@ -71,8 +78,20 @@ try {
 
             $action = isset($_POST['delete_id']) ? 'delete' : (string) ($_POST['action'] ?? '');
             if ($action === 'add') {
-                admin_save_record($pdo, $viewTables[$postedView], (array) ($_POST['fields'] ?? []));
-                header('Location: admin.php?view=' . rawurlencode($postedView) . '&created=1');
+                $table = $viewTables[$postedView];
+                $uploadResult = admin_prepare_uploads(
+                    $table,
+                    (array) ($_POST['fields'] ?? []),
+                    (array) ($_FILES['uploads'] ?? [])
+                );
+                try {
+                    admin_save_record($pdo, $table, $uploadResult['fields']);
+                    admin_remove_uploaded_files($uploadResult['replaced']);
+                } catch (Throwable $exception) {
+                    admin_remove_uploaded_files($uploadResult['created']);
+                    throw $exception;
+                }
+                header('Location: ' . admin_workspace_url($postedView, ['created' => 1]));
                 exit;
             }
 
@@ -90,10 +109,7 @@ try {
                 $recordIds,
                 (int) ($user['id'] ?? 0)
             );
-            header(
-                'Location: admin.php?view=' . rawurlencode($postedView)
-                . '&deleted=' . $deletedCount
-            );
+            header('Location: ' . admin_workspace_url($postedView, ['deleted' => $deletedCount]));
             exit;
         } catch (Throwable $exception) {
             $formError = $exception->getMessage();
@@ -264,17 +280,88 @@ try {
              FROM users ORDER BY role, user_name"
         )->fetchAll();
     } elseif ($view === 'website-content') {
-        $pageDescription = 'Bilingual vision, mission, approach steps, and program content shown on the homepage.';
+        $pageDescription = 'One creative workspace for homepage writing, slides, statistics, gallery images, and partner logos.';
         $columns = [
             'id' => 'ID', 'content_type' => 'Type', 'content_key' => 'Content key',
             'title_en' => 'English title', 'title_ar' => 'Arabic title',
             'sort_order' => 'Order', 'status' => 'Status',
         ];
-        $rows = $pdo->query(
+        $websiteCollections['content'] = $pdo->query(
             "SELECT id, content_type, content_key, title_en, title_ar, sort_order, status
              FROM homepage_content
              ORDER BY FIELD(content_type, 'vision', 'mission', 'step', 'program'),
                       sort_order, id"
+        )->fetchAll();
+        $rows = $websiteCollections['content'];
+        $websiteCollections['slides'] = $pdo->query(
+            "SELECT id, title_en, title_ar, image_path, sort_order, status
+             FROM homepage_slides ORDER BY sort_order, id"
+        )->fetchAll();
+        $websiteCollections['statistics'] = $pdo->query(
+            "SELECT id, stat_key, stat_value, suffix, label_en, label_ar, sort_order, status
+             FROM homepage_statistics ORDER BY sort_order, id"
+        )->fetchAll();
+        $websiteCollections['gallery'] = $pdo->query(
+            "SELECT id, caption_en, caption_ar, layout_style, image_path, sort_order, status
+             FROM homepage_gallery_images ORDER BY sort_order, id"
+        )->fetchAll();
+        $websiteCollections['partners'] = $pdo->query(
+            "SELECT id, name_en, name_ar, logo_path, website_url, sort_order, status
+             FROM homepage_partners ORDER BY sort_order, id"
+        )->fetchAll();
+    } elseif ($view === 'website-slides') {
+        $pageDescription = 'Images and bilingual captions shown as the vision and mission slideshow.';
+        $columns = [
+            'id' => 'ID', 'title_en' => 'English title', 'title_ar' => 'Arabic title',
+            'image_path' => 'Image', 'sort_order' => 'Order', 'status' => 'Status',
+        ];
+        $rows = $pdo->query(
+            "SELECT id, title_en, title_ar, image_path, sort_order, status
+             FROM homepage_slides ORDER BY sort_order, id"
+        )->fetchAll();
+    } elseif ($view === 'website-statistics') {
+        $pageDescription = 'Homepage numbers, suffixes, and bilingual labels.';
+        $columns = [
+            'id' => 'ID', 'stat_key' => 'Key', 'stat_value' => 'Number',
+            'suffix' => 'Suffix', 'label_en' => 'English label',
+            'label_ar' => 'Arabic label', 'sort_order' => 'Order', 'status' => 'Status',
+        ];
+        $rows = $pdo->query(
+            "SELECT id, stat_key, stat_value, suffix, label_en, label_ar, sort_order, status
+             FROM homepage_statistics ORDER BY sort_order, id"
+        )->fetchAll();
+    } elseif ($view === 'website-gallery') {
+        $pageDescription = 'Uploaded gallery images, bilingual captions, and display layouts.';
+        $columns = [
+            'id' => 'ID', 'caption_en' => 'English caption', 'caption_ar' => 'Arabic caption',
+            'layout_style' => 'Layout', 'image_path' => 'Image',
+            'sort_order' => 'Order', 'status' => 'Status',
+        ];
+        $rows = $pdo->query(
+            "SELECT id, caption_en, caption_ar, layout_style, image_path, sort_order, status
+             FROM homepage_gallery_images ORDER BY sort_order, id"
+        )->fetchAll();
+    } elseif ($view === 'website-partners') {
+        $pageDescription = 'Partner names, uploaded logos, website links, and display order.';
+        $columns = [
+            'id' => 'ID', 'name_en' => 'English name', 'name_ar' => 'Arabic name',
+            'logo_path' => 'Logo', 'website_url' => 'Website',
+            'sort_order' => 'Order', 'status' => 'Status',
+        ];
+        $rows = $pdo->query(
+            "SELECT id, name_en, name_ar, logo_path, website_url, sort_order, status
+             FROM homepage_partners ORDER BY sort_order, id"
+        )->fetchAll();
+    } elseif ($view === 'website-contacts') {
+        $pageDescription = 'Phone, email, WhatsApp, social media, address, hours, and Google Maps links.';
+        $columns = [
+            'id' => 'ID', 'link_key' => 'Key', 'link_type' => 'Type',
+            'value_en' => 'English value', 'value_ar' => 'Arabic value',
+            'url' => 'Link', 'sort_order' => 'Order', 'status' => 'Status',
+        ];
+        $rows = $pdo->query(
+            "SELECT id, link_key, link_type, value_en, value_ar, url, sort_order, status
+             FROM homepage_contact_links ORDER BY sort_order, id"
         )->fetchAll();
     }
 } catch (Throwable $exception) {
@@ -357,9 +444,9 @@ try {
             <section class="data-panel record-editor">
               <div class="panel-heading">
                 <div><span>New record</span><h2>Add <?= e($pageTitle) ?></h2></div>
-                <a href="admin.php?view=<?= e($view) ?>">Cancel</a>
+                <a href="<?= e(admin_workspace_url($view)) ?>">Cancel</a>
               </div>
-              <form method="post">
+              <form method="post" enctype="multipart/form-data">
                 <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
                 <input type="hidden" name="action" value="add">
                 <input type="hidden" name="view" value="<?= e($view) ?>">
@@ -374,12 +461,190 @@ try {
                 </div>
                 <div class="record-form-actions">
                   <button class="primary-action" type="submit">Save record</button>
-                  <a class="secondary-action" href="admin.php?view=<?= e($view) ?>">Cancel</a>
+                  <a class="secondary-action" href="<?= e(admin_workspace_url($view)) ?>">Cancel</a>
                 </div>
               </form>
             </section>
           <?php endif; ?>
 
+          <?php if ($view === 'website-content'): ?>
+            <?php
+            $workspaceSections = [
+                [
+                    'id' => 'page-content',
+                    'view' => 'website-content',
+                    'number' => '01',
+                    'eyebrow' => 'Words',
+                    'title' => 'Page content',
+                    'description' => 'Vision, mission, learning steps, and program copy in English and Arabic.',
+                    'items' => $websiteCollections['content'],
+                    'tone' => 'navy',
+                ],
+                [
+                    'id' => 'vision-slides',
+                    'view' => 'website-slides',
+                    'number' => '02',
+                    'eyebrow' => 'Motion',
+                    'title' => 'Vision slides',
+                    'description' => 'The image sequence and captions displayed below the vision and mission.',
+                    'items' => $websiteCollections['slides'],
+                    'tone' => 'orange',
+                ],
+                [
+                    'id' => 'statistics',
+                    'view' => 'website-statistics',
+                    'number' => '03',
+                    'eyebrow' => 'Impact',
+                    'title' => 'Statistics',
+                    'description' => 'The animated numbers that communicate the center’s reach and experience.',
+                    'items' => $websiteCollections['statistics'],
+                    'tone' => 'green',
+                ],
+                [
+                    'id' => 'gallery-images',
+                    'view' => 'website-gallery',
+                    'number' => '04',
+                    'eyebrow' => 'Moments',
+                    'title' => 'Gallery images',
+                    'description' => 'Classroom moments, activities, and visual stories arranged as a mosaic.',
+                    'items' => $websiteCollections['gallery'],
+                    'tone' => 'pink',
+                ],
+                [
+                    'id' => 'partner-logos',
+                    'view' => 'website-partners',
+                    'number' => '05',
+                    'eyebrow' => 'Network',
+                    'title' => 'Partner logos',
+                    'description' => 'Organizations and collaborators presented in the partners strip.',
+                    'items' => $websiteCollections['partners'],
+                    'tone' => 'violet',
+                ],
+            ];
+            ?>
+            <section class="website-studio" aria-label="Website content workspace">
+              <div class="website-studio-hero">
+                <div>
+                  <span>Homepage studio</span>
+                  <h2>Shape the website from one place.</h2>
+                  <p>Each collection has its own visual language, while every edit stays connected to the same live homepage.</p>
+                </div>
+                <div class="website-studio-total">
+                  <strong><?= e((string) array_sum(array_map(
+                      static fn (array $section): int => count($section['items']),
+                      $workspaceSections
+                  ))) ?></strong>
+                  <span>stored items</span>
+                </div>
+              </div>
+
+              <nav class="website-studio-nav" aria-label="Website content sections">
+                <?php foreach ($workspaceSections as $section): ?>
+                  <a class="studio-nav-<?= e($section['tone']) ?>" href="#<?= e($section['id']) ?>">
+                    <span><?= e($section['number']) ?></span>
+                    <strong><?= e($section['title']) ?></strong>
+                    <small><?= e((string) count($section['items'])) ?> items</small>
+                  </a>
+                <?php endforeach; ?>
+              </nav>
+
+              <?php foreach ($workspaceSections as $section): ?>
+                <section
+                  class="website-collection collection-<?= e($section['tone']) ?>"
+                  id="<?= e($section['id']) ?>"
+                >
+                  <header class="website-collection-heading">
+                    <div class="collection-title">
+                      <span class="collection-number"><?= e($section['number']) ?></span>
+                      <div>
+                        <small><?= e($section['eyebrow']) ?></small>
+                        <h2><?= e($section['title']) ?></h2>
+                        <p><?= e($section['description']) ?></p>
+                      </div>
+                    </div>
+                    <div class="collection-actions">
+                      <span><?= e((string) count($section['items'])) ?> records</span>
+                      <a href="admin.php?view=<?= e($section['view']) ?>&new=1">
+                        <?= admin_icon($section['view']) ?> Add new
+                      </a>
+                    </div>
+                  </header>
+
+                  <?php if ($section['items'] === []): ?>
+                    <div class="website-collection-empty">No records yet. Add the first one to this collection.</div>
+                  <?php elseif ($section['view'] === 'website-content'): ?>
+                    <div class="content-block-grid">
+                      <?php foreach ($section['items'] as $item): ?>
+                        <article class="content-block-card">
+                          <div class="content-block-meta">
+                            <span><?= e(strtoupper((string) $item['content_type'])) ?></span>
+                            <?= render_value('status', $item['status']) ?>
+                          </div>
+                          <strong><?= e((string) ($item['title_en'] ?: $item['content_key'])) ?></strong>
+                          <p lang="ar" dir="rtl"><?= e((string) ($item['title_ar'] ?: 'No Arabic title')) ?></p>
+                          <footer>
+                            <small>Order <?= e((string) $item['sort_order']) ?></small>
+                            <a href="admin-record.php?view=website-content&id=<?= e((string) $item['id']) ?>">Edit content</a>
+                          </footer>
+                        </article>
+                      <?php endforeach; ?>
+                    </div>
+                  <?php elseif ($section['view'] === 'website-slides'): ?>
+                    <div class="slide-card-grid">
+                      <?php foreach ($section['items'] as $item): ?>
+                        <article class="slide-preview-card">
+                          <img src="<?= e((string) $item['image_path']) ?>" alt="">
+                          <div>
+                            <span><?= render_value('status', $item['status']) ?></span>
+                            <strong><?= e((string) ($item['title_en'] ?: 'Untitled slide')) ?></strong>
+                            <p lang="ar" dir="rtl"><?= e((string) ($item['title_ar'] ?: '')) ?></p>
+                            <a href="admin-record.php?view=website-slides&id=<?= e((string) $item['id']) ?>">Edit slide</a>
+                          </div>
+                        </article>
+                      <?php endforeach; ?>
+                    </div>
+                  <?php elseif ($section['view'] === 'website-statistics'): ?>
+                    <div class="stat-card-grid">
+                      <?php foreach ($section['items'] as $item): ?>
+                        <a class="stat-preview-card" href="admin-record.php?view=website-statistics&id=<?= e((string) $item['id']) ?>">
+                          <small><?= e((string) $item['stat_key']) ?></small>
+                          <strong><?= e((string) $item['stat_value']) ?><sup><?= e((string) $item['suffix']) ?></sup></strong>
+                          <p><?= e((string) $item['label_en']) ?></p>
+                          <span lang="ar" dir="rtl"><?= e((string) $item['label_ar']) ?></span>
+                        </a>
+                      <?php endforeach; ?>
+                    </div>
+                  <?php elseif ($section['view'] === 'website-gallery'): ?>
+                    <div class="gallery-preview-grid">
+                      <?php foreach ($section['items'] as $item): ?>
+                        <a
+                          class="gallery-preview-card gallery-layout-<?= e((string) $item['layout_style']) ?>"
+                          href="admin-record.php?view=website-gallery&id=<?= e((string) $item['id']) ?>"
+                        >
+                          <img src="<?= e((string) $item['image_path']) ?>" alt="">
+                          <span><strong><?= e((string) $item['caption_en']) ?></strong><small>Edit image</small></span>
+                        </a>
+                      <?php endforeach; ?>
+                    </div>
+                  <?php elseif ($section['view'] === 'website-partners'): ?>
+                    <div class="partner-preview-grid">
+                      <?php foreach ($section['items'] as $item): ?>
+                        <a class="partner-preview-card" href="admin-record.php?view=website-partners&id=<?= e((string) $item['id']) ?>">
+                          <?php if ($item['logo_path']): ?>
+                            <img src="<?= e((string) $item['logo_path']) ?>" alt="">
+                          <?php else: ?>
+                            <span><?= e(strtoupper(substr((string) $item['name_en'], 0, 2))) ?></span>
+                          <?php endif; ?>
+                          <strong><?= e((string) $item['name_en']) ?></strong>
+                          <small lang="ar" dir="rtl"><?= e((string) $item['name_ar']) ?></small>
+                        </a>
+                      <?php endforeach; ?>
+                    </div>
+                  <?php endif; ?>
+                </section>
+              <?php endforeach; ?>
+            </section>
+          <?php else: ?>
           <section class="data-panel">
             <form method="post" data-table-actions>
               <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
@@ -453,6 +718,7 @@ try {
               </div>
             </form>
           </section>
+          <?php endif; ?>
         <?php endif; ?>
       </main>
     </div>

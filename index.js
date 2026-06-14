@@ -9,6 +9,17 @@ const translate = (value) => window.KhotwaI18n?.t(value) || value;
 
 const homepageContentNodes = document.querySelectorAll("[data-homepage-content]");
 let homepageContent = new Map();
+let homepageCollections = {
+  slides: [],
+  statistics: [],
+  team: [],
+  gallery: [],
+  partners: [],
+  contacts: [],
+};
+let visionSlideIndex = 0;
+let visionSlideTimer = null;
+const initializedCounters = new WeakSet();
 
 const renderHomepageContent = (language = window.KhotwaI18n?.current() || "en") => {
   homepageContentNodes.forEach((container) => {
@@ -26,24 +37,379 @@ const renderHomepageContent = (language = window.KhotwaI18n?.current() || "en") 
   });
 };
 
-if (homepageContentNodes.length) {
-  fetch("homepage-content.php", { headers: { Accept: "application/json" } })
-    .then((response) => {
-      if (!response.ok) throw new Error(`Homepage content request failed: ${response.status}`);
-      return response.json();
-    })
-    .then(({ content = [] }) => {
-      homepageContent = new Map(content.map((row) => [row.content_key, row]));
-      renderHomepageContent();
-    })
-    .catch((error) => {
-      console.warn("Using the built-in homepage content.", error);
-    });
+const animateCounter = (element) => {
+  const target = Number(element.dataset.counter);
+  const duration = 1500;
+  const start = performance.now();
 
-  document.addEventListener("khotwa:languagechange", (event) => {
-    renderHomepageContent(event.detail?.language);
+  const tick = (now) => {
+    const progress = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 4);
+    element.textContent = Math.round(target * eased).toLocaleString();
+
+    if (progress < 1) requestAnimationFrame(tick);
+  };
+
+  requestAnimationFrame(tick);
+};
+
+const setupCounters = (root = document) => {
+  const counters = root.querySelectorAll("[data-counter]");
+
+  if ("IntersectionObserver" in window) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          animateCounter(entry.target);
+          observer.unobserve(entry.target);
+        });
+      },
+      { threshold: 0.55 }
+    );
+
+    counters.forEach((counter) => {
+      if (initializedCounters.has(counter)) return;
+      initializedCounters.add(counter);
+      observer.observe(counter);
+    });
+    return;
+  }
+
+  counters.forEach((counter) => {
+    counter.textContent = Number(counter.dataset.counter).toLocaleString();
   });
-}
+};
+
+const updateVisionSlide = (index, language) => {
+  const slides = homepageCollections.slides;
+  if (!slides.length) return;
+
+  visionSlideIndex = (index + slides.length) % slides.length;
+  document.querySelectorAll(".vision-slide").forEach((slide, slideIndex) => {
+    slide.classList.toggle("is-active", slideIndex === visionSlideIndex);
+  });
+  document.querySelectorAll("[data-vision-dot]").forEach((dot, dotIndex) => {
+    dot.classList.toggle("is-active", dotIndex === visionSlideIndex);
+    dot.setAttribute("aria-current", dotIndex === visionSlideIndex ? "true" : "false");
+  });
+
+  const row = slides[visionSlideIndex];
+  const caption = document.querySelector("[data-vision-caption]");
+  const title = caption?.querySelector("strong");
+  const description = caption?.querySelector("span");
+  if (title) title.textContent = row[`title_${language}`] || "";
+  if (description) description.textContent = row[`description_${language}`] || "";
+};
+
+const startVisionSlideshow = () => {
+  window.clearInterval(visionSlideTimer);
+  if (reduceMotion || homepageCollections.slides.length < 2) return;
+  visionSlideTimer = window.setInterval(() => {
+    updateVisionSlide(visionSlideIndex + 1, window.KhotwaI18n?.current() || "en");
+  }, 5200);
+};
+
+const renderVisionSlides = (language) => {
+  const slideshow = document.querySelector("[data-vision-slideshow]");
+  const track = slideshow?.querySelector("[data-vision-slides]");
+  const controls = slideshow?.querySelector("[data-vision-controls]");
+  const dots = slideshow?.querySelector("[data-vision-dots]");
+  if (!slideshow || !track || homepageCollections.slides.length === 0) return;
+
+  track.replaceChildren();
+  homepageCollections.slides.forEach((row, index) => {
+    const image = document.createElement("img");
+    image.className = `vision-slide${index === visionSlideIndex ? " is-active" : ""}`;
+    image.src = row.image_path;
+    image.alt = row[`alt_${language}`] || row.alt_en || "";
+    image.loading = index === 0 ? "eager" : "lazy";
+    image.decoding = "async";
+    track.append(image);
+  });
+
+  if (dots) {
+    dots.replaceChildren();
+    homepageCollections.slides.forEach((row, index) => {
+      const dot = document.createElement("button");
+      dot.type = "button";
+      dot.dataset.visionDot = "";
+      dot.setAttribute("aria-label", `${translate("Slide")} ${index + 1}`);
+      dot.addEventListener("click", () => {
+        updateVisionSlide(index, window.KhotwaI18n?.current() || "en");
+        startVisionSlideshow();
+      });
+      dots.append(dot);
+    });
+  }
+
+  if (controls) controls.hidden = homepageCollections.slides.length < 2;
+  updateVisionSlide(visionSlideIndex, language);
+  startVisionSlideshow();
+};
+
+const renderStatistics = (language) => {
+  const grid = document.querySelector("[data-homepage-statistics]");
+  if (!grid || homepageCollections.statistics.length === 0) return;
+
+  grid.querySelectorAll(".stat-item").forEach((item) => item.remove());
+  grid.style.setProperty("--stat-count", homepageCollections.statistics.length);
+
+  homepageCollections.statistics.forEach((row) => {
+    const item = document.createElement("div");
+    item.className = "stat-item is-visible";
+    item.dataset.reveal = "";
+
+    const strong = document.createElement("strong");
+    const number = document.createElement("span");
+    number.dataset.counter = row.stat_value;
+    number.textContent = "0";
+    strong.append(number);
+    if (row.suffix) {
+      const suffix = document.createElement("sup");
+      suffix.textContent = row.suffix;
+      strong.append(suffix);
+    }
+
+    const label = document.createElement("p");
+    label.textContent = row[`label_${language}`] || row.label_en;
+    item.append(strong, label);
+    grid.append(item);
+  });
+
+  setupCounters(grid);
+};
+
+const renderTeam = (language) => {
+  const grid = document.querySelector("[data-homepage-team]");
+  if (!grid || homepageCollections.team.length === 0) return;
+
+  const joinCard = grid.querySelector(".team-join");
+  grid.replaceChildren();
+
+  homepageCollections.team.forEach((row, index) => {
+    const card = document.createElement("article");
+    card.className = "team-card is-visible";
+    card.dataset.reveal = "";
+
+    const portraitNames = ["one", "two", "three"];
+    const portrait = document.createElement("div");
+    portrait.className = `team-portrait portrait-${portraitNames[index % portraitNames.length]}`;
+    if (row.image_path) {
+      const image = document.createElement("img");
+      image.className = "team-portrait-image";
+      image.src = row.image_path;
+      image.alt = row[`name_${language}`] || row.name_en;
+      image.loading = "lazy";
+      image.decoding = "async";
+      portrait.append(image);
+    } else {
+      const initials = document.createElement("span");
+      initials.className = "portrait-initials";
+      initials.textContent = row.initials || row.name_en.split(/\s+/).map((part) => part[0]).join("").slice(0, 3);
+      const shape = document.createElement("div");
+      shape.className = "portrait-shape";
+      portrait.append(initials, shape);
+    }
+
+    const info = document.createElement("div");
+    info.className = "team-info";
+    const copy = document.createElement("div");
+    const name = document.createElement("h3");
+    name.textContent = row[`name_${language}`] || row.name_en;
+    const role = document.createElement("p");
+    role.textContent = row[`role_${language}`] || row.role_en;
+    copy.append(name, role);
+
+    const link = document.createElement("a");
+    link.href = row.contact_url || "#contact";
+    link.textContent = "Open";
+    link.setAttribute("aria-label", `${translate("Contact")} ${name.textContent}`);
+    info.append(copy, link);
+
+    const subjects = document.createElement("span");
+    subjects.className = "team-specialty";
+    subjects.textContent = row[`subjects_${language}`] || row.subjects_en;
+    card.append(portrait, info, subjects);
+    grid.append(card);
+  });
+
+  if (joinCard) grid.append(joinCard);
+};
+
+const galleryLayoutClass = (layout) => ({
+  wide: "gallery-wide",
+  tall: "gallery-tall",
+  crop_one: "gallery-crop-one",
+  crop_two: "gallery-crop-two",
+  standard: "",
+}[layout] || "");
+
+const renderGallery = (language) => {
+  const grid = document.querySelector("[data-homepage-gallery]");
+  if (!grid || homepageCollections.gallery.length === 0) return;
+
+  const quote = grid.querySelector(".gallery-quote");
+  grid.replaceChildren();
+
+  homepageCollections.gallery.forEach((row) => {
+    const item = document.createElement("button");
+    item.className = `gallery-item ${galleryLayoutClass(row.layout_style)}`.trim();
+    item.type = "button";
+    item.dataset.image = row.image_path;
+    item.dataset.caption = row[`caption_${language}`] || row.caption_en;
+
+    const image = document.createElement("img");
+    image.src = row.image_path;
+    image.alt = row[`alt_${language}`] || row.alt_en;
+    image.loading = "lazy";
+    image.decoding = "async";
+
+    const overlay = document.createElement("span");
+    const caption = document.createElement("b");
+    caption.textContent = row[`caption_${language}`] || row.caption_en;
+    const action = document.createElement("i");
+    action.textContent = translate("View image");
+    overlay.append(caption, action);
+    item.append(image, overlay);
+    grid.append(item);
+  });
+
+  if (quote) grid.append(quote);
+};
+
+const renderPartners = (language) => {
+  const container = document.querySelector("[data-homepage-partners]");
+  if (!container || homepageCollections.partners.length === 0) return;
+
+  container.replaceChildren();
+  homepageCollections.partners.forEach((row, index) => {
+    const partner = document.createElement(row.website_url ? "a" : "span");
+    if (row.website_url) {
+      partner.href = row.website_url;
+      if (/^https?:/i.test(row.website_url)) {
+        partner.target = "_blank";
+        partner.rel = "noopener noreferrer";
+      }
+    }
+
+    if (row.logo_path) {
+      const logo = document.createElement("img");
+      logo.src = row.logo_path;
+      logo.alt = row[`name_${language}`] || row.name_en;
+      logo.loading = "lazy";
+      partner.append(logo);
+    } else {
+      const markNames = ["one", "two", "three", "four", "five"];
+      const mark = document.createElement("i");
+      mark.className = `partner-mark mark-${markNames[index % markNames.length]}`;
+      partner.append(mark);
+    }
+
+    const name = document.createElement("span");
+    name.textContent = row[`name_${language}`] || row.name_en;
+    partner.append(name);
+    container.append(partner);
+  });
+};
+
+const renderContacts = (language) => {
+  const contacts = new Map(homepageCollections.contacts.map((row) => [row.link_key, row]));
+
+  document.querySelectorAll("[data-contact-link]").forEach((element) => {
+    const row = contacts.get(element.dataset.contactLink);
+    if (!row) return;
+    if (row.url) element.href = row.url;
+    if (!element.classList.contains("button")) {
+      element.textContent = row[`value_${language}`] || row.value_en;
+    }
+  });
+
+  document.querySelectorAll("[data-contact-value]").forEach((element) => {
+    const row = contacts.get(element.dataset.contactValue);
+    if (row) element.textContent = row[`value_${language}`] || row.value_en;
+  });
+
+  const socialContainer = document.querySelector("[data-homepage-socials]");
+  if (!socialContainer) return;
+
+  const socialTypes = new Set(["instagram", "facebook", "whatsapp", "tiktok", "linkedin", "google_map"]);
+  const shortLabels = {
+    instagram: "ig",
+    facebook: "f",
+    whatsapp: "wa",
+    tiktok: "tk",
+    linkedin: "in",
+    google_map: "map",
+  };
+
+  socialContainer.replaceChildren();
+  homepageCollections.contacts.filter((row) => socialTypes.has(row.link_type)).forEach((row) => {
+    const link = document.createElement("a");
+    link.href = row.url || "#";
+    link.textContent = shortLabels[row.link_type] || row.label_en;
+    link.setAttribute("aria-label", row[`label_${language}`] || row.label_en);
+    if (/^https?:/i.test(row.url || "")) {
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+    }
+    socialContainer.append(link);
+  });
+};
+
+const renderHomepageCollections = (language = window.KhotwaI18n?.current() || "en") => {
+  renderVisionSlides(language);
+  renderStatistics(language);
+  renderTeam(language);
+  renderGallery(language);
+  renderPartners(language);
+  renderContacts(language);
+};
+
+const homepageDataPromise = fetch("homepage-content.php", { headers: { Accept: "application/json" } })
+  .then((response) => {
+    if (!response.ok) throw new Error(`Homepage content request failed: ${response.status}`);
+    return response.json();
+  })
+  .then((data) => {
+    homepageContent = new Map((data.content || []).map((row) => [row.content_key, row]));
+    homepageCollections = {
+      slides: data.slides || [],
+      statistics: data.statistics || [],
+      team: data.team || [],
+      gallery: data.gallery || [],
+      partners: data.partners || [],
+      contacts: data.contacts || [],
+    };
+    renderHomepageContent();
+    renderHomepageCollections();
+  })
+  .catch((error) => {
+    console.warn("Using the built-in homepage content.", error);
+    setupCounters();
+  });
+
+document.addEventListener("khotwa:languagechange", (event) => {
+  const language = event.detail?.language || "en";
+  renderHomepageContent(language);
+  renderHomepageCollections(language);
+});
+
+document.querySelector("[data-vision-previous]")?.addEventListener("click", () => {
+  updateVisionSlide(visionSlideIndex - 1, window.KhotwaI18n?.current() || "en");
+  startVisionSlideshow();
+});
+
+document.querySelector("[data-vision-next]")?.addEventListener("click", () => {
+  updateVisionSlide(visionSlideIndex + 1, window.KhotwaI18n?.current() || "en");
+  startVisionSlideshow();
+});
+
+document.querySelector("[data-vision-slideshow]")?.addEventListener("pointerenter", () => {
+  window.clearInterval(visionSlideTimer);
+});
+
+document.querySelector("[data-vision-slideshow]")?.addEventListener("pointerleave", startVisionSlideshow);
 
 const loader = document.querySelector(".page-loader");
 const loaderStartedAt = performance.now();
@@ -115,46 +481,6 @@ if ("IntersectionObserver" in window && !reduceMotion) {
   revealItems.forEach((item) => item.classList.add("is-visible"));
 }
 
-const counterElements = document.querySelectorAll("[data-counter]");
-
-const animateCounter = (element) => {
-  const target = Number(element.dataset.counter);
-  const duration = 1500;
-  const start = performance.now();
-
-  const tick = (now) => {
-    const progress = Math.min((now - start) / duration, 1);
-    const eased = 1 - Math.pow(1 - progress, 4);
-    element.textContent = Math.round(target * eased).toLocaleString();
-
-    if (progress < 1) {
-      requestAnimationFrame(tick);
-    }
-  };
-
-  requestAnimationFrame(tick);
-};
-
-if ("IntersectionObserver" in window) {
-  const counterObserver = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          animateCounter(entry.target);
-          counterObserver.unobserve(entry.target);
-        }
-      });
-    },
-    { threshold: 0.55 }
-  );
-
-  counterElements.forEach((counter) => counterObserver.observe(counter));
-} else {
-  counterElements.forEach((counter) => {
-    counter.textContent = Number(counter.dataset.counter).toLocaleString();
-  });
-}
-
 document.querySelectorAll("[data-tilt]").forEach((card) => {
   card.addEventListener("pointermove", (event) => {
     if (event.pointerType === "touch" || reduceMotion) return;
@@ -201,18 +527,17 @@ const closeLightbox = () => {
   body.classList.remove("lightbox-open");
 };
 
-document.querySelectorAll(".gallery-item").forEach((item) => {
-  item.addEventListener("click", () => {
-    if (!lightbox || !lightboxImage || !lightboxCaption) return;
+document.addEventListener("click", (event) => {
+  const item = event.target.closest(".gallery-item");
+  if (!item || !lightbox || !lightboxImage || !lightboxCaption) return;
 
-    lightboxImage.src = item.dataset.image;
-    lightboxImage.alt = item.querySelector("img")?.alt || "";
-    lightboxCaption.textContent = item.dataset.caption || "";
-    lightbox.classList.add("is-open");
-    lightbox.setAttribute("aria-hidden", "false");
-    body.classList.add("lightbox-open");
-    lightboxClose?.focus();
-  });
+  lightboxImage.src = item.dataset.image;
+  lightboxImage.alt = item.querySelector("img")?.alt || "";
+  lightboxCaption.textContent = item.dataset.caption || "";
+  lightbox.classList.add("is-open");
+  lightbox.setAttribute("aria-hidden", "false");
+  body.classList.add("lightbox-open");
+  lightboxClose?.focus();
 });
 
 lightboxClose?.addEventListener("click", closeLightbox);
