@@ -45,7 +45,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
         if (
             !$user ||
-            !in_array($user['role'], ['admin', 'teacher'], true) ||
+            !in_array($user['role'], ['admin', 'manager', 'teacher'], true) ||
             $user['status'] !== 'active' ||
             ($user['role'] === 'teacher' && $user['teacher_id'] === null) ||
             !password_verify($password, (string) $user['password_hash'])
@@ -97,7 +97,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
       <div class="visual-wash"></div>
       <div class="visual-grid" aria-hidden="true"></div>
 
-      <a class="auth-brand brand-on-image" href="index.html" aria-label="Khotwa Education Center home">
+      <a class="auth-brand brand-on-image" href="index.php" aria-label="Khotwa Education Center home">
         <span class="brand-mark">K<span>.</span></span>
         <span>
           <strong>Khotwa</strong>
@@ -130,7 +130,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
     <main class="auth-main">
       <div class="auth-topbar">
-        <a class="auth-brand brand-mobile" href="index.html">
+        <a class="auth-brand brand-mobile" href="index.php">
           <span class="brand-mark">K<span>.</span></span>
           <span>
             <strong>Khotwa</strong>
@@ -143,7 +143,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             <i></i>
             <span data-language-label>العربية</span>
           </button>
-          <a class="back-link" href="index.html">
+          <a class="back-link" href="index.php">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg>
             Back to website
           </a>
@@ -171,6 +171,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             <span>Teacher demo</span>
             <strong>maya.math@khotwa.test</strong>
             <code>teacher123</code>
+          </button>
+          <button class="demo-credentials manager-demo" type="button" data-fill-login data-email="manager@khotwa.test" data-password="manager123">
+            <span>Manager demo</span>
+            <strong>manager@khotwa.test</strong>
+            <code>manager123</code>
           </button>
         </div>
 

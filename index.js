@@ -367,11 +367,13 @@ const renderHomepageCollections = (language = window.KhotwaI18n?.current() || "e
   renderContacts(language);
 };
 
-const homepageDataPromise = fetch("homepage-content.php", { headers: { Accept: "application/json" } })
-  .then((response) => {
-    if (!response.ok) throw new Error(`Homepage content request failed: ${response.status}`);
-    return response.json();
-  })
+const embeddedHomepageData = window.KhotwaHomepageData;
+const homepageDataPromise = (embeddedHomepageData
+  ? Promise.resolve(embeddedHomepageData)
+  : fetch("homepage-content.php", { headers: { Accept: "application/json" } }).then((response) => {
+      if (!response.ok) throw new Error(`Homepage content request failed: ${response.status}`);
+      return response.json();
+    }))
   .then((data) => {
     homepageContent = new Map((data.content || []).map((row) => [row.content_key, row]));
     homepageCollections = {

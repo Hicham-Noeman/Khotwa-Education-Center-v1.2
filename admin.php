@@ -4,11 +4,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/admin-data.php';
 
-$user = current_user();
-if (!$user || ($user['role'] ?? '') !== 'admin') {
-    header('Location: login.php');
-    exit;
-}
+$user = require_roles(['admin', 'manager']);
+$isManager = ($user['role'] ?? '') === 'manager';
 
 function status_class(string $value): string
 {
@@ -33,9 +30,17 @@ function render_value(string $key, mixed $value): string
     return e($text);
 }
 
-$navigation = admin_navigation();
-$view = (string) ($_GET['view'] ?? 'overview');
+$navigation = admin_navigation_for_user($user);
+$view = (string) ($_GET['view'] ?? ($isManager ? '' : 'overview'));
+if ($isManager && $view === '') {
+    header('Location: manager.php');
+    exit;
+}
 if (!isset($navigation[$view])) {
+    if ($isManager) {
+        header('Location: manager.php');
+        exit;
+    }
     $view = 'overview';
 }
 
@@ -49,6 +54,7 @@ $websiteCollections = [
     'content' => [],
     'slides' => [],
     'statistics' => [],
+    'team' => [],
     'gallery' => [],
     'partners' => [],
 ];
@@ -72,7 +78,7 @@ try {
         try {
             admin_verify_csrf();
             $postedView = (string) ($_POST['view'] ?? '');
-            if (!isset($viewTables[$postedView])) {
+            if (!isset($viewTables[$postedView]) || !admin_user_can_access_view($user, $postedView)) {
                 throw new RuntimeException('Invalid data section.');
             }
 
@@ -280,7 +286,7 @@ try {
              FROM users ORDER BY role, user_name"
         )->fetchAll();
     } elseif ($view === 'website-content') {
-        $pageDescription = 'One creative workspace for homepage writing, slides, statistics, gallery images, and partner logos.';
+        $pageDescription = 'One creative workspace for homepage writing, slides, statistics, team members, gallery images, and partner logos.';
         $columns = [
             'id' => 'ID', 'content_type' => 'Type', 'content_key' => 'Content key',
             'title_en' => 'English title', 'title_ar' => 'Arabic title',
@@ -300,6 +306,10 @@ try {
         $websiteCollections['statistics'] = $pdo->query(
             "SELECT id, stat_key, stat_value, suffix, label_en, label_ar, sort_order, status
              FROM homepage_statistics ORDER BY sort_order, id"
+        )->fetchAll();
+        $websiteCollections['team'] = $pdo->query(
+            "SELECT id, name_en, name_ar, role_en, role_ar, subjects_en, image_path, sort_order, status
+             FROM homepage_team_members ORDER BY sort_order, id"
         )->fetchAll();
         $websiteCollections['gallery'] = $pdo->query(
             "SELECT id, caption_en, caption_ar, layout_style, image_path, sort_order, status
@@ -329,6 +339,17 @@ try {
         $rows = $pdo->query(
             "SELECT id, stat_key, stat_value, suffix, label_en, label_ar, sort_order, status
              FROM homepage_statistics ORDER BY sort_order, id"
+        )->fetchAll();
+    } elseif ($view === 'website-team') {
+        $pageDescription = 'Homepage team profiles, roles, specialties, images, contact links, and display order.';
+        $columns = [
+            'id' => 'ID', 'name_en' => 'English name', 'name_ar' => 'Arabic name',
+            'role_en' => 'Role', 'subjects_en' => 'Specialty', 'image_path' => 'Image',
+            'sort_order' => 'Order', 'status' => 'Status',
+        ];
+        $rows = $pdo->query(
+            "SELECT id, name_en, name_ar, role_en, subjects_en, image_path, sort_order, status
+             FROM homepage_team_members ORDER BY sort_order, id"
         )->fetchAll();
     } elseif ($view === 'website-gallery') {
         $pageDescription = 'Uploaded gallery images, bilingual captions, and display layouts.';
@@ -365,7 +386,7 @@ try {
         )->fetchAll();
     }
 } catch (Throwable $exception) {
-    $databaseError = 'The administrator panel could not read the database. Please confirm that MySQL is running.';
+    $databaseError = 'The management panel could not read the database. Please confirm that MySQL is running.';
 }
 ?>
 <!DOCTYPE html>
@@ -374,7 +395,7 @@ try {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0B1C34">
-  <title><?= e($pageTitle) ?> | Khotwa Administration</title>
+  <title><?= e($pageTitle) ?> | Khotwa <?= $isManager ? 'Management' : 'Administration' ?></title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
@@ -391,11 +412,11 @@ try {
       <main class="admin-content">
         <section class="content-heading">
           <div>
-            <span class="content-kicker">Control center</span>
+            <span class="content-kicker"><?= $isManager ? 'Management center' : 'Control center' ?></span>
             <h1><?= e($pageTitle) ?></h1>
             <p><?= e($pageDescription) ?></p>
           </div>
-          <div class="live-indicator"><span></span>Live database</div>
+          <div class="live-indicator"><span></span><?= $isManager ? 'Editable live data' : 'Live database' ?></div>
         </section>
 
         <?php if ($databaseError !== ''): ?>
@@ -501,9 +522,19 @@ try {
                     'tone' => 'green',
                 ],
                 [
+                    'id' => 'team-members',
+                    'view' => 'website-team',
+                    'number' => '04',
+                    'eyebrow' => 'People',
+                    'title' => 'Team members',
+                    'description' => 'The educators and leaders introduced on the public homepage.',
+                    'items' => $websiteCollections['team'],
+                    'tone' => 'violet',
+                ],
+                [
                     'id' => 'gallery-images',
                     'view' => 'website-gallery',
-                    'number' => '04',
+                    'number' => '05',
                     'eyebrow' => 'Moments',
                     'title' => 'Gallery images',
                     'description' => 'Classroom moments, activities, and visual stories arranged as a mosaic.',
@@ -513,7 +544,7 @@ try {
                 [
                     'id' => 'partner-logos',
                     'view' => 'website-partners',
-                    'number' => '05',
+                    'number' => '06',
                     'eyebrow' => 'Network',
                     'title' => 'Partner logos',
                     'description' => 'Organizations and collaborators presented in the partners strip.',
@@ -611,6 +642,20 @@ try {
                           <strong><?= e((string) $item['stat_value']) ?><sup><?= e((string) $item['suffix']) ?></sup></strong>
                           <p><?= e((string) $item['label_en']) ?></p>
                           <span lang="ar" dir="rtl"><?= e((string) $item['label_ar']) ?></span>
+                        </a>
+                      <?php endforeach; ?>
+                    </div>
+                  <?php elseif ($section['view'] === 'website-team'): ?>
+                    <div class="partner-preview-grid">
+                      <?php foreach ($section['items'] as $item): ?>
+                        <a class="partner-preview-card" href="admin-record.php?view=website-team&id=<?= e((string) $item['id']) ?>">
+                          <?php if ($item['image_path']): ?>
+                            <img src="<?= e((string) $item['image_path']) ?>" alt="">
+                          <?php else: ?>
+                            <span><?= e(strtoupper(substr((string) $item['name_en'], 0, 2))) ?></span>
+                          <?php endif; ?>
+                          <strong><?= e((string) $item['name_en']) ?></strong>
+                          <small><?= e((string) $item['role_en']) ?></small>
                         </a>
                       <?php endforeach; ?>
                     </div>

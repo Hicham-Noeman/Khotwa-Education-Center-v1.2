@@ -107,7 +107,7 @@ function render_app_header(string $title, array $user): void
           <?php if ($user['role'] === 'manager'): ?>
             <a href="manager.php">Dashboard</a>
           <?php endif; ?>
-          <a href="index.html">Website</a>
+          <a href="index.php">Website</a>
         <?php endif; ?>
         <a href="logout.php">Logout</a>
       </nav>

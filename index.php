@@ -1,3 +1,33 @@
+<?php
+declare(strict_types=1);
+
+define('KHOTWA_SKIP_AUTO_BOOTSTRAP', true);
+require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/homepage-data.php';
+
+$homepageData = [
+    'content' => [],
+    'slides' => [],
+    'statistics' => [],
+    'team' => [],
+    'gallery' => [],
+    'partners' => [],
+    'contacts' => [],
+];
+$homepageDataLoaded = false;
+
+try {
+    $homepageData = load_homepage_data(getDatabaseConnection());
+    $homepageDataLoaded = true;
+} catch (Throwable $exception) {
+    // The built-in markup remains available when MySQL is temporarily offline.
+}
+
+function homepage_e(?string $value): string
+{
+    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,7 +41,7 @@
   <link rel="preload" href="assets/images/khotwa-hero.webp" as="image" type="image/webp" fetchpriority="high">
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
-  <link rel="stylesheet" href="index.css?v=20260612-2">
+  <link rel="stylesheet" href="index.css?v=<?= homepage_e((string) filemtime(__DIR__ . '/index.css')) ?>">
 </head>
 <body>
   <div class="page-loader" aria-hidden="true">
@@ -417,50 +447,64 @@
         </div>
 
         <div class="team-grid" data-homepage-team>
-          <article class="team-card" data-reveal>
-            <div class="team-portrait portrait-one">
-              <span class="portrait-initials">RM</span>
-              <div class="portrait-shape"></div>
-            </div>
-            <div class="team-info">
-              <div>
-                <h3>Rana Mansour</h3>
-                <p>Academic Director</p>
+          <?php
+          $teamMembers = $homepageData['team'] ?: [
+              [
+                  'name_en' => 'Rana Mansour',
+                  'role_en' => 'Academic Director',
+                  'subjects_en' => 'Learning strategy',
+                  'initials' => 'RM',
+                  'image_path' => null,
+                  'contact_url' => '#contact',
+              ],
+              [
+                  'name_en' => 'Omar Saad',
+                  'role_en' => 'Math & Science Lead',
+                  'subjects_en' => 'STEM education',
+                  'initials' => 'OS',
+                  'image_path' => null,
+                  'contact_url' => '#contact',
+              ],
+              [
+                  'name_en' => 'Layla Nasser',
+                  'role_en' => 'Languages Coordinator',
+                  'subjects_en' => 'Language confidence',
+                  'initials' => 'LN',
+                  'image_path' => null,
+                  'contact_url' => '#contact',
+              ],
+          ];
+          ?>
+          <?php foreach ($teamMembers as $index => $member): ?>
+            <?php $portrait = ['one', 'two', 'three'][$index % 3]; ?>
+            <article class="team-card" data-reveal tabindex="0">
+              <div class="team-portrait portrait-<?= homepage_e($portrait) ?>">
+                <?php if (!empty($member['image_path'])): ?>
+                  <img
+                    class="team-portrait-image"
+                    src="<?= homepage_e((string) $member['image_path']) ?>"
+                    alt="<?= homepage_e((string) $member['name_en']) ?>"
+                    loading="lazy"
+                    decoding="async"
+                  >
+                <?php else: ?>
+                  <span class="portrait-initials"><?= homepage_e((string) ($member['initials'] ?: 'K')) ?></span>
+                  <div class="portrait-shape"></div>
+                <?php endif; ?>
               </div>
-              <a href="#contact" aria-label="Contact Rana Mansour">↗</a>
-            </div>
-            <span class="team-specialty">Learning strategy</span>
-          </article>
-
-          <article class="team-card" data-reveal>
-            <div class="team-portrait portrait-two">
-              <span class="portrait-initials">OS</span>
-              <div class="portrait-shape"></div>
-            </div>
-            <div class="team-info">
-              <div>
-                <h3>Omar Saad</h3>
-                <p>Math &amp; Science Lead</p>
+              <div class="team-info">
+                <div>
+                  <h3><?= homepage_e((string) $member['name_en']) ?></h3>
+                  <p><?= homepage_e((string) $member['role_en']) ?></p>
+                </div>
+                <a
+                  href="<?= homepage_e((string) ($member['contact_url'] ?: '#contact')) ?>"
+                  aria-label="Contact <?= homepage_e((string) $member['name_en']) ?>"
+                >Open</a>
               </div>
-              <a href="#contact" aria-label="Contact Omar Saad">↗</a>
-            </div>
-            <span class="team-specialty">STEM education</span>
-          </article>
-
-          <article class="team-card" data-reveal>
-            <div class="team-portrait portrait-three">
-              <span class="portrait-initials">LN</span>
-              <div class="portrait-shape"></div>
-            </div>
-            <div class="team-info">
-              <div>
-                <h3>Layla Nasser</h3>
-                <p>Languages Coordinator</p>
-              </div>
-              <a href="#contact" aria-label="Contact Layla Nasser">↗</a>
-            </div>
-            <span class="team-specialty">Language confidence</span>
-          </article>
+              <span class="team-specialty"><?= homepage_e((string) $member['subjects_en']) ?></span>
+            </article>
+          <?php endforeach; ?>
 
           <article class="team-card team-join" data-reveal>
             <div class="join-orbit">
@@ -680,7 +724,20 @@
     </div>
   </div>
 
-  <script src="language.js?v=20260612-2" defer></script>
-  <script src="index.js?v=20260612-2" defer></script>
+  <script>
+    window.KhotwaHomepageData = <?= $homepageDataLoaded
+        ? json_encode(
+            $homepageData,
+            JSON_UNESCAPED_UNICODE
+            | JSON_UNESCAPED_SLASHES
+            | JSON_HEX_TAG
+            | JSON_HEX_AMP
+            | JSON_HEX_APOS
+            | JSON_HEX_QUOT
+        )
+        : 'null' ?>;
+  </script>
+  <script src="language.js?v=<?= homepage_e((string) filemtime(__DIR__ . '/language.js')) ?>" defer></script>
+  <script src="index.js?v=<?= homepage_e((string) filemtime(__DIR__ . '/index.js')) ?>" defer></script>
 </body>
 </html>

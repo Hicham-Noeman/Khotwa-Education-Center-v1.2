@@ -64,7 +64,20 @@ function seedDatabase(PDO $pdo): array
             password_hash('admin123', PASSWORD_DEFAULT),
             'Demo administrator account for the portal'
         ]);
-        $counts['users'] = 1;
+        $insertManager = $pdo->prepare(
+            "INSERT INTO users (
+                teacher_id, first_name, last_name, email, password_hash,
+                role, status, must_change_password, notes
+             ) VALUES (NULL, ?, ?, ?, ?, 'manager', 'active', 0, ?)"
+        );
+        $insertManager->execute([
+            'Khotwa',
+            'Manager',
+            'manager@khotwa.test',
+            password_hash('manager123', PASSWORD_DEFAULT),
+            'Read-only management dashboard account'
+        ]);
+        $counts['users'] = 2;
 
         // 3. Seed Subjects
         $subjectsSeed = [
@@ -1121,12 +1134,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' || $isCli) {
       <div class="credentials-card">
         <h3>Portal Demo Login Credentials</h3>
         <p><strong>Admin Panel:</strong> <code>admin@khotwa.test</code> / password: <code>admin123</code></p>
+        <p><strong>Manager Panel:</strong> <code>manager@khotwa.test</code> / password: <code>manager123</code></p>
         <p><strong>Teacher Panel:</strong> <code>maya.math@khotwa.test</code> / password: <code>teacher123</code></p>
       </div>
 
       <div class="success-footer">
         <a href="login.php" class="btn btn-primary">Proceed to Portal Login</a>
-        <a href="index.html" class="btn btn-secondary">Go to Homepage</a>
+        <a href="index.php" class="btn btn-secondary">Go to Homepage</a>
       </div>
 
     <?php else: ?>

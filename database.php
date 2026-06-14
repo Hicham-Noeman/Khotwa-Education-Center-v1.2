@@ -20,7 +20,7 @@ $dbPass = '';
 $dbCharset = 'utf8mb4';
 
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
-const KHOTWA_SCHEMA_VERSION = 3;
+const KHOTWA_SCHEMA_VERSION = 5;
 
 function getDatabaseConnection(): PDO
 {
@@ -77,6 +77,7 @@ function ensureKhotwaSchema(PDO $pdo): void
     applyKhotwaMigrations($pdo);
     seedHomepageContentDefaults($pdo);
     seedHomepageCollectionsDefaults($pdo);
+    seedManagerAccountDefault($pdo);
     $pdo->exec(
         "CREATE TABLE IF NOT EXISTS khotwa_schema_meta (
             id TINYINT UNSIGNED NOT NULL,
@@ -90,6 +91,23 @@ function ensureKhotwaSchema(PDO $pdo): void
          ON DUPLICATE KEY UPDATE schema_version = VALUES(schema_version)'
     );
     $statement->execute([KHOTWA_SCHEMA_VERSION]);
+}
+
+function seedManagerAccountDefault(PDO $pdo): void
+{
+    $statement = $pdo->prepare(
+        "INSERT IGNORE INTO users (
+            teacher_id, first_name, last_name, email, password_hash,
+            role, status, must_change_password, notes
+         ) VALUES (NULL, ?, ?, ?, ?, 'manager', 'active', 0, ?)"
+    );
+    $statement->execute([
+        'Khotwa',
+        'Manager',
+        'manager@khotwa.test',
+        password_hash('manager123', PASSWORD_DEFAULT),
+        'Management dashboard and operations account',
+    ]);
 }
 
 function createKhotwaTables(PDO $pdo): void
@@ -107,6 +125,7 @@ function createKhotwaTables(PDO $pdo): void
             last_name_ar VARCHAR(100) NOT NULL,
             mother_name_ar VARCHAR(100) NOT NULL,
             mother_last_name_ar VARCHAR(100) NOT NULL,
+            photo_path VARCHAR(255) NULL,
             gender ENUM('male', 'female') NOT NULL,
             nationality VARCHAR(100) NOT NULL,
             blood_type ENUM('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-') NOT NULL,
@@ -217,6 +236,7 @@ function createKhotwaTables(PDO $pdo): void
             first_name VARCHAR(100) NOT NULL,
             last_name VARCHAR(100) NULL,
             phone_number VARCHAR(30) NULL,
+            photo_path VARCHAR(255) NULL,
             email VARCHAR(150) NOT NULL,
             password_hash VARCHAR(255) NOT NULL,
             status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
@@ -1092,6 +1112,12 @@ function applyKhotwaMigrations(PDO $pdo): void
         'parents_assigned_to_whatsapp_group',
         'parents_assigned_to_whatsapp_group TINYINT(1) NOT NULL DEFAULT 0 AFTER home_phone_number'
     );
+    addColumnIfMissing(
+        $pdo,
+        'students',
+        'photo_path',
+        'photo_path VARCHAR(255) NULL AFTER mother_last_name_ar'
+    );
     addIndexIfMissing(
         $pdo,
         'students',
@@ -1113,6 +1139,7 @@ function applyKhotwaMigrations(PDO $pdo): void
     );
 
     addColumnIfMissing($pdo, 'teachers', 'email', 'email VARCHAR(150) NULL AFTER phone_number');
+    addColumnIfMissing($pdo, 'teachers', 'photo_path', 'photo_path VARCHAR(255) NULL AFTER phone_number');
     addColumnIfMissing($pdo, 'teachers', 'password_hash', 'password_hash VARCHAR(255) NULL AFTER email');
     addIndexIfMissing($pdo, 'teachers', 'uq_teachers_email', 'UNIQUE KEY uq_teachers_email (email)');
 

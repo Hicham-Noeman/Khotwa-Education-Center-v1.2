@@ -4,18 +4,15 @@ declare(strict_types=1);
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/admin-data.php';
 
-$user = current_user();
-if (!$user || ($user['role'] ?? '') !== 'admin') {
-    header('Location: login.php');
-    exit;
-}
+$user = require_roles(['admin', 'manager']);
+$isManager = ($user['role'] ?? '') === 'manager';
 
 $type = ($_GET['type'] ?? '') === 'teacher' ? 'teacher' : 'student';
 $personId = (int) ($_GET['id'] ?? 0);
 $mainTable = $type === 'teacher' ? 'teachers' : 'students';
 $relationColumn = $type === 'teacher' ? 'teacher_id' : 'student_id';
 $activeView = $type === 'teacher' ? 'teachers' : 'students';
-$linkedTables = admin_linked_tables($type);
+$linkedTables = admin_linked_tables_for_user($type, $user);
 $addTable = (string) ($_GET['add_table'] ?? '');
 $message = isset($_GET['saved']) ? 'Record saved successfully.' : '';
 $error = '';
@@ -31,7 +28,18 @@ try {
             $recordId = (int) ($_POST['record_id'] ?? 0);
 
             if ($action === 'update_main' && $table === $mainTable && $recordId === $personId) {
-                admin_save_record($pdo, $table, (array) ($_POST['fields'] ?? []), $recordId);
+                $uploadResult = admin_prepare_uploads(
+                    $table,
+                    (array) ($_POST['fields'] ?? []),
+                    (array) ($_FILES['uploads'] ?? [])
+                );
+                try {
+                    admin_save_record($pdo, $table, $uploadResult['fields'], $recordId);
+                    admin_remove_uploaded_files($uploadResult['replaced']);
+                } catch (Throwable $exception) {
+                    admin_remove_uploaded_files($uploadResult['created']);
+                    throw $exception;
+                }
             } elseif ($action === 'update_linked' && isset($linkedTables[$table])) {
                 $check = $pdo->prepare(
                     'SELECT COUNT(*) FROM ' . admin_quote_identifier($table)
@@ -106,7 +114,7 @@ try {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0B1C34">
-  <title><?= e($personName ?? 'Profile') ?> | Khotwa Administration</title>
+  <title><?= e($personName ?? 'Profile') ?> | Khotwa <?= $isManager ? 'Management' : 'Administration' ?></title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
@@ -141,7 +149,7 @@ try {
               <div><span>Main record</span><h2><?= e(ucfirst($type)) ?> information</h2></div>
               <span class="read-only-status" data-edit-status>Read only</span>
             </div>
-            <form method="post" data-edit-form>
+            <form method="post" enctype="multipart/form-data" data-edit-form>
               <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
               <input type="hidden" name="action" value="update_main">
               <input type="hidden" name="table" value="<?= e($mainTable) ?>">

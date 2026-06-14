@@ -17,10 +17,60 @@ function admin_navigation(): array
         'website-content' => ['label' => 'Website Content', 'group' => 'Website'],
         'website-slides' => ['label' => 'Vision Slides', 'group' => 'Website', 'sidebar' => false],
         'website-statistics' => ['label' => 'Statistics', 'group' => 'Website', 'sidebar' => false],
+        'website-team' => ['label' => 'Team Members', 'group' => 'Website', 'sidebar' => false],
         'website-gallery' => ['label' => 'Gallery Images', 'group' => 'Website', 'sidebar' => false],
         'website-partners' => ['label' => 'Partner Logos', 'group' => 'Website', 'sidebar' => false],
         'website-contacts' => ['label' => 'Contact & Social', 'group' => 'Website'],
     ];
+}
+
+function admin_manager_allowed_views(): array
+{
+    return [
+        'students',
+        'teachers',
+        'subjects',
+        'enrollments',
+        'subscriptions',
+        'payments',
+        'warnings',
+        'website-content',
+        'website-slides',
+        'website-statistics',
+        'website-team',
+        'website-gallery',
+        'website-partners',
+        'website-contacts',
+    ];
+}
+
+function admin_allowed_views_for_role(string $role): array
+{
+    if ($role === 'admin') {
+        return array_keys(admin_navigation());
+    }
+
+    if ($role === 'manager') {
+        return admin_manager_allowed_views();
+    }
+
+    return [];
+}
+
+function admin_user_can_access_view(array $user, string $view): bool
+{
+    return in_array($view, admin_allowed_views_for_role((string) ($user['role'] ?? '')), true);
+}
+
+function admin_navigation_for_user(array $user): array
+{
+    $allowedViews = admin_allowed_views_for_role((string) ($user['role'] ?? ''));
+
+    return array_filter(
+        admin_navigation(),
+        static fn (string $view): bool => in_array($view, $allowedViews, true),
+        ARRAY_FILTER_USE_KEY
+    );
 }
 
 function admin_view_tables(): array
@@ -38,6 +88,7 @@ function admin_view_tables(): array
         'website-content' => 'homepage_content',
         'website-slides' => 'homepage_slides',
         'website-statistics' => 'homepage_statistics',
+        'website-team' => 'homepage_team_members',
         'website-gallery' => 'homepage_gallery_images',
         'website-partners' => 'homepage_partners',
         'website-contacts' => 'homepage_contact_links',
@@ -69,6 +120,17 @@ function admin_linked_tables(string $type): array
         'student_subscription_months' => 'Subscription months',
         'student_subscription_payments' => 'Payments',
     ];
+}
+
+function admin_linked_tables_for_user(string $type, array $user): array
+{
+    $tables = admin_linked_tables($type);
+
+    if (($user['role'] ?? '') === 'manager') {
+        unset($tables['users']);
+    }
+
+    return $tables;
 }
 
 function admin_icon(string $name): string
@@ -107,6 +169,7 @@ function admin_website_workspace_views(): array
         'website-content' => 'page-content',
         'website-slides' => 'vision-slides',
         'website-statistics' => 'statistics',
+        'website-team' => 'team-members',
         'website-gallery' => 'gallery-images',
         'website-partners' => 'partner-logos',
     ];
@@ -127,6 +190,7 @@ function admin_workspace_url(string $view, array $query = []): string
 function admin_column_label(string $column): string
 {
     $labels = [
+        'photo_path' => 'Photo',
         'image_path' => 'Image',
         'logo_path' => 'Logo',
         'stat_key' => 'Statistic Key',
@@ -251,6 +315,7 @@ function admin_default_field_value(array $column): string
 function admin_upload_columns(string $table): array
 {
     return match ($table) {
+        'students', 'teachers' => ['photo_path'],
         'homepage_slides', 'homepage_team_members', 'homepage_gallery_images' => ['image_path'],
         'homepage_partners' => ['logo_path'],
         default => [],
@@ -437,6 +502,13 @@ function admin_derive_fields(PDO $pdo, string $table, array $fields): array
         if (!$relation) {
             throw new RuntimeException('Select a valid teacher and subject assignment.');
         }
+        if (
+            isset($fields['teacher_id'])
+            && (int) $fields['teacher_id'] > 0
+            && (int) $fields['teacher_id'] !== (int) $relation['teacher_id']
+        ) {
+            throw new RuntimeException('Select a teacher and subject assignment for this teacher.');
+        }
         $fields['teacher_id'] = $relation['teacher_id'];
         $fields['subject_id'] = $relation['subject_id'];
     }
@@ -463,8 +535,68 @@ function admin_derive_fields(PDO $pdo, string $table, array $fields): array
     return $fields;
 }
 
+function admin_sync_subscription_month_payment(PDO $pdo, int $subscriptionMonthId): void
+{
+    if ($subscriptionMonthId < 1) {
+        return;
+    }
+
+    $statement = $pdo->prepare(
+        "SELECT expected_amount, billing_type
+         FROM student_subscription_months
+         WHERE id = ?"
+    );
+    $statement->execute([$subscriptionMonthId]);
+    $month = $statement->fetch();
+    if (!$month) {
+        return;
+    }
+
+    $paymentStatement = $pdo->prepare(
+        "SELECT COALESCE(SUM(paid_amount), 0) paid_amount, MAX(paid_at) last_payment_date
+         FROM student_subscription_payments
+         WHERE subscription_month_id = ?"
+    );
+    $paymentStatement->execute([$subscriptionMonthId]);
+    $payment = $paymentStatement->fetch() ?: ['paid_amount' => 0, 'last_payment_date' => null];
+
+    $expectedAmount = (float) $month['expected_amount'];
+    $paidAmount = (float) $payment['paid_amount'];
+    $billingType = (string) $month['billing_type'];
+    if ($paidAmount <= 0 && in_array($billingType, ['paused', 'unsubscribed'], true)) {
+        $paymentStatus = $billingType;
+    } elseif ($paidAmount <= 0) {
+        $paymentStatus = 'not_paid';
+    } elseif ($paidAmount < $expectedAmount) {
+        $paymentStatus = 'partial_paid';
+    } elseif ($paidAmount > $expectedAmount) {
+        $paymentStatus = 'overpaid';
+    } else {
+        $paymentStatus = 'paid';
+    }
+
+    $update = $pdo->prepare(
+        "UPDATE student_subscription_months
+         SET paid_amount = ?, payment_status = ?, last_payment_date = ?
+         WHERE id = ?"
+    );
+    $update->execute([
+        $paidAmount,
+        $paymentStatus,
+        $payment['last_payment_date'],
+        $subscriptionMonthId,
+    ]);
+}
+
 function admin_save_record(PDO $pdo, string $table, array $fields, ?int $id = null): int
 {
+    $previousPaymentMonthId = null;
+    if ($table === 'student_subscription_payments' && $id !== null) {
+        $statement = $pdo->prepare('SELECT subscription_month_id FROM student_subscription_payments WHERE id = ?');
+        $statement->execute([$id]);
+        $previousPaymentMonthId = (int) $statement->fetchColumn();
+    }
+
     $fields = admin_derive_fields($pdo, $table, $fields);
     $columns = admin_editable_columns($pdo, $table);
     $names = [];
@@ -503,7 +635,11 @@ function admin_save_record(PDO $pdo, string $table, array $fields, ?int $id = nu
             implode(', ', array_fill(0, count($names), '?'))
         );
         $pdo->prepare($sql)->execute($values);
-        return (int) $pdo->lastInsertId();
+        $newId = (int) $pdo->lastInsertId();
+        if ($table === 'student_subscription_payments') {
+            admin_sync_subscription_month_payment($pdo, (int) ($fields['subscription_month_id'] ?? 0));
+        }
+        return $newId;
     }
 
     $assignments = implode(', ', array_map(
@@ -513,6 +649,15 @@ function admin_save_record(PDO $pdo, string $table, array $fields, ?int $id = nu
     $pdo->prepare(
         'UPDATE ' . admin_quote_identifier($table) . ' SET ' . $assignments . ' WHERE id = ?'
     )->execute([...$values, $id]);
+
+    if ($table === 'student_subscription_payments') {
+        $statement = $pdo->prepare('SELECT subscription_month_id FROM student_subscription_payments WHERE id = ?');
+        $statement->execute([$id]);
+        $currentPaymentMonthId = (int) $statement->fetchColumn();
+        foreach (array_unique([$previousPaymentMonthId, $currentPaymentMonthId]) as $subscriptionMonthId) {
+            admin_sync_subscription_month_payment($pdo, (int) $subscriptionMonthId);
+        }
+    }
 
     return $id;
 }
@@ -539,6 +684,14 @@ function admin_delete_records(PDO $pdo, string $table, array $recordIds, int $cu
     $placeholders = implode(', ', array_fill(0, count($recordIds), '?'));
     $uploadedPaths = [];
     $uploadColumns = admin_upload_columns($table);
+    $paymentMonthIds = [];
+    if ($table === 'student_subscription_payments') {
+        $monthStatement = $pdo->prepare(
+            'SELECT DISTINCT subscription_month_id FROM student_subscription_payments WHERE id IN (' . $placeholders . ')'
+        );
+        $monthStatement->execute($recordIds);
+        $paymentMonthIds = array_map('intval', array_column($monthStatement->fetchAll(), 'subscription_month_id'));
+    }
     if ($uploadColumns !== []) {
         $pathStatement = $pdo->prepare(
             'SELECT ' . implode(', ', array_map('admin_quote_identifier', $uploadColumns))
@@ -565,6 +718,9 @@ function admin_delete_records(PDO $pdo, string $table, array $recordIds, int $cu
         $deletedCount = $statement->rowCount();
         $pdo->commit();
         admin_remove_uploaded_files($uploadedPaths);
+        foreach ($paymentMonthIds as $subscriptionMonthId) {
+            admin_sync_subscription_month_payment($pdo, $subscriptionMonthId);
+        }
 
         return $deletedCount;
     } catch (PDOException $exception) {
@@ -599,8 +755,17 @@ function admin_verify_csrf(): void
 
 function admin_render_sidebar(array $user, string $activeView): void
 {
+    $isManager = ($user['role'] ?? '') === 'manager';
     $groups = [];
-    foreach (admin_navigation() as $key => $item) {
+    if ($isManager) {
+        $groups['Workspace']['manager-dashboard'] = [
+            'label' => 'Dashboard',
+            'group' => 'Workspace',
+            'href' => 'manager.php',
+            'icon' => 'overview',
+        ];
+    }
+    foreach (admin_navigation_for_user($user) as $key => $item) {
         if (($item['sidebar'] ?? true) === false) {
             continue;
         }
@@ -609,12 +774,17 @@ function admin_render_sidebar(array $user, string $activeView): void
     if (isset(admin_website_workspace_views()[$activeView])) {
         $activeView = 'website-content';
     }
+    $brandHref = $isManager ? 'manager.php' : 'admin.php';
+    $brandLabel = $isManager ? 'Khotwa management home' : 'Khotwa administration home';
+    $brandSubline = $isManager ? 'Management' : 'Administration';
+    $roleLabel = $isManager ? 'Manager' : 'Administrator';
+    $sidebarLabel = $isManager ? 'Manager navigation' : 'Administrator navigation';
     ?>
-    <aside class="admin-sidebar" id="admin-sidebar" aria-label="Administrator navigation">
+    <aside class="admin-sidebar" id="admin-sidebar" aria-label="<?= e($sidebarLabel) ?>">
       <div class="sidebar-top">
-        <a class="admin-brand" href="admin.php" aria-label="Khotwa administration home">
+        <a class="admin-brand" href="<?= e($brandHref) ?>" aria-label="<?= e($brandLabel) ?>">
           <span class="admin-brand-mark">K<span>.</span></span>
-          <span class="admin-brand-copy"><strong>Khotwa</strong><small>Administration</small></span>
+          <span class="admin-brand-copy"><strong>Khotwa</strong><small><?= e($brandSubline) ?></small></span>
         </a>
         <button class="sidebar-toggle" type="button" aria-label="Close navigation panel" aria-controls="admin-sidebar" aria-expanded="true" data-sidebar-toggle>
           <svg class="collapse-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
@@ -626,9 +796,14 @@ function admin_render_sidebar(array $user, string $activeView): void
           <section class="nav-group">
             <h2><?= e($groupName) ?></h2>
             <?php foreach ($items as $key => $item): ?>
-              <a class="<?= $activeView === $key ? 'is-active' : '' ?>" href="admin.php?view=<?= e($key) ?>" title="<?= e($item['label']) ?>">
-                <?= admin_icon($key) ?><span><?= e($item['label']) ?></span>
-                <?php if ($activeView === $key): ?><i></i><?php endif; ?>
+              <?php
+              $isActive = $key === 'manager-dashboard' ? $activeView === 'overview' : $activeView === $key;
+              $href = $item['href'] ?? ('admin.php?view=' . $key);
+              $icon = $item['icon'] ?? $key;
+              ?>
+              <a class="<?= $isActive ? 'is-active' : '' ?>" href="<?= e($href) ?>" title="<?= e($item['label']) ?>">
+                <?= admin_icon($icon) ?><span><?= e($item['label']) ?></span>
+                <?php if ($isActive): ?><i></i><?php endif; ?>
               </a>
             <?php endforeach; ?>
           </section>
@@ -641,7 +816,7 @@ function admin_render_sidebar(array $user, string $activeView): void
         </button>
         <div class="sidebar-account">
           <span class="account-avatar"><?= e(strtoupper(substr((string) $user['first_name'], 0, 1))) ?></span>
-          <span class="account-copy"><strong><?= e(trim((string) $user['first_name'] . ' ' . (string) $user['last_name'])) ?></strong><small>Administrator</small></span>
+          <span class="account-copy"><strong><?= e(trim((string) $user['first_name'] . ' ' . (string) $user['last_name'])) ?></strong><small><?= e($roleLabel) ?></small></span>
           <a href="logout.php" aria-label="Log out" title="Log out"><?= admin_icon('users') ?></a>
         </div>
       </div>

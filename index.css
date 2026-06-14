@@ -1266,11 +1266,13 @@ html[dir="rtl"] .future-line-break {
 
 .path-line {
   position: absolute;
+  z-index: 0;
   top: 67px;
   right: 12%;
   left: 12%;
   height: 2px;
   overflow: hidden;
+  pointer-events: none;
   background: rgba(255, 255, 255, 0.12);
 }
 
@@ -1290,7 +1292,7 @@ html[dir="rtl"] .future-line-break {
 
 .approach-step {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   padding: 0 12px 10px;
   text-align: center;
 }
@@ -1310,19 +1312,18 @@ html[dir="rtl"] .future-line-break {
   transition: color 0.3s ease, background 0.3s ease, transform 0.3s ease;
 }
 
-.approach-step:hover .step-node,
 .approach-step.active .step-node {
   color: var(--navy-deep);
   background: var(--orange);
   transform: translateY(-8px) rotate(-3deg);
 }
 
-.approach-step:nth-of-type(3):hover .step-node {
+.approach-step:nth-of-type(3).active .step-node {
   color: var(--paper);
   background: var(--pink);
 }
 
-.approach-step:nth-of-type(4):hover .step-node {
+.approach-step:nth-of-type(4).active .step-node {
   color: var(--paper);
   background: var(--green);
 }

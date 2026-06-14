@@ -4,11 +4,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/admin-data.php';
 
-$user = current_user();
-if (!$user || ($user['role'] ?? '') !== 'admin') {
-    header('Location: login.php');
-    exit;
-}
+$user = require_roles(['admin', 'manager']);
+$isManager = ($user['role'] ?? '') === 'manager';
 
 $view = (string) ($_GET['view'] ?? '');
 $recordId = (int) ($_GET['id'] ?? 0);
@@ -18,7 +15,11 @@ $error = '';
 $message = isset($_GET['saved']) ? 'Record saved successfully.' : '';
 
 try {
-    if (!isset($viewTables[$view], $navigation[$view]) || $recordId < 1) {
+    if (
+        !isset($viewTables[$view], $navigation[$view])
+        || !admin_user_can_access_view($user, $view)
+        || $recordId < 1
+    ) {
         http_response_code(404);
         throw new RuntimeException('The requested record was not found.');
     }
@@ -90,7 +91,7 @@ try {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0B1C34">
-  <title><?= e($pageTitle ?? 'Record') ?> #<?= e((string) $recordId) ?> | Khotwa Administration</title>
+  <title><?= e($pageTitle ?? 'Record') ?> #<?= e((string) $recordId) ?> | Khotwa <?= $isManager ? 'Management' : 'Administration' ?></title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">

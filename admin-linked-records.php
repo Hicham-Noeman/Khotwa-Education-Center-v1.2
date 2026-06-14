@@ -5,7 +5,7 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/admin-data.php';
 
 $user = current_user();
-if (!$user || ($user['role'] ?? '') !== 'admin') {
+if (!$user || !in_array(($user['role'] ?? ''), ['admin', 'manager'], true)) {
     http_response_code(401);
     exit('Your session has expired. Refresh the page and log in again.');
 }
@@ -14,7 +14,7 @@ $type = ($_GET['type'] ?? '') === 'teacher' ? 'teacher' : 'student';
 $personId = (int) ($_GET['id'] ?? 0);
 $table = (string) ($_GET['table'] ?? '');
 $isAdding = isset($_GET['add']);
-$linkedTables = admin_linked_tables($type);
+$linkedTables = admin_linked_tables_for_user($type, $user);
 $relationColumn = $type === 'teacher' ? 'teacher_id' : 'student_id';
 
 if ($personId < 1 || !isset($linkedTables[$table])) {
