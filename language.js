@@ -25,7 +25,7 @@
     "Start a conversation": "تواصل معنا",
     "Learn deeply. Grow confidently.": "تعلّم بعمق. وتقدّم بثقة.",
     "Admissions are now open": "التسجيل متاح الآن",
-    "Every step builds": "كل خطوة تبني",
+    "Every step builds": "كلّ خطوة تبني",
     "a": "مستقبلاً",
     "future.": "واعداً.",
     "Personalized learning, expert guidance, and purposeful practice for students from KG through Grade 12.": "تعليم مخصص، وإرشاد خبير، وتدريب هادف للطلاب من الروضة حتى الصف الثاني عشر.",
@@ -522,7 +522,7 @@
   };
 
   const explicit = {
-    heroLineOne: { en: "Every step builds", ar: "كل خطوة تبني" },
+    heroLineOne: { en: "Every step builds", ar: "كلّ خطوة تبني" },
     heroArticle: { en: "a", ar: "مستقبلاً" },
     heroFuture: { en: "future.", ar: "" }
   };
