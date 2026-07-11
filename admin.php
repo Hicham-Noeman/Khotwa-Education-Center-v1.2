@@ -183,10 +183,27 @@ try {
             'attendance_date' => 'Date', 'student_name_en' => 'Student', 'check_in_time' => 'Check in',
             'check_out_time' => 'Check out', 'daily_status' => 'Daily status',
             'attended_subject_count' => 'Attended', 'missed_subject_count' => 'Missed',
+            'teacher_notes' => 'Teacher notes', 'homework_notes' => 'Homework notes',
         ];
         $rows = $pdo->query(
           "SELECT daily_attendance_id AS id, student_id, attendance_date, student_name_en, check_in_time, check_out_time,
-                    daily_status, attended_subject_count, missed_subject_count
+                    daily_status, attended_subject_count, missed_subject_count,
+                    COALESCE((
+                        SELECT GROUP_CONCAT(CONCAT(subjects.name_en, ': ', student_subject_attendance.notes) SEPARATOR ' | ')
+                        FROM student_subject_attendance
+                        INNER JOIN subjects ON subjects.id = student_subject_attendance.subject_id
+                        WHERE student_subject_attendance.daily_attendance_id = student_daily_attendance_summary.daily_attendance_id
+                          AND student_subject_attendance.notes IS NOT NULL
+                          AND TRIM(student_subject_attendance.notes) <> ''
+                    ), '') AS teacher_notes,
+                    COALESCE((
+                        SELECT GROUP_CONCAT(CONCAT(subjects.name_en, ': ', student_subject_attendance.homework_note) SEPARATOR ' | ')
+                        FROM student_subject_attendance
+                        INNER JOIN subjects ON subjects.id = student_subject_attendance.subject_id
+                        WHERE student_subject_attendance.daily_attendance_id = student_daily_attendance_summary.daily_attendance_id
+                          AND student_subject_attendance.homework_note IS NOT NULL
+                          AND TRIM(student_subject_attendance.homework_note) <> ''
+                    ), '') AS homework_notes
              FROM student_daily_attendance_summary ORDER BY attendance_date DESC, student_name_en"
         )->fetchAll();
     } elseif ($view === 'subjects') {

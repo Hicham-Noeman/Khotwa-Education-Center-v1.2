@@ -70,7 +70,31 @@ try {
 
         $attendanceStatement->execute([$studentId, $today]);
         $attendance = $attendanceStatement->fetch();
-        $action = 'created';
+        $action = 'checked_in';
+    } elseif (empty($attendance['check_out_time'])) {
+        $updateCheckout = $pdo->prepare(
+            "UPDATE student_daily_attendance
+             SET check_out_time = ?,
+                 status = 'present',
+                 notes = CASE
+                     WHEN notes IS NULL OR notes = '' THEN ?
+                     ELSE CONCAT(notes, ' | ', ?)
+                 END
+             WHERE id = ?"
+        );
+        $checkoutNote = 'Checked out via QR scan by ' . ($user['role'] ?? 'admin') . ' account';
+        $updateCheckout->execute([
+            $timeNow,
+            $checkoutNote,
+            $checkoutNote,
+            (int) $attendance['id'],
+        ]);
+
+        $attendanceStatement->execute([$studentId, $today]);
+        $attendance = $attendanceStatement->fetch();
+        $action = 'checked_out';
+    } else {
+        $action = 'already_checked_out';
     }
 
     echo json_encode([
@@ -85,6 +109,7 @@ try {
             'date' => $today,
             'status' => (string) ($attendance['status'] ?? 'unknown'),
             'check_in_time' => (string) ($attendance['check_in_time'] ?? ''),
+            'check_out_time' => (string) ($attendance['check_out_time'] ?? ''),
         ],
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 } catch (Throwable $exception) {

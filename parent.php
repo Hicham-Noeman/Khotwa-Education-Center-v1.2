@@ -11,6 +11,7 @@ $children = [];
 $studentOverview = null;
 $subjects = [];
 $attendance = [];
+$homeworkItems = [];
 $billing = [];
 $error = '';
 
@@ -107,6 +108,28 @@ try {
     );
     $attendanceStatement->execute([$selectedStudentId]);
     $attendance = $attendanceStatement->fetchAll();
+
+    $homeworkStatement = $pdo->prepare(
+        "SELECT
+            student_subject_attendance.attendance_date,
+            subjects.name_en AS subject_name,
+            subjects.name_ar AS subject_name_ar,
+            TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))) AS teacher_name,
+            student_subject_attendance.homework_note,
+            student_subject_attendance.status AS subject_attendance_status
+         FROM student_subject_attendance
+         INNER JOIN subjects ON subjects.id = student_subject_attendance.subject_id
+         INNER JOIN teachers ON teachers.id = student_subject_attendance.teacher_id
+         WHERE student_subject_attendance.student_id = ?
+           AND student_subject_attendance.homework_note IS NOT NULL
+           AND TRIM(student_subject_attendance.homework_note) <> ''
+         ORDER BY student_subject_attendance.attendance_date DESC,
+                  student_subject_attendance.id DESC,
+                  student_subject_attendance.updated_at DESC
+         LIMIT 12"
+    );
+    $homeworkStatement->execute([$selectedStudentId]);
+    $homeworkItems = $homeworkStatement->fetchAll();
 
     $billingStatement = $pdo->prepare(
         "SELECT
@@ -403,6 +426,37 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                           <td><span class="status-pill <?= e(parent_status_class((string) $row['status'])) ?>"><?= e(ucwords(str_replace('_', ' ', (string) $row['status']))) ?></span></td>
                           <td><?= e((string) ($row['check_in_time'] ?? '-')) ?></td>
                           <td><?= e((string) ($row['check_out_time'] ?? '-')) ?></td>
+                        </tr>
+                      <?php endforeach; ?>
+                    <?php endif; ?>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="data-panel" id="homework-table">
+              <div class="panel-heading">
+                <div><span>Homework</span><h2>Teacher homework notes</h2></div>
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr><th>Date</th><th>Subject</th><th>Teacher</th><th>Status</th><th>Homework note</th></tr>
+                  </thead>
+                  <tbody>
+                    <?php if ($homeworkItems === []): ?>
+                      <tr><td colspan="5" class="empty-row">No homework notes yet.</td></tr>
+                    <?php else: ?>
+                      <?php foreach ($homeworkItems as $row): ?>
+                        <tr>
+                          <td><?= e((string) $row['attendance_date']) ?></td>
+                          <td>
+                            <strong><?= e((string) $row['subject_name']) ?></strong>
+                            <small class="table-cell-detail" lang="ar" dir="rtl"><?= e((string) $row['subject_name_ar']) ?></small>
+                          </td>
+                          <td><?= e((string) $row['teacher_name']) ?></td>
+                          <td><span class="status-pill <?= e(parent_status_class((string) $row['subject_attendance_status'])) ?>"><?= e(ucwords(str_replace('_', ' ', (string) $row['subject_attendance_status']))) ?></span></td>
+                          <td><?= e((string) $row['homework_note']) ?></td>
                         </tr>
                       <?php endforeach; ?>
                     <?php endif; ?>

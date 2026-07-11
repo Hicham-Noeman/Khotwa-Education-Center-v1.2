@@ -327,6 +327,8 @@
       const serverId = Number(attendanceResult?.student?.id || studentId);
       const date = String(attendanceResult?.attendance?.date || todayIso());
       const status = String(attendanceResult?.attendance?.status || "unknown").replace(/_/g, " ");
+      const checkInTime = String(attendanceResult?.attendance?.check_in_time || "");
+      const checkOutTime = String(attendanceResult?.attendance?.check_out_time || "");
       const action = String(attendanceResult?.action || "existing");
 
       const { matched } = checkTodayAttendanceForStudent(serverId);
@@ -336,9 +338,11 @@
         matched.scrollIntoView({ behavior: "smooth", block: "center" });
       }
 
-      const actionText = action === "created"
-        ? "General attendance added"
-        : "General attendance already exists";
+      const actionText = action === "checked_in"
+        ? `Checked in${checkInTime ? ` at ${checkInTime}` : ""}`
+        : action === "checked_out"
+          ? `Checked out${checkOutTime ? ` at ${checkOutTime}` : ""}`
+          : "Already checked out";
       setScanResult(
         `Scanned: ${serverName} (ID: ${serverId}) | ${actionText} for ${date} | status: ${status}`
       );

@@ -105,7 +105,7 @@ try {
         throw new RuntimeException('The linked teacher profile is unavailable.');
     }
 
-    if ($view === 'submission' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    if (in_array($view, ['attendance', 'submission'], true) && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         try {
             verify_app_csrf();
             $submittedRows = (array) ($_POST['attendance'] ?? []);
@@ -183,7 +183,7 @@ try {
             }
             $pdo->commit();
 
-            header('Location: teacher.php?view=submission&saved=' . $savedCount);
+            header('Location: teacher.php?view=' . rawurlencode($view) . '&saved=' . $savedCount);
             exit;
         } catch (Throwable $exception) {
             if ($pdo->inTransaction()) {
@@ -404,7 +404,9 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
             <p class="table-cell-detail">Daily attendance is managed by administration. Teachers submit subject attendance, lesson notes, and homework only.</p>
 
 
-            <div class="attendance-workspace" data-attendance-form>
+            <form method="post" class="attendance-workspace" data-attendance-form>
+              <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
+              <input type="hidden" name="attendance_date" value="<?= e($attendanceDate) ?>">
 
               <div class="attendance-mode-tabs" role="tablist" aria-label="Attendance workflow">
                 <button class="attendance-mode-tab is-active" type="button" role="tab" aria-selected="true" data-attendance-mode="mark">Quick mark</button>
@@ -530,7 +532,12 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                 <p class="attendance-notes-empty" data-notes-empty <?= ($attendedCount + $missedCount) > 0 ? 'hidden' : '' ?>>Mark attendance in Quick mark first, then come back here to add notes.</p>
               </section>
 
-            </div>
+              <div class="submission-final-bar">
+                <span>Save now to publish teacher notes/homework to parent and admin dashboards.</span>
+                <button class="primary-action" type="submit" data-final-save>Save subject attendance</button>
+              </div>
+
+            </form>
           <?php endif; ?>
 
         <?php elseif ($view === 'submission'): ?>

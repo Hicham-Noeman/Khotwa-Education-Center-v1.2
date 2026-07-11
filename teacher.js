@@ -16,6 +16,11 @@ const progressFill = document.querySelector("[data-progress-fill]");
 let currentSelectedLetter = 'ALL';
 let activeList = [];
 let deckOrder = rosterRows.map((row) => row.dataset.enrollmentId);
+const autosaveTimers = new Map();
+const autosaveInFlight = new Set();
+const attendanceDate = document.body.dataset.attendanceDate || "";
+const attendanceCsrfInput = attendanceForm?.querySelector('input[name="csrf"]');
+const attendanceCsrfToken = attendanceCsrfInput instanceof HTMLInputElement ? attendanceCsrfInput.value : "";
 const draftKey = [
   "khotwa-teacher-attendance-draft",
   document.body.dataset.teacherId || "0",
@@ -161,6 +166,70 @@ const persistAttendanceRow = (row) => {
   });
 };
 
+const autosaveAttendanceRow = async (row) => {
+  if (!attendanceCsrfToken || !attendanceDate) return;
+
+  const enrollmentId = row.dataset.enrollmentId || "";
+  const status = getStatus(row);
+  if (!enrollmentId || (status !== "attended" && status !== "missed")) {
+    return;
+  }
+
+  if (autosaveInFlight.has(enrollmentId)) {
+    return;
+  }
+
+  autosaveInFlight.add(enrollmentId);
+  try {
+    const payload = new URLSearchParams();
+    payload.set("csrf", attendanceCsrfToken);
+    payload.set("attendance_date", attendanceDate);
+    payload.set("enrollment_id", enrollmentId);
+    payload.set("status", status);
+    payload.set("note", row.querySelector("[data-note-input]")?.value || "");
+    payload.set("homework_note", row.querySelector("[data-homework-input]")?.value || "");
+
+    const response = await fetch("teacher-subject-attendance-save.php", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      body: payload.toString(),
+    });
+
+    let result = null;
+    try {
+      result = await response.json();
+    } catch {
+      result = null;
+    }
+
+    if (!response.ok || !result?.success) {
+      throw new Error(String(result?.error || "Autosave failed"));
+    }
+  } catch (error) {
+    console.warn("Teacher attendance autosave failed:", error?.message || error);
+  } finally {
+    autosaveInFlight.delete(enrollmentId);
+  }
+};
+
+const queueAttendanceAutosave = (row) => {
+  const enrollmentId = row.dataset.enrollmentId || "";
+  if (!enrollmentId) return;
+
+  if (autosaveTimers.has(enrollmentId)) {
+    window.clearTimeout(autosaveTimers.get(enrollmentId));
+  }
+
+  const timerId = window.setTimeout(() => {
+    autosaveTimers.delete(enrollmentId);
+    autosaveAttendanceRow(row);
+  }, 650);
+  autosaveTimers.set(enrollmentId, timerId);
+};
+
 const setRowStatus = (row, status, persist = true) => {
   const radio = row.querySelector(`input[type="radio"][value="${status}"]`);
   if (radio) radio.checked = true;
@@ -181,6 +250,7 @@ const setRowStatus = (row, status, persist = true) => {
     }
   }
   if (persist) persistAttendanceRow(row);
+  if (persist) queueAttendanceAutosave(row);
 };
 
 const updateMetrics = () => {
@@ -500,7 +570,10 @@ document.querySelectorAll("[data-note-field], [data-homework-field]").forEach((f
     if (enrollmentId) {
       syncNoteFields(enrollmentId);
       const row = rosterRows.find((item) => item.dataset.enrollmentId === enrollmentId);
-      if (row) persistAttendanceRow(row);
+      if (row) {
+        persistAttendanceRow(row);
+        queueAttendanceAutosave(row);
+      }
     }
   });
 });
@@ -559,7 +632,7 @@ const updateReviewMetrics = () => {
   const cameNode = document.querySelector("[data-review-came-count]");
   const absentNode = document.querySelector("[data-review-absent-count]");
   const unmarkedNode = document.querySelector("[data-review-unmarked-count]");
-  const finalSaveButton = document.querySelector("[data-final-save]");
+  const finalSaveButton = submissionForm?.querySelector("[data-final-save]");
   if (cameNode) cameNode.textContent = String(came);
   if (absentNode) absentNode.textContent = String(absent);
   if (unmarkedNode) unmarkedNode.textContent = String(reviewRows.length - came - absent);
@@ -599,6 +672,11 @@ reviewRows.forEach((row) => {
 
 submissionForm?.addEventListener("submit", () => {
   reviewRows.forEach(persistReviewRow);
+});
+
+attendanceForm?.addEventListener("submit", () => {
+  syncAllNoteFields();
+  rosterRows.forEach(persistAttendanceRow);
 });
 
 let searchFrame;
