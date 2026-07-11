@@ -48,6 +48,15 @@
   font-weight: 700;
 }
 
+.parent-page .student-qr-panel {
+  margin-top: 14px;
+}
+
+.parent-page .student-qr-box {
+  width: min(176px, 100%);
+  min-height: 176px;
+}
+
 .parent-table-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

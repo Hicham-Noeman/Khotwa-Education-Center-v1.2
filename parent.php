@@ -20,6 +20,12 @@ try {
     $childrenStatement = $pdo->prepare(
         "SELECT
             students.id,
+        students.first_name_en,
+        students.father_name_en,
+        students.last_name_en,
+        students.first_name_ar,
+        students.father_name_ar,
+        students.last_name_ar,
             CONCAT(students.first_name_en, ' ', students.last_name_en) AS student_name,
             CONCAT(students.first_name_ar, ' ', students.last_name_ar) AS student_name_ar,
             students.current_teaching_language,
@@ -169,6 +175,23 @@ $familyOpenBalance = (float) array_sum(array_map(
 $selectedChildName = (string) ($studentOverview['student_name'] ?? '-');
 $selectedChildStatus = (string) ($studentOverview['status'] ?? 'inactive');
 $selectedRelationship = (string) ($studentOverview['relationship'] ?? 'guardian');
+$selectedChildFullNameEn = trim((string) (
+  ($studentOverview['first_name_en'] ?? '') . ' '
+  . ($studentOverview['father_name_en'] ?? '') . ' '
+  . ($studentOverview['last_name_en'] ?? '')
+));
+$selectedChildFullNameAr = trim((string) (
+  ($studentOverview['first_name_ar'] ?? '') . ' '
+  . ($studentOverview['father_name_ar'] ?? '') . ' '
+  . ($studentOverview['last_name_ar'] ?? '')
+));
+$selectedChildQrPayload = [
+  'Full Name in EN' => $selectedChildFullNameEn,
+  'Full Name in AR' => $selectedChildFullNameAr,
+  'ID' => $selectedStudentId,
+];
+$selectedChildQrPayloadJson = json_encode($selectedChildQrPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+$selectedChildQrFileBase = 'student-' . $selectedStudentId;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -305,6 +328,8 @@ $selectedRelationship = (string) ($studentOverview['relationship'] ?? 'guardian'
               <?php if ($studentOverview !== null): ?>
                 <div class="parent-kv-grid">
                   <div><strong>Arabic name</strong><span><?= e((string) $studentOverview['student_name_ar']) ?></span></div>
+                  <div><strong>Full name (EN)</strong><span><?= e($selectedChildFullNameEn) ?></span></div>
+                  <div><strong>Full name (AR)</strong><span><?= e($selectedChildFullNameAr) ?></span></div>
                   <div><strong>Grade</strong><span><?= e((string) $studentOverview['grade_name']) ?></span></div>
                   <div><strong>Language</strong><span><?= e((string) $studentOverview['current_teaching_language']) ?></span></div>
                   <div><strong>Relationship</strong><span><?= e(parent_relationship_label($selectedRelationship)) ?></span></div>
@@ -314,12 +339,20 @@ $selectedRelationship = (string) ($studentOverview['relationship'] ?? 'guardian'
               <?php endif; ?>
             </article>
 
-            <aside class="quick-panel">
-              <span>Quick access</span>
-              <h2>Move through your child records.</h2>
-              <a href="#subjects-table"><?= parent_icon('subjects') ?><span><strong>Subjects</strong><small>Current active learning subjects</small></span></a>
-              <a href="#attendance-table"><?= parent_icon('attendance') ?><span><strong>Attendance</strong><small>Latest attendance records</small></span></a>
-              <a href="#billing-table"><?= parent_icon('billing') ?><span><strong>Billing</strong><small>Monthly tuition balances</small></span></a>
+            <aside class="data-panel">
+              <div class="panel-heading">
+                <div><span>Student QR</span><h2>Student QR Code</h2></div>
+              </div>
+              <div class="student-qr-panel" data-student-qr data-qr-file-base="<?= e($selectedChildQrFileBase) ?>" data-qr-payload="<?= e((string) $selectedChildQrPayloadJson) ?>">
+                <div class="student-qr-head">
+                  <strong>Scan to read student identity JSON</strong>
+                </div>
+                <div class="student-qr-box" data-qr-canvas></div>
+                <div class="qr-download-actions">
+                  <button class="secondary-action" type="button" data-qr-download="png">Download PNG</button>
+                  <button class="secondary-action" type="button" data-qr-download="jpg">Download JPG</button>
+                </div>
+              </div>
             </aside>
           </section>
 
@@ -413,7 +446,9 @@ $selectedRelationship = (string) ($studentOverview['relationship'] ?? 'guardian'
     <button class="sidebar-scrim" type="button" aria-label="Close navigation panel" data-sidebar-scrim></button>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" defer></script>
   <script src="language.js?v=<?= e((string) filemtime(__DIR__ . '/language.js')) ?>" defer></script>
+  <script src="qr-tools.js?v=<?= e((string) filemtime(__DIR__ . '/qr-tools.js')) ?>" defer></script>
   <script src="admin.js?v=<?= e((string) filemtime(__DIR__ . '/admin.js')) ?>" defer></script>
 </body>
 </html>

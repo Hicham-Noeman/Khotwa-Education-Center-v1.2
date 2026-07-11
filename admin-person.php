@@ -16,6 +16,14 @@ $linkedTables = admin_linked_tables_for_user($type, $user);
 $addTable = (string) ($_GET['add_table'] ?? '');
 $message = isset($_GET['saved']) ? 'Record saved successfully.' : '';
 $error = '';
+$pdo = null;
+$person = [];
+$personName = '';
+$mainColumns = [];
+$mainEditableNames = [];
+$linkedCounts = [];
+$studentQrPayloadJson = null;
+$studentQrFileBase = null;
 
 try {
     $pdo = khotwa_db();
@@ -81,6 +89,27 @@ try {
     $personName = $type === 'teacher'
         ? trim((string) $person['first_name'] . ' ' . (string) $person['last_name'])
         : trim((string) $person['first_name_en'] . ' ' . (string) $person['last_name_en']);
+
+    $studentQrPayloadJson = null;
+    $studentQrFileBase = null;
+    if ($type === 'student') {
+      $studentFullNameEn = trim((string) (
+        ($person['first_name_en'] ?? '') . ' '
+        . ($person['father_name_en'] ?? '') . ' '
+        . ($person['last_name_en'] ?? '')
+      ));
+      $studentFullNameAr = trim((string) (
+        ($person['first_name_ar'] ?? '') . ' '
+        . ($person['father_name_ar'] ?? '') . ' '
+        . ($person['last_name_ar'] ?? '')
+      ));
+      $studentQrPayloadJson = json_encode([
+        'Full Name in EN' => $studentFullNameEn,
+        'Full Name in AR' => $studentFullNameAr,
+        'ID' => $personId,
+      ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+      $studentQrFileBase = 'student-' . $personId;
+    }
 
     $mainColumns = admin_columns($pdo, $mainTable);
     $mainEditableNames = array_fill_keys(
@@ -181,6 +210,25 @@ try {
             </form>
           </section>
 
+          <?php if ($type === 'student' && $studentQrPayloadJson !== null): ?>
+            <section class="data-panel profile-main-card">
+              <div class="panel-heading">
+                <div><span>Student QR</span><h2>Student identity code</h2></div>
+              </div>
+              <div class="student-qr-panel" data-student-qr data-qr-file-base="<?= e((string) $studentQrFileBase) ?>" data-qr-payload="<?= e((string) $studentQrPayloadJson) ?>">
+                <div class="student-qr-head">
+                  <strong>Auto-generated student QR code</strong>
+                  <span>Contains JSON fields: Full Name in EN, Full Name in AR, ID.</span>
+                </div>
+                <div class="student-qr-box" data-qr-canvas></div>
+                <div class="qr-download-actions">
+                  <button class="secondary-action" type="button" data-qr-download="png">Download PNG</button>
+                  <button class="secondary-action" type="button" data-qr-download="jpg">Download JPG</button>
+                </div>
+              </div>
+            </section>
+          <?php endif; ?>
+
           <section class="linked-records-heading">
             <div><span>Linked database</span><h2>Related records</h2></div>
             <p><?= e((string) count($linkedTables)) ?> connected tables</p>
@@ -211,7 +259,9 @@ try {
     </div>
     <button class="sidebar-scrim" type="button" aria-label="Close navigation panel" data-sidebar-scrim></button>
   </div>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" defer></script>
   <script src="language.js?v=<?= e((string) filemtime(__DIR__ . '/language.js')) ?>" defer></script>
+  <script src="qr-tools.js?v=<?= e((string) filemtime(__DIR__ . '/qr-tools.js')) ?>" defer></script>
   <script src="admin.js?v=<?= e((string) filemtime(__DIR__ . '/admin.js')) ?>" defer></script>
 </body>
 </html>

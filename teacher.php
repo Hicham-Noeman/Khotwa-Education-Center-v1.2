@@ -6,8 +6,8 @@ require_once __DIR__ . '/auth.php';
 $user = require_roles(['teacher']);
 $teacherId = (int) ($user['teacher_id'] ?? 0);
 $views = [
-    'attendance' => ['label' => 'Attendance', 'description' => 'Mark today\'s attendance quickly, then add notes when you have time.'],
-    'submission' => ['label' => "Today's Submission", 'description' => 'Review and validate today\'s attendance before the final database save.'],
+  'attendance' => ['label' => 'Subject Attendance', 'description' => 'Record subject attendance, lesson notes, and homework after administration marks daily attendance.'],
+  'submission' => ['label' => "Today's Submission", 'description' => 'Review and save today\'s subject attendance entries for your assigned students.'],
     'students' => ['label' => 'Students', 'description' => 'Students actively assigned to your subjects.'],
     'profile' => ['label' => 'My Profile', 'description' => 'Your teacher information, account details, and assigned subjects.'],
 ];
@@ -19,7 +19,7 @@ if (!isset($views[$view])) {
 $today = date('Y-m-d');
 $attendanceDate = $today;
 $message = isset($_GET['saved'])
-    ? max(0, (int) $_GET['saved']) . ' attendance record(s) saved.'
+  ? max(0, (int) $_GET['saved']) . ' subject attendance record(s) saved.'
     : '';
 $error = '';
 $studentRows = [];
@@ -111,7 +111,6 @@ try {
             $submittedRows = (array) ($_POST['attendance'] ?? []);
             $allowedStatuses = ['attended', 'missed'];
             $savedCount = 0;
-            $dailyIds = [];
 
             $enrollmentStatement = $pdo->prepare(
                 "SELECT student_id, teacher_subject_id, teacher_id, subject_id
@@ -119,13 +118,11 @@ try {
                  WHERE id = ? AND teacher_id = ? AND status = 'active'
                  LIMIT 1"
             );
-            $dailyStatement = $pdo->prepare(
-                "INSERT INTO student_daily_attendance (student_id, attendance_date, status)
-                 VALUES (?, ?, ?)
-                 ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)"
-            );
-            $dailyIdStatement = $pdo->prepare(
-                'SELECT id FROM student_daily_attendance WHERE student_id = ? AND attendance_date = ?'
+            $dailyAttendanceStatement = $pdo->prepare(
+              "SELECT id
+               FROM student_daily_attendance
+               WHERE student_id = ? AND attendance_date = ?
+               LIMIT 1"
             );
             $subjectStatement = $pdo->prepare(
                 "INSERT INTO student_subject_attendance (
@@ -136,18 +133,6 @@ try {
                     status = VALUES(status),
                     homework_note = VALUES(homework_note),
                     notes = VALUES(notes)"
-            );
-            $dailyStatusStatement = $pdo->prepare(
-                "UPDATE student_daily_attendance
-                 SET status = CASE
-                    WHEN status IN ('late', 'excused', 'left_early') THEN status
-                    WHEN EXISTS (
-                        SELECT 1 FROM student_subject_attendance
-                        WHERE daily_attendance_id = ? AND status = 'attended'
-                    ) THEN 'present'
-                    ELSE 'absent'
-                 END
-                 WHERE id = ?"
             );
 
             $pdo->beginTransaction();
@@ -175,13 +160,14 @@ try {
                     throw new RuntimeException('One submitted student is not assigned to this teacher.');
                 }
 
-                $dailyStatement->execute([
-                    (int) $enrollment['student_id'],
-                    $attendanceDate,
-                    $status === 'attended' ? 'present' : 'absent',
-                ]);
-                $dailyIdStatement->execute([(int) $enrollment['student_id'], $attendanceDate]);
-                $dailyAttendanceId = (int) $dailyIdStatement->fetchColumn();
+                $dailyAttendanceStatement->execute([(int) $enrollment['student_id'], $attendanceDate]);
+                $dailyAttendanceId = (int) $dailyAttendanceStatement->fetchColumn();
+                if ($dailyAttendanceId < 1) {
+                  throw new RuntimeException(
+                    'Daily attendance is not marked yet for one or more students. Ask administration to record main attendance first.'
+                  );
+                }
+
                 $subjectStatement->execute([
                     $dailyAttendanceId,
                     (int) $enrollment['student_id'],
@@ -193,12 +179,7 @@ try {
                     $homeworkNote === '' ? null : substr($homeworkNote, 0, 255),
                     $lessonNote === '' ? null : substr($lessonNote, 0, 255),
                 ]);
-                $dailyIds[$dailyAttendanceId] = true;
                 $savedCount++;
-            }
-
-            foreach (array_keys($dailyIds) as $dailyAttendanceId) {
-                $dailyStatusStatement->execute([$dailyAttendanceId, $dailyAttendanceId]);
             }
             $pdo->commit();
 
@@ -265,7 +246,7 @@ try {
              LEFT JOIN student_academic_records
                 ON student_academic_records.student_id = students.id
                 AND student_academic_records.is_current = 1
-             LEFT JOIN student_daily_attendance
+             INNER JOIN student_daily_attendance
                 ON student_daily_attendance.student_id = students.id
                 AND student_daily_attendance.attendance_date = ?
              LEFT JOIN student_subject_attendance
@@ -366,7 +347,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
               <div class="table-heading-actions">
                 <strong class="record-count"><?= e((string) count($studentRows)) ?> assignments</strong>
                 <a class="add-record-button" href="teacher.php?view=attendance">
-                  <?= teacher_icon('attendance') ?> Take attendance
+                  <?= teacher_icon('attendance') ?> Record subject attendance
                 </a>
               </div>
             </div>
@@ -416,10 +397,11 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
           <?php else: ?>
             <section class="attendance-session-bar">
               <div class="attendance-today">
-                <span>Today's attendance</span>
+                <span>Today's subject attendance</span>
                 <time datetime="<?= e($attendanceDate) ?>"><?= e(date('l, F j, Y', strtotime($attendanceDate))) ?></time>
               </div>
             </section>
+            <p class="table-cell-detail">Daily attendance is managed by administration. Teachers submit subject attendance, lesson notes, and homework only.</p>
 
 
             <div class="attendance-workspace" data-attendance-form>
@@ -558,6 +540,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
               <time datetime="<?= e($attendanceDate) ?>"><?= e(date('l, F j, Y', strtotime($attendanceDate))) ?></time>
             </div>
           </section>
+          <p class="table-cell-detail">Main daily attendance is not changed in this screen. This submission saves subject attendance entries only.</p>
 
           <section class="metrics-grid submission-summary" aria-label="Submission summary">
             <article class="metric-card metric-green"><span class="metric-dot"></span><strong data-review-came-count><?= e((string) $attendedCount) ?></strong><p>Came</p></article>
@@ -571,7 +554,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
 
             <section class="data-panel">
               <div class="panel-heading submission-heading">
-                <div><span>Final validation</span><h2>Today's Attendance Submission</h2></div>
+                <div><span>Final validation</span><h2>Today's Subject Attendance Submission</h2></div>
                 <a class="secondary-action" href="teacher.php?view=attendance">Back to attendance</a>
               </div>
 

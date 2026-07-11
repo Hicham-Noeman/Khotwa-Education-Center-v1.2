@@ -185,7 +185,7 @@ try {
             'attended_subject_count' => 'Attended', 'missed_subject_count' => 'Missed',
         ];
         $rows = $pdo->query(
-            "SELECT daily_attendance_id AS id, attendance_date, student_name_en, check_in_time, check_out_time,
+          "SELECT daily_attendance_id AS id, student_id, attendance_date, student_name_en, check_in_time, check_out_time,
                     daily_status, attended_subject_count, missed_subject_count
              FROM student_daily_attendance_summary ORDER BY attendance_date DESC, student_name_en"
         )->fetchAll();
@@ -726,6 +726,12 @@ try {
                   <button class="bulk-delete-button" type="submit" name="action" value="bulk_delete" disabled data-bulk-delete>
                     Delete selected
                   </button>
+                  <?php if ($view === 'attendance'): ?>
+                    <button class="secondary-action qr-scan-button" type="button" data-qr-scan-open>
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3"/><path d="M7 12h10"/></svg>
+                      Scan
+                    </button>
+                  <?php endif; ?>
                   <a class="add-record-button" href="admin.php?view=<?= e($view) ?>&new=1">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
                     Add record
@@ -763,7 +769,20 @@ try {
                             $detailUrl = 'admin-record.php?view=' . rawurlencode($view) . '&id=' . (int) $row['id'];
                         }
                         ?>
-                        <tr class="is-openable" data-record-row data-detail-url="<?= e($detailUrl) ?>" title="Double-click to open the full record" tabindex="0">
+                        <?php
+                        $attendanceAttrs = '';
+                        if ($view === 'attendance') {
+                          $attendanceStudentId = (int) ($row['student_id'] ?? 0);
+                          $attendanceDate = (string) ($row['attendance_date'] ?? '');
+                          $attendanceStatus = (string) ($row['daily_status'] ?? '');
+                          $attendanceStudentName = (string) ($row['student_name_en'] ?? '');
+                          $attendanceAttrs = ' data-student-id="' . e((string) $attendanceStudentId)
+                            . '" data-attendance-date="' . e($attendanceDate)
+                            . '" data-attendance-status="' . e($attendanceStatus)
+                            . '" data-student-name="' . e($attendanceStudentName) . '"';
+                        }
+                        ?>
+                        <tr class="is-openable" data-record-row data-detail-url="<?= e($detailUrl) ?>"<?= $attendanceAttrs ?> title="Double-click to open the full record" tabindex="0">
                           <td class="selection-column">
                             <input type="checkbox" name="record_ids[]" value="<?= e((string) $row['id']) ?>" aria-label="Select record <?= e((string) $row['id']) ?>" data-record-select>
                           </td>
@@ -788,9 +807,40 @@ try {
         <?php endif; ?>
       </main>
     </div>
+
+    <?php if ($view === 'attendance'): ?>
+      <div class="qr-scan-modal" data-qr-scan-modal data-qr-scan-csrf="<?= e(admin_csrf_token()) ?>" hidden>
+        <div class="qr-scan-backdrop" data-qr-scan-close></div>
+        <section class="qr-scan-dialog" role="dialog" aria-modal="true" aria-label="Scan student QR code">
+          <header class="qr-scan-head">
+            <div>
+              <strong>Scan Student QR Code</strong>
+              <p>Use your camera to scan a student QR code on desktop or phone.</p>
+            </div>
+            <button class="secondary-action" type="button" data-qr-scan-close>Close</button>
+          </header>
+          <div class="qr-scan-reader" data-qr-reader></div>
+          <div class="qr-scan-upload">
+            <button class="secondary-action" type="button" data-qr-image-button>Scan from image</button>
+            <input type="file" accept="image/*" data-qr-image-input hidden>
+          </div>
+          <div class="qr-scan-result" data-qr-scan-result>Waiting for scan...</div>
+          <div class="qr-scan-actions">
+            <a class="primary-action" href="#" data-qr-open-student hidden>Open student profile</a>
+          </div>
+          <div class="qr-scan-toast" data-qr-scan-toast hidden></div>
+        </section>
+      </div>
+    <?php endif; ?>
+
     <button class="sidebar-scrim" type="button" aria-label="Close navigation panel" data-sidebar-scrim></button>
   </div>
+  <?php if ($view === 'attendance'): ?>
+    <script src="https://unpkg.com/html5-qrcode" defer></script>
+  <?php endif; ?>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" defer></script>
   <script src="language.js?v=<?= e((string) filemtime(__DIR__ . '/language.js')) ?>" defer></script>
+  <script src="qr-tools.js?v=<?= e((string) filemtime(__DIR__ . '/qr-tools.js')) ?>" defer></script>
   <script src="admin.js?v=<?= e((string) filemtime(__DIR__ . '/admin.js')) ?>" defer></script>
 </body>
 </html>
