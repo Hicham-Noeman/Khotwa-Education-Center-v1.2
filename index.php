@@ -45,7 +45,7 @@ function homepage_e(?string $value): string
 </head>
 <body>
   <div class="page-loader" aria-hidden="true">
-    <div class="loader-mark"><span>K</span><i></i></div>
+    <div class="loader-mark"><img src="assets/images/logo-white.svg" alt="Khotwa Education Center" width="162" height="54"><i></i></div>
     <p>Building brighter steps</p>
   </div>
 

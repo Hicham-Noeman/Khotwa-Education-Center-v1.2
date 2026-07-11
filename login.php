@@ -45,7 +45,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
         if (
             !$user ||
-            !in_array($user['role'], ['admin', 'manager', 'teacher'], true) ||
+          !in_array($user['role'], ['admin', 'manager', 'teacher', 'parent'], true) ||
             $user['status'] !== 'active' ||
             ($user['role'] === 'teacher' && $user['teacher_id'] === null) ||
             !password_verify($password, (string) $user['password_hash'])
@@ -176,6 +176,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             <span>Manager demo</span>
             <strong>manager@khotwa.test</strong>
             <code>manager123</code>
+          </button>
+          <button class="demo-credentials" type="button" data-fill-login data-email="parent.one@khotwa.test" data-password="parent123">
+            <span>Parent demo</span>
+            <strong>parent.one@khotwa.test</strong>
+            <code>parent123</code>
           </button>
         </div>
 

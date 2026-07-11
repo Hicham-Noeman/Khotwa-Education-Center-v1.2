@@ -20,7 +20,7 @@ $dbPass = '';
 $dbCharset = 'utf8mb4';
 
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
-const KHOTWA_SCHEMA_VERSION = 5;
+const KHOTWA_SCHEMA_VERSION = 6;
 
 function getDatabaseConnection(): PDO
 {
@@ -257,7 +257,7 @@ function createKhotwaTables(PDO $pdo): void
             last_name VARCHAR(100) NULL,
             email VARCHAR(150) NOT NULL,
             password_hash VARCHAR(255) NOT NULL,
-            role ENUM('admin', 'manager', 'teacher') NOT NULL,
+            role ENUM('admin', 'manager', 'teacher', 'parent') NOT NULL,
             status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
             must_change_password TINYINT(1) NOT NULL DEFAULT 0,
             last_login_at DATETIME NULL,
@@ -273,6 +273,29 @@ function createKhotwaTables(PDO $pdo): void
             CONSTRAINT fk_users_teacher
                 FOREIGN KEY (teacher_id) REFERENCES teachers(id)
                 ON DELETE SET NULL
+                ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "CREATE TABLE IF NOT EXISTS parent_students (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            parent_user_id BIGINT UNSIGNED NOT NULL,
+            student_id BIGINT UNSIGNED NOT NULL,
+            relationship ENUM('father', 'mother', 'guardian', 'relative') NOT NULL DEFAULT 'guardian',
+            notes VARCHAR(255) NULL,
+            status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_parent_student_pair (parent_user_id, student_id),
+            INDEX idx_parent_students_parent_status (parent_user_id, status),
+            INDEX idx_parent_students_student_status (student_id, status),
+            CONSTRAINT fk_parent_students_parent
+                FOREIGN KEY (parent_user_id) REFERENCES users(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_parent_students_student
+                FOREIGN KEY (student_id) REFERENCES students(id)
+                ON DELETE CASCADE
                 ON UPDATE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
@@ -1148,7 +1171,7 @@ function applyKhotwaMigrations(PDO $pdo): void
     addColumnIfMissing($pdo, 'users', 'last_name', 'last_name VARCHAR(100) NULL AFTER first_name');
     addColumnIfMissing($pdo, 'users', 'email', 'email VARCHAR(150) NOT NULL AFTER last_name');
     addColumnIfMissing($pdo, 'users', 'password_hash', 'password_hash VARCHAR(255) NOT NULL AFTER email');
-    addColumnIfMissing($pdo, 'users', 'role', "role ENUM('admin', 'manager', 'teacher') NOT NULL AFTER password_hash");
+    addColumnIfMissing($pdo, 'users', 'role', "role ENUM('admin', 'manager', 'teacher', 'parent') NOT NULL AFTER password_hash");
     addColumnIfMissing($pdo, 'users', 'status', "status ENUM('active', 'inactive') NOT NULL DEFAULT 'active' AFTER role");
     addColumnIfMissing(
         $pdo,
@@ -1161,6 +1184,39 @@ function applyKhotwaMigrations(PDO $pdo): void
     addIndexIfMissing($pdo, 'users', 'uq_users_email', 'UNIQUE KEY uq_users_email (email)');
     addIndexIfMissing($pdo, 'users', 'uq_users_teacher_id', 'UNIQUE KEY uq_users_teacher_id (teacher_id)');
     addIndexIfMissing($pdo, 'users', 'idx_users_role_status', 'INDEX idx_users_role_status (role, status)');
+
+    $roleType = strtolower((string) columnType($pdo, 'users', 'role'));
+    if ($roleType !== '' && !str_contains($roleType, "'parent'")) {
+        $pdo->exec(
+            "ALTER TABLE users
+             MODIFY role ENUM('admin', 'manager', 'teacher', 'parent') NOT NULL"
+        );
+    }
+
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS parent_students (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            parent_user_id BIGINT UNSIGNED NOT NULL,
+            student_id BIGINT UNSIGNED NOT NULL,
+            relationship ENUM('father', 'mother', 'guardian', 'relative') NOT NULL DEFAULT 'guardian',
+            notes VARCHAR(255) NULL,
+            status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_parent_student_pair (parent_user_id, student_id),
+            INDEX idx_parent_students_parent_status (parent_user_id, status),
+            INDEX idx_parent_students_student_status (student_id, status),
+            CONSTRAINT fk_parent_students_parent
+                FOREIGN KEY (parent_user_id) REFERENCES users(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_parent_students_student
+                FOREIGN KEY (student_id) REFERENCES students(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
 
     if (columnExists($pdo, 'student_subject_enrollments', 'academic_year')) {
         $pdo->exec("UPDATE student_subject_enrollments SET academic_year = YEAR(CURDATE()) WHERE academic_year IS NULL");

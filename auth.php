@@ -55,6 +55,7 @@ function redirect_to_role_home(array $user): never
     $target = match ($user['role']) {
         'teacher' => 'teacher.php',
         'manager' => 'manager.php',
+    'parent' => 'parent.php',
         'admin' => 'admin.php',
         default => 'login.php',
     };
@@ -106,6 +107,9 @@ function render_app_header(string $title, array $user): void
           <?php endif; ?>
           <?php if ($user['role'] === 'manager'): ?>
             <a href="manager.php">Dashboard</a>
+          <?php endif; ?>
+          <?php if ($user['role'] === 'parent'): ?>
+            <a href="parent.php">My Children</a>
           <?php endif; ?>
           <a href="index.php">Website</a>
         <?php endif; ?>

@@ -31,6 +31,7 @@ function seedDatabase(PDO $pdo): array
             'student_subject_attendance',
             'student_daily_attendance',
             'student_subject_enrollments',
+          'parent_students',
             'teacher_subjects',
             'subjects',
             'users',
@@ -313,6 +314,7 @@ function seedDatabase(PDO $pdo): array
         $counts['student_subscriptions'] = 0;
         $counts['student_subscription_months'] = 0;
         $counts['student_subscription_payments'] = 0;
+        $counts['parent_students'] = 0;
 
         $receiptCounter = 1001;
 
@@ -550,6 +552,53 @@ function seedDatabase(PDO $pdo): array
                 }
             }
         }
+
+            // Parent portal demo accounts and parent/student assignments.
+            $insertParentUser = $pdo->prepare(
+              "INSERT INTO users (
+                teacher_id, first_name, last_name, email, password_hash,
+                role, status, must_change_password, notes
+               ) VALUES (NULL, ?, ?, ?, ?, 'parent', 'active', 0, ?)"
+            );
+            $insertParentStudent = $pdo->prepare(
+              "INSERT INTO parent_students (parent_user_id, student_id, relationship, notes, status)
+               VALUES (?, ?, ?, ?, 'active')"
+            );
+            $hashedParentPassword = password_hash('parent123', PASSWORD_DEFAULT);
+
+            $insertParentUser->execute([
+              'Rami',
+              'Mansour',
+              'parent.one@khotwa.test',
+              $hashedParentPassword,
+              'Demo parent account linked to two students',
+            ]);
+            $parentOneId = (int) $pdo->lastInsertId();
+            $counts['users']++;
+
+            $insertParentUser->execute([
+              'Nour',
+              'Haddad',
+              'parent.two@khotwa.test',
+              $hashedParentPassword,
+              'Demo parent account linked to three students',
+            ]);
+            $parentTwoId = (int) $pdo->lastInsertId();
+            $counts['users']++;
+
+            if (isset($students[0]['id'], $students[1]['id'], $students[2]['id'], $students[3]['id'], $students[4]['id'])) {
+              $insertParentStudent->execute([$parentOneId, (int) $students[0]['id'], 'father', 'Primary guardian account']);
+              $counts['parent_students']++;
+              $insertParentStudent->execute([$parentOneId, (int) $students[1]['id'], 'father', 'Sibling account access']);
+              $counts['parent_students']++;
+
+              $insertParentStudent->execute([$parentTwoId, (int) $students[2]['id'], 'mother', 'Primary guardian account']);
+              $counts['parent_students']++;
+              $insertParentStudent->execute([$parentTwoId, (int) $students[3]['id'], 'mother', 'Sibling account access']);
+              $counts['parent_students']++;
+              $insertParentStudent->execute([$parentTwoId, (int) $students[4]['id'], 'mother', 'Sibling account access']);
+              $counts['parent_students']++;
+            }
 
         // 6. Seed Attendance (Last 5 class days: Sun June 7 to Thu June 11, 2026)
         $schoolDays = [

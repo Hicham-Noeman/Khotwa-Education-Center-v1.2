@@ -61,6 +61,7 @@ $websiteCollections = [
 $databaseError = '';
 $formError = '';
 $message = isset($_GET['created']) ? 'Record added successfully.' : '';
+$pdo = null;
 if (isset($_GET['deleted'])) {
     $deletedCount = max(0, (int) $_GET['deleted']);
     $message = $deletedCount === 1
@@ -286,6 +287,26 @@ try {
              FROM users ORDER BY role, user_name"
         )->fetchAll();
     } elseif ($view === 'website-content') {
+    } elseif ($view === 'parent-links') {
+      $pageDescription = 'Relationships between parent portal accounts and student records.';
+      $columns = [
+        'id' => 'ID', 'parent_name' => 'Parent', 'parent_email' => 'Email',
+        'student_name' => 'Student', 'relationship' => 'Relationship',
+        'status' => 'Status', 'updated_at' => 'Updated',
+      ];
+      $rows = $pdo->query(
+        "SELECT parent_students.id,
+            CONCAT(users.first_name, ' ', COALESCE(users.last_name, '')) AS parent_name,
+            users.email AS parent_email,
+            CONCAT(students.first_name_en, ' ', students.last_name_en) AS student_name,
+            parent_students.relationship,
+            parent_students.status,
+            parent_students.updated_at
+         FROM parent_students
+         INNER JOIN users ON users.id = parent_students.parent_user_id
+         INNER JOIN students ON students.id = parent_students.student_id
+         ORDER BY parent_name, student_name"
+      )->fetchAll();
         $pageDescription = 'One creative workspace for homepage writing, slides, statistics, team members, gallery images, and partner logos.';
         $columns = [
             'id' => 'ID', 'content_type' => 'Type', 'content_key' => 'Content key',

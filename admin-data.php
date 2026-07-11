@@ -14,6 +14,7 @@ function admin_navigation(): array
         'payments' => ['label' => 'Payments', 'group' => 'Finance'],
         'warnings' => ['label' => 'Warnings', 'group' => 'Management'],
         'users' => ['label' => 'Users', 'group' => 'Management'],
+        'parent-links' => ['label' => 'Parent Links', 'group' => 'Management'],
         'website-content' => ['label' => 'Website Content', 'group' => 'Website'],
         'website-slides' => ['label' => 'Vision Slides', 'group' => 'Website', 'sidebar' => false],
         'website-statistics' => ['label' => 'Statistics', 'group' => 'Website', 'sidebar' => false],
@@ -41,6 +42,7 @@ function admin_manager_allowed_views(): array
         'website-gallery',
         'website-partners',
         'website-contacts',
+        'parent-links',
     ];
 }
 
@@ -85,6 +87,7 @@ function admin_view_tables(): array
         'payments' => 'student_subscription_payments',
         'warnings' => 'student_warnings',
         'users' => 'users',
+        'parent-links' => 'parent_students',
         'website-content' => 'homepage_content',
         'website-slides' => 'homepage_slides',
         'website-statistics' => 'homepage_statistics',
@@ -112,6 +115,7 @@ function admin_linked_tables(string $type): array
         'student_medical_info' => 'Medical information',
         'student_other_phone_numbers' => 'Other phone numbers',
         'student_school_schedule' => 'School schedule',
+        'parent_students' => 'Parent links',
         'student_subject_enrollments' => 'Subject enrollments',
         'student_daily_attendance' => 'Daily attendance',
         'student_subject_attendance' => 'Subject attendance',
@@ -146,6 +150,7 @@ function admin_icon(string $name): string
         'payments' => '<circle cx="12" cy="12" r="9"/><path d="M16 8h-5a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4H8m4-10v12"/>',
         'warnings' => '<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4M12 17h.01"/>',
         'users' => '<path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3Z"/><path d="m9 12 2 2 4-4"/>',
+        'parent-links' => '<path d="M7 21v-2a5 5 0 0 1 5-5h5"/><circle cx="9" cy="8" r="3"/><path d="m16 14 2 2 4-4"/>',
         'website-content' => '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h3M8 17h8"/>',
         'website-slides' => '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8" cy="9" r="1.5"/><path d="m3 17 5-5 4 4 3-3 6 6"/>',
         'website-statistics' => '<path d="M4 20V10M10 20V4M16 20v-7M22 20V7"/>',
@@ -200,6 +205,7 @@ function admin_column_label(string $column): string
         'layout_style' => 'Layout',
         'contact_url' => 'Contact Link',
         'website_url' => 'Website Link',
+        'parent_user_id' => 'Parent User',
     ];
     if (isset($labels[$column])) {
         return $labels[$column];
@@ -279,6 +285,7 @@ function admin_relation_options(PDO $pdo, string $column): array
         'daily_attendance_id' => "SELECT student_daily_attendance.id, CONCAT(student_daily_attendance.attendance_date, ' / ', students.first_name_en, ' ', students.last_name_en) label FROM student_daily_attendance INNER JOIN students ON students.id = student_daily_attendance.student_id ORDER BY student_daily_attendance.attendance_date DESC",
         'subscription_id' => "SELECT student_subscriptions.id, CONCAT(students.first_name_en, ' ', students.last_name_en, ' / ', student_subscriptions.start_date) label FROM student_subscriptions INNER JOIN students ON students.id = student_subscriptions.student_id ORDER BY students.last_name_en, student_subscriptions.start_date DESC",
         'subscription_month_id' => "SELECT student_subscription_months.id, CONCAT(students.first_name_en, ' ', students.last_name_en, ' / ', student_subscription_months.billing_year, '-', LPAD(student_subscription_months.billing_month, 2, '0')) label FROM student_subscription_months INNER JOIN students ON students.id = student_subscription_months.student_id ORDER BY student_subscription_months.billing_year DESC, student_subscription_months.billing_month DESC",
+        'parent_user_id' => "SELECT id, CONCAT(first_name, ' ', COALESCE(last_name, ''), ' / ', email) label FROM users WHERE role = 'parent' ORDER BY first_name, last_name, email",
     ];
 
     if (!isset($queries[$column])) {
