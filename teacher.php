@@ -9,6 +9,7 @@ $views = [
   'attendance' => ['label' => 'Subject Attendance', 'description' => 'Record subject attendance, lesson notes, and homework after administration marks daily attendance.'],
   'submission' => ['label' => "Today's Submission", 'description' => 'Review and save today\'s subject attendance entries for your assigned students.'],
     'students' => ['label' => 'Students', 'description' => 'Students actively assigned to your subjects.'],
+    'warnings' => ['label' => 'Behaviour', 'description' => 'Raise a behaviour flag to the administration. Only the administration can see your flags.'],
     'profile' => ['label' => 'My Profile', 'description' => 'Your teacher information, account details, and assigned subjects.'],
 ];
 $view = (string) ($_GET['view'] ?? 'attendance');
@@ -21,11 +22,16 @@ $attendanceDate = $today;
 $message = isset($_GET['saved'])
   ? max(0, (int) $_GET['saved']) . ' subject attendance record(s) saved.'
     : '';
+if (isset($_GET['flagged'])) {
+    $message = 'Behaviour flag sent to the administration.';
+}
 $error = '';
 $studentRows = [];
 $attendanceRows = [];
 $teacherProfile = [];
 $assignedSubjects = [];
+$flagStudents = [];
+$myFlags = [];
 
 function teacher_icon(string $name): string
 {
@@ -34,6 +40,7 @@ function teacher_icon(string $name): string
         'attendance' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18m-5 5 2 2 4-4"/>',
         'submission' => '<path d="M9 11l2 2 4-4"/><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 17h8"/>',
         'profile' => '<circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/><path d="M18 4h3v3"/>',
+        'warnings' => '<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4M12 17h.01"/>',
         'logout' => '<path d="M10 17l5-5-5-5M15 12H3"/><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/>',
     ];
 
@@ -57,7 +64,7 @@ function render_teacher_sidebar(array $user, string $activeView): void
       <nav class="admin-nav">
         <section class="nav-group">
           <h2>My Workspace</h2>
-          <?php foreach (['attendance' => 'Attendance', 'submission' => "Today's Submission", 'students' => 'Students', 'profile' => 'My Profile'] as $key => $label): ?>
+          <?php foreach (['attendance' => 'Attendance', 'submission' => "Today's Submission", 'students' => 'Students', 'warnings' => 'Behaviour', 'profile' => 'My Profile'] as $key => $label): ?>
             <?php $href = 'teacher.php?view=' . rawurlencode($key); ?>
             <a class="<?= $activeView === $key ? 'is-active' : '' ?>" href="<?= e($href) ?>" title="<?= e($label) ?>">
               <?= teacher_icon($key) ?><span><?= e($label) ?></span>
@@ -193,6 +200,46 @@ try {
         }
     }
 
+    if ($view === 'warnings' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+        try {
+            verify_app_csrf();
+            $flagStudentId = (int) ($_POST['student_id'] ?? 0);
+            $flagReason = trim((string) ($_POST['reason'] ?? ''));
+            $flagNotes = trim((string) ($_POST['notes'] ?? ''));
+
+            if ($flagReason === '') {
+                throw new RuntimeException('Describe the behaviour you want to flag.');
+            }
+
+            // The student must be actively assigned to one of this teacher's subjects.
+            $assignedStatement = $pdo->prepare(
+                "SELECT COUNT(*)
+                 FROM student_subject_enrollments
+                 WHERE student_id = ? AND teacher_id = ? AND status = 'active'"
+            );
+            $assignedStatement->execute([$flagStudentId, $teacherId]);
+            if ((int) $assignedStatement->fetchColumn() < 1) {
+                throw new RuntimeException('You can only flag a student assigned to your subjects.');
+            }
+
+            $insertFlag = $pdo->prepare(
+                "INSERT INTO student_warnings (student_id, teacher_id, warning_date, reason, notes, status)
+                 VALUES (?, ?, CURDATE(), ?, NULLIF(?, ''), 'flagged')"
+            );
+            $insertFlag->execute([
+                $flagStudentId,
+                $teacherId,
+                substr($flagReason, 0, 255),
+                substr($flagNotes, 0, 60000),
+            ]);
+
+            header('Location: teacher.php?view=warnings&flagged=1');
+            exit;
+        } catch (Throwable $exception) {
+            $error = $exception->getMessage();
+        }
+    }
+
     if ($view === 'students') {
         $statement = $pdo->prepare(
             "SELECT student_subject_enrollments.id AS enrollment_id,
@@ -228,6 +275,32 @@ try {
         );
         $statement->execute([$teacherId]);
         $studentRows = $statement->fetchAll();
+    } elseif ($view === 'warnings') {
+        $flagStudentsStatement = $pdo->prepare(
+            "SELECT DISTINCT students.id,
+                    CONCAT(students.first_name_en, ' ', students.last_name_en) AS student_name
+             FROM student_subject_enrollments
+             INNER JOIN students ON students.id = student_subject_enrollments.student_id
+             WHERE student_subject_enrollments.teacher_id = ?
+               AND student_subject_enrollments.status = 'active'
+               AND students.status = 'active'
+             ORDER BY students.last_name_en, students.first_name_en"
+        );
+        $flagStudentsStatement->execute([$teacherId]);
+        $flagStudents = $flagStudentsStatement->fetchAll();
+
+        $myFlagsStatement = $pdo->prepare(
+            "SELECT student_warnings.id, student_warnings.warning_date, student_warnings.reason,
+                    student_warnings.status, student_warnings.warning_type,
+                    CONCAT(students.first_name_en, ' ', students.last_name_en) AS student_name
+             FROM student_warnings
+             INNER JOIN students ON students.id = student_warnings.student_id
+             WHERE student_warnings.teacher_id = ?
+             ORDER BY student_warnings.warning_date DESC, student_warnings.id DESC
+             LIMIT 50"
+        );
+        $myFlagsStatement->execute([$teacherId]);
+        $myFlags = $myFlagsStatement->fetchAll();
     } elseif (in_array($view, ['attendance', 'submission'], true)) {
         $statement = $pdo->prepare(
             "SELECT student_subject_enrollments.id AS enrollment_id,
@@ -608,6 +681,69 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
               </div>
             <?php endif; ?>
           </form>
+
+        <?php elseif ($view === 'warnings'): ?>
+          <section class="behaviour-grid">
+            <article class="data-panel">
+              <div class="panel-heading"><div><span>New flag</span><h2>Raise a behaviour flag</h2></div></div>
+              <?php if ($flagStudents === []): ?>
+                <p class="linked-empty">No active students are assigned to your subjects yet.</p>
+              <?php else: ?>
+                <form method="post" class="behaviour-flag-form">
+                  <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
+                  <label>
+                    <span>Student</span>
+                    <select name="student_id" required>
+                      <option value="">Select a student…</option>
+                      <?php foreach ($flagStudents as $flagStudent): ?>
+                        <option value="<?= e((string) $flagStudent['id']) ?>"><?= e((string) $flagStudent['student_name']) ?></option>
+                      <?php endforeach; ?>
+                    </select>
+                  </label>
+                  <label>
+                    <span>What happened?</span>
+                    <input type="text" name="reason" maxlength="255" placeholder="Short reason for the flag" required>
+                  </label>
+                  <label>
+                    <span>Notes for administration (optional)</span>
+                    <textarea name="notes" rows="3" placeholder="Any extra context only the administration will see"></textarea>
+                  </label>
+                  <div class="record-form-actions">
+                    <button class="primary-action" type="submit">Send flag to administration</button>
+                  </div>
+                </form>
+              <?php endif; ?>
+            </article>
+
+            <article class="data-panel">
+              <div class="panel-heading"><div><span>My flags</span><h2>Flags I raised</h2></div><strong class="record-count"><?= e((string) count($myFlags)) ?> total</strong></div>
+              <?php if ($myFlags === []): ?>
+                <p class="linked-empty">You have not raised any behaviour flags yet.</p>
+              <?php else: ?>
+                <div class="behaviour-flag-list">
+                  <?php
+                  $flagStatusLabels = [
+                      'flagged' => 'Pending review',
+                      'issued' => 'Warning issued',
+                      'assigned' => 'Expiation chosen',
+                      'resolved' => 'Resolved',
+                      'dismissed' => 'Dismissed',
+                  ];
+                  ?>
+                  <?php foreach ($myFlags as $flag): ?>
+                    <div class="behaviour-flag-item">
+                      <div>
+                        <strong><?= e((string) $flag['student_name']) ?></strong>
+                        <small><?= e((string) $flag['warning_date']) ?></small>
+                      </div>
+                      <p><?= e((string) $flag['reason']) ?></p>
+                      <span class="status-pill status-<?= e((string) $flag['status']) ?>"><?= e($flagStatusLabels[(string) $flag['status']] ?? ucfirst((string) $flag['status'])) ?><?= $flag['warning_type'] ? ' · ' . e(ucfirst((string) $flag['warning_type'])) : '' ?></span>
+                    </div>
+                  <?php endforeach; ?>
+                </div>
+              <?php endif; ?>
+            </article>
+          </section>
 
         <?php elseif ($teacherProfile !== []): ?>
           <section class="profile-overview-grid">

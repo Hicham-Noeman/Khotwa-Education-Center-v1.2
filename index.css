@@ -628,6 +628,19 @@ svg {
   animation: heroEnter 0.9s 1.62s var(--ease) both;
 }
 
+/* The opening headline line is set wider than the rest of the h1 so it reads slower. */
+.hero-line-lead {
+  display: inline-block;
+  letter-spacing: 0.012em;
+  word-spacing: 0.18em;
+}
+
+html[dir="rtl"] .hero-line-lead {
+  /* Arabic glyphs must stay joined, so only the gap between words grows. */
+  letter-spacing: normal;
+  word-spacing: 0.3em;
+}
+
 .changing-word {
   position: relative;
   display: inline-block;
@@ -1658,6 +1671,75 @@ html[dir="rtl"] .future-line-break {
   font-size: 0.76rem;
   font-weight: 700;
   letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.reviews-section {
+  background: var(--soft);
+}
+
+.review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 22px;
+  margin-top: 46px;
+}
+
+.review-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 30px;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  background: var(--paper);
+  box-shadow: 0 18px 44px rgba(20, 42, 73, 0.07);
+  transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
+}
+
+.review-card:hover {
+  box-shadow: var(--shadow);
+  transform: translateY(-6px);
+}
+
+.review-stars {
+  display: flex;
+  gap: 4px;
+  color: rgba(34, 63, 107, 0.2);
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+}
+
+.review-stars .is-filled {
+  color: var(--orange);
+}
+
+.review-card blockquote {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1.8;
+}
+
+.review-card footer {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.review-card footer strong {
+  font-family: var(--display);
+  font-size: 1rem;
+}
+
+.review-card footer small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 

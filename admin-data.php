@@ -15,12 +15,16 @@ function admin_navigation(): array
         'warnings' => ['label' => 'Warnings', 'group' => 'Management'],
         'users' => ['label' => 'Users', 'group' => 'Management'],
         'parent-links' => ['label' => 'Parent Links', 'group' => 'Management'],
+        'expiations' => ['label' => 'Expiations', 'group' => 'Expiations'],
+        'expiation-categories' => ['label' => 'Categories', 'group' => 'Expiations'],
+        'age-groups' => ['label' => 'Age Groups', 'group' => 'Expiations'],
         'website-content' => ['label' => 'Website Content', 'group' => 'Website'],
         'website-slides' => ['label' => 'Vision Slides', 'group' => 'Website', 'sidebar' => false],
         'website-statistics' => ['label' => 'Statistics', 'group' => 'Website', 'sidebar' => false],
         'website-team' => ['label' => 'Team Members', 'group' => 'Website', 'sidebar' => false],
         'website-gallery' => ['label' => 'Gallery Images', 'group' => 'Website', 'sidebar' => false],
         'website-partners' => ['label' => 'Partner Logos', 'group' => 'Website', 'sidebar' => false],
+        'website-reviews' => ['label' => 'Parent Reviews', 'group' => 'Website'],
         'website-contacts' => ['label' => 'Contact & Social', 'group' => 'Website'],
     ];
 }
@@ -35,12 +39,16 @@ function admin_manager_allowed_views(): array
         'subscriptions',
         'payments',
         'warnings',
+        'expiations',
+        'expiation-categories',
+        'age-groups',
         'website-content',
         'website-slides',
         'website-statistics',
         'website-team',
         'website-gallery',
         'website-partners',
+        'website-reviews',
         'website-contacts',
         'parent-links',
     ];
@@ -88,13 +96,61 @@ function admin_view_tables(): array
         'warnings' => 'student_warnings',
         'users' => 'users',
         'parent-links' => 'parent_students',
+        'expiations' => 'expiations',
+        'expiation-categories' => 'expiation_categories',
+        'age-groups' => 'age_groups',
         'website-content' => 'homepage_content',
         'website-slides' => 'homepage_slides',
         'website-statistics' => 'homepage_statistics',
         'website-team' => 'homepage_team_members',
         'website-gallery' => 'homepage_gallery_images',
         'website-partners' => 'homepage_partners',
+        'website-reviews' => 'homepage_reviews',
         'website-contacts' => 'homepage_contact_links',
+    ];
+}
+
+/**
+ * Cash figures for the overview balance card.
+ * "This month" = the current calendar month if it already has billing rows,
+ * otherwise the most recent month that does (the center's active billing cycle).
+ * Returns collected (money received in that month), expected (billed for that month), and a label.
+ */
+function admin_month_cash_metric(PDO $pdo): array
+{
+    $period = $pdo->query(
+        "SELECT billing_year AS y, billing_month AS m
+         FROM student_subscription_months
+         ORDER BY (billing_year = YEAR(CURDATE()) AND billing_month = MONTH(CURDATE())) DESC,
+                  billing_year DESC, billing_month DESC
+         LIMIT 1"
+    )->fetch();
+
+    if (!$period) {
+        return ['collected' => 0.0, 'expected' => 0.0, 'label' => date('F Y')];
+    }
+
+    $year = (int) $period['y'];
+    $month = (int) $period['m'];
+
+    $expectedStatement = $pdo->prepare(
+        "SELECT COALESCE(SUM(expected_amount), 0)
+         FROM student_subscription_months
+         WHERE billing_year = ? AND billing_month = ?"
+    );
+    $expectedStatement->execute([$year, $month]);
+
+    $collectedStatement = $pdo->prepare(
+        "SELECT COALESCE(SUM(paid_amount), 0)
+         FROM student_subscription_payments
+         WHERE YEAR(paid_at) = ? AND MONTH(paid_at) = ?"
+    );
+    $collectedStatement->execute([$year, $month]);
+
+    return [
+        'collected' => (float) $collectedStatement->fetchColumn(),
+        'expected' => (float) $expectedStatement->fetchColumn(),
+        'label' => date('F Y', (int) mktime(0, 0, 0, $month, 1, $year)),
     ];
 }
 
@@ -151,12 +207,16 @@ function admin_icon(string $name): string
         'warnings' => '<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4M12 17h.01"/>',
         'users' => '<path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3Z"/><path d="m9 12 2 2 4-4"/>',
         'parent-links' => '<path d="M7 21v-2a5 5 0 0 1 5-5h5"/><circle cx="9" cy="8" r="3"/><path d="m16 14 2 2 4-4"/>',
+        'expiations' => '<path d="M12 3v18"/><path d="M5 8h14"/><path d="M6 8 4 20h6L8 8M18 8l-2 12h-6"/>',
+        'expiation-categories' => '<path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/>',
+        'age-groups' => '<circle cx="12" cy="7" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/><path d="M12 11v4"/>',
         'website-content' => '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h3M8 17h8"/>',
         'website-slides' => '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8" cy="9" r="1.5"/><path d="m3 17 5-5 4 4 3-3 6 6"/>',
         'website-statistics' => '<path d="M4 20V10M10 20V4M16 20v-7M22 20V7"/>',
         'website-team' => '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20a6 6 0 0 1 12 0M14 20a5 5 0 0 1 8 0"/>',
         'website-gallery' => '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>',
         'website-partners' => '<path d="M8 12h8M12 8v8"/><circle cx="12" cy="12" r="9"/>',
+        'website-reviews' => '<path d="M12 3.6 14.3 9l5.7.4-4.4 3.7 1.4 5.6L12 15.7 7 18.7l1.4-5.6L4 9.4 9.7 9Z"/>',
         'website-contacts' => '<path d="M4 4h16v16H4zM4 7l8 6 8-6"/><path d="M8 17h8"/>',
     ];
 
@@ -286,6 +346,8 @@ function admin_relation_options(PDO $pdo, string $column): array
         'subscription_id' => "SELECT student_subscriptions.id, CONCAT(students.first_name_en, ' ', students.last_name_en, ' / ', student_subscriptions.start_date) label FROM student_subscriptions INNER JOIN students ON students.id = student_subscriptions.student_id ORDER BY students.last_name_en, student_subscriptions.start_date DESC",
         'subscription_month_id' => "SELECT student_subscription_months.id, CONCAT(students.first_name_en, ' ', students.last_name_en, ' / ', student_subscription_months.billing_year, '-', LPAD(student_subscription_months.billing_month, 2, '0')) label FROM student_subscription_months INNER JOIN students ON students.id = student_subscription_months.student_id ORDER BY student_subscription_months.billing_year DESC, student_subscription_months.billing_month DESC",
         'parent_user_id' => "SELECT id, CONCAT(first_name, ' ', COALESCE(last_name, ''), ' / ', email) label FROM users WHERE role = 'parent' ORDER BY first_name, last_name, email",
+        'category_id' => "SELECT id, CONCAT(name_en, ' / ', name_ar) label FROM expiation_categories ORDER BY sort_order, name_en",
+        'age_group_id' => "SELECT id, CONCAT(name_en, ' (', min_age, '-', max_age, ')') label FROM age_groups ORDER BY sort_order, min_age",
     ];
 
     if (!isset($queries[$column])) {

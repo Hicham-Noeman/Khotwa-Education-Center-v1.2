@@ -161,15 +161,23 @@ try {
              )"
         )->fetchColumn();
         $warningsThisYear = (int) $pdo->query(
-            'SELECT COUNT(*) FROM student_warnings WHERE warning_year = YEAR(CURDATE())'
+            "SELECT COUNT(*) FROM student_warnings
+             WHERE warning_year = YEAR(CURDATE())
+             AND status IN ('issued', 'assigned', 'resolved')"
         )->fetchColumn();
         $activeSubjects = (int) $pdo->query("SELECT COUNT(*) FROM subjects WHERE status = 'active'")->fetchColumn();
+        $cashMetric = admin_month_cash_metric($pdo);
 
         $metrics = [
             ['value' => number_format($activeStudents), 'label' => 'Active students', 'color' => 'orange'],
             ['value' => number_format($activeTeachers), 'label' => 'Active teachers', 'color' => 'green'],
             ['value' => number_format($activeEnrollments), 'label' => 'Active enrollments', 'color' => 'pink'],
-            ['value' => number_format($openBalance, 2), 'label' => 'Open balance', 'color' => 'navy'],
+            [
+                'value' => number_format($cashMetric['collected'], 2),
+                'label' => 'Collected · ' . $cashMetric['label'],
+                'sub' => 'Net expected this month: ' . number_format($cashMetric['expected'], 2),
+                'color' => 'navy',
+            ],
         ];
         $summaryMetrics = [
             ['value' => number_format($attendanceRate, 1) . '%', 'label' => 'Active-student attendance rate'],
@@ -428,6 +436,7 @@ $page = $views[$view];
                 <span class="metric-dot"></span>
                 <strong><?= e($metric['value']) ?></strong>
                 <p><?= e($metric['label']) ?></p>
+                <?php if (!empty($metric['sub'])): ?><small class="metric-sub"><?= e($metric['sub']) ?></small><?php endif; ?>
               </article>
             <?php endforeach; ?>
           </section>

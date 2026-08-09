@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/admin-data.php';
+require_once __DIR__ . '/homepage-data.php';
 
 $user = require_roles(['admin', 'manager']);
 $isManager = ($user['role'] ?? '') === 'manager';
@@ -50,6 +51,7 @@ $columns = [];
 $rows = [];
 $metrics = [];
 $recentAttendance = [];
+$warningGroups = [];
 $websiteCollections = [
     'content' => [],
     'slides' => [],
@@ -58,6 +60,10 @@ $websiteCollections = [
     'gallery' => [],
     'partners' => [],
 ];
+$admissionsBannerVisible = true;
+$pendingReviewCount = 0;
+$foundingDate = '';
+$homepageMetrics = [];
 $databaseError = '';
 $formError = '';
 $message = isset($_GET['created']) ? 'Record added successfully.' : '';
@@ -67,6 +73,17 @@ if (isset($_GET['deleted'])) {
     $message = $deletedCount === 1
         ? 'Record deleted successfully.'
         : $deletedCount . ' records deleted successfully.';
+}
+if (isset($_GET['updated'])) {
+    $message = $view === 'website-reviews'
+        ? 'Review updated successfully.'
+        : 'Warning updated successfully.';
+}
+if (isset($_GET['banner'])) {
+    $message = 'The admissions banner setting was saved.';
+}
+if (isset($_GET['founding'])) {
+    $message = 'The founding date was saved. The years of experience counter now uses it.';
 }
 $isAdding = isset($_GET['new']) && $view !== 'overview';
 $formColumns = [];
@@ -84,6 +101,115 @@ try {
             }
 
             $action = isset($_POST['delete_id']) ? 'delete' : (string) ($_POST['action'] ?? '');
+
+            if (in_array($action, ['warning_issue', 'warning_dismiss', 'warning_resolve'], true)) {
+                if ($postedView !== 'warnings') {
+                    throw new RuntimeException('Invalid table action.');
+                }
+                $warningId = (int) ($_POST['warning_id'] ?? 0);
+                $adminUserId = (int) ($user['id'] ?? 0);
+                if ($warningId < 1) {
+                    throw new RuntimeException('Missing warning reference.');
+                }
+
+                if ($action === 'warning_issue') {
+                    $warningType = (string) ($_POST['warning_type'] ?? '');
+                    if (!in_array($warningType, ['oral', 'written'], true)) {
+                        throw new RuntimeException('Choose an oral or written warning.');
+                    }
+                    $warningNumber = ($_POST['warning_number'] ?? '') === '' ? null : max(0, (int) $_POST['warning_number']);
+                    $conversationMinutes = ($_POST['conversation_minutes'] ?? '') === '' ? null : max(0, (int) $_POST['conversation_minutes']);
+                    $statement = $pdo->prepare(
+                        "UPDATE student_warnings
+                         SET warning_type = ?, warning_number = ?, conversation_minutes = ?,
+                             action_taken = NULLIF(?, ''), parent_notified = 1,
+                             status = 'issued', issued_by_user_id = ?, issued_at = NOW()
+                         WHERE id = ? AND status = 'flagged'"
+                    );
+                    $statement->execute([
+                        $warningType,
+                        $warningNumber,
+                        $conversationMinutes,
+                        trim((string) ($_POST['action_taken'] ?? '')),
+                        $adminUserId,
+                        $warningId,
+                    ]);
+                } elseif ($action === 'warning_dismiss') {
+                    $statement = $pdo->prepare(
+                        "UPDATE student_warnings
+                         SET status = 'dismissed', resolved_by_user_id = ?, resolved_at = NOW()
+                         WHERE id = ? AND status = 'flagged'"
+                    );
+                    $statement->execute([$adminUserId, $warningId]);
+                } else { // warning_resolve
+                    $statement = $pdo->prepare(
+                        "UPDATE student_warnings
+                         SET status = 'resolved', resolved_by_user_id = ?, resolved_at = NOW()
+                         WHERE id = ? AND status IN ('issued', 'assigned')"
+                    );
+                    $statement->execute([$adminUserId, $warningId]);
+                }
+
+                header('Location: ' . admin_workspace_url('warnings', ['updated' => 1]));
+                exit;
+            }
+
+            if ($action === 'toggle_admissions_banner') {
+                if ($postedView !== 'website-content') {
+                    throw new RuntimeException('Invalid table action.');
+                }
+                homepage_setting_save(
+                    $pdo,
+                    'admissions_banner_visible',
+                    isset($_POST['admissions_banner_visible']) ? '1' : '0'
+                );
+                header('Location: ' . admin_workspace_url('website-content', ['banner' => 1]));
+                exit;
+            }
+
+            if ($action === 'save_founding_date') {
+                if ($postedView !== 'website-content') {
+                    throw new RuntimeException('Invalid table action.');
+                }
+                $foundingInput = trim((string) ($_POST['founding_date'] ?? ''));
+                $foundingDate = DateTimeImmutable::createFromFormat('Y-m-d', $foundingInput);
+                if ($foundingInput === '' || !$foundingDate || $foundingDate->format('Y-m-d') !== $foundingInput) {
+                    throw new RuntimeException('Enter the founding date as a valid calendar date.');
+                }
+                if ($foundingDate > new DateTimeImmutable('today')) {
+                    throw new RuntimeException('The founding date cannot be in the future.');
+                }
+
+                homepage_setting_save($pdo, 'founding_date', $foundingInput);
+                header('Location: ' . admin_workspace_url('website-content', ['founding' => 1]));
+                exit;
+            }
+
+            if (isset($_POST['review_approve_id']) || isset($_POST['review_reject_id'])) {
+                if ($postedView !== 'website-reviews') {
+                    throw new RuntimeException('Invalid table action.');
+                }
+                $approving = isset($_POST['review_approve_id']);
+                $reviewId = (int) ($_POST[$approving ? 'review_approve_id' : 'review_reject_id'] ?? 0);
+                if ($reviewId < 1) {
+                    throw new RuntimeException('Missing review reference.');
+                }
+
+                $statement = $pdo->prepare(
+                    'UPDATE homepage_reviews
+                     SET status = ?, reviewed_by_user_id = ?, reviewed_at = NOW()
+                     WHERE id = ?'
+                );
+                $statement->execute([
+                    $approving ? 'approved' : 'rejected',
+                    (int) ($user['id'] ?? 0),
+                    $reviewId,
+                ]);
+
+                header('Location: ' . admin_workspace_url('website-reviews', ['updated' => 1]));
+                exit;
+            }
+
             if ($action === 'add') {
                 $table = $viewTables[$postedView];
                 $uploadResult = admin_prepare_uploads(
@@ -133,7 +259,13 @@ try {
             ['value' => (string) $pdo->query("SELECT COUNT(*) FROM students WHERE status = 'active'")->fetchColumn(), 'label' => 'Active students', 'color' => 'orange'],
             ['value' => (string) $pdo->query("SELECT COUNT(*) FROM teachers WHERE status = 'active'")->fetchColumn(), 'label' => 'Active teachers', 'color' => 'green'],
             ['value' => (string) $pdo->query("SELECT COUNT(*) FROM student_subject_enrollments WHERE status = 'active'")->fetchColumn(), 'label' => 'Active enrollments', 'color' => 'pink'],
-            ['value' => number_format((float) $pdo->query("SELECT COALESCE(SUM(GREATEST(expected_amount - paid_amount, 0)), 0) FROM student_subscription_months")->fetchColumn(), 2), 'label' => 'Open balance', 'color' => 'navy'],
+        ];
+        $cashMetric = admin_month_cash_metric($pdo);
+        $metrics[] = [
+            'value' => number_format($cashMetric['collected'], 2),
+            'label' => 'Collected · ' . $cashMetric['label'],
+            'sub' => 'Net expected this month: ' . number_format($cashMetric['expected'], 2),
+            'color' => 'navy',
         ];
         $recentAttendance = $pdo->query(
             "SELECT attendance_date, student_name_en, daily_status, attended_subject_count, missed_subject_count
@@ -276,22 +408,30 @@ try {
              ORDER BY student_subscription_payments.paid_at DESC"
         )->fetchAll();
     } elseif ($view === 'warnings') {
-        $pageDescription = 'Behavior and learning warnings recorded by the center team.';
-        $columns = [
-            'warning_date' => 'Date', 'student_name' => 'Student', 'teacher_name' => 'Teacher',
-            'warning_type' => 'Type', 'reason' => 'Reason', 'parent_notified_label' => 'Parent notified',
-        ];
-        $rows = $pdo->query(
-            "SELECT student_warnings.id, student_warnings.warning_date,
+        $pageDescription = 'Teacher flags → issue an oral/written warning → parent picks an expiation → confirm completion.';
+        $warningRows = $pdo->query(
+            "SELECT student_warnings.id, student_warnings.warning_date, student_warnings.status,
+                    student_warnings.warning_type, student_warnings.warning_number,
+                    student_warnings.conversation_minutes, student_warnings.reason,
+                    student_warnings.action_taken, student_warnings.notes,
                     CONCAT(students.first_name_en, ' ', students.last_name_en) student_name,
                     COALESCE(TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))), 'Center team') teacher_name,
-                    student_warnings.warning_type, student_warnings.reason,
-                    IF(student_warnings.parent_notified = 1, 'Yes', 'No') parent_notified_label
+                    expiations.title_en AS expiation_title, expiation_categories.name_en AS expiation_category,
+                    age_groups.name_en AS expiation_age_group,
+                    student_warnings.expiation_selected_at, student_warnings.issued_at, student_warnings.resolved_at
              FROM student_warnings
              INNER JOIN students ON students.id = student_warnings.student_id
              LEFT JOIN teachers ON teachers.id = student_warnings.teacher_id
-             ORDER BY student_warnings.warning_date DESC"
+             LEFT JOIN expiations ON expiations.id = student_warnings.expiation_id
+             LEFT JOIN expiation_categories ON expiation_categories.id = expiations.category_id
+             LEFT JOIN age_groups ON age_groups.id = expiations.age_group_id
+             ORDER BY FIELD(student_warnings.status, 'flagged', 'assigned', 'issued', 'resolved', 'dismissed'),
+                      student_warnings.warning_date DESC, student_warnings.id DESC"
         )->fetchAll();
+        $warningGroups = ['flagged' => [], 'issued' => [], 'assigned' => [], 'resolved' => [], 'dismissed' => []];
+        foreach ($warningRows as $warningRow) {
+            $warningGroups[(string) $warningRow['status']][] = $warningRow;
+        }
     } elseif ($view === 'users') {
         $pageDescription = 'Portal users, roles, access status, and recent sign-ins.';
         $columns = [
@@ -302,6 +442,43 @@ try {
             "SELECT id, TRIM(CONCAT(first_name, ' ', COALESCE(last_name, ''))) user_name,
                     email, role, status, last_login_at
              FROM users ORDER BY role, user_name"
+        )->fetchAll();
+    } elseif ($view === 'expiations') {
+        $pageDescription = 'Corrective expiations parents can assign, organised by category and age group.';
+        $columns = [
+            'id' => 'ID', 'title_en' => 'English title', 'title_ar' => 'Arabic title',
+            'category_name' => 'Category', 'age_group_name' => 'Age group',
+            'sort_order' => 'Order', 'status' => 'Status',
+        ];
+        $rows = $pdo->query(
+            "SELECT expiations.id, expiations.title_en, expiations.title_ar,
+                    expiation_categories.name_en AS category_name,
+                    CONCAT(age_groups.name_en, ' (', age_groups.min_age, '-', age_groups.max_age, ')') AS age_group_name,
+                    expiations.sort_order, expiations.status
+             FROM expiations
+             INNER JOIN expiation_categories ON expiation_categories.id = expiations.category_id
+             INNER JOIN age_groups ON age_groups.id = expiations.age_group_id
+             ORDER BY expiation_categories.sort_order, age_groups.sort_order, expiations.sort_order, expiations.id"
+        )->fetchAll();
+    } elseif ($view === 'expiation-categories') {
+        $pageDescription = 'Editable categories (types) of expiations students can choose from.';
+        $columns = [
+            'id' => 'ID', 'name_en' => 'English name', 'name_ar' => 'Arabic name',
+            'sort_order' => 'Order', 'status' => 'Status',
+        ];
+        $rows = $pdo->query(
+            "SELECT id, name_en, name_ar, sort_order, status
+             FROM expiation_categories ORDER BY sort_order, id"
+        )->fetchAll();
+    } elseif ($view === 'age-groups') {
+        $pageDescription = 'Named age groups (with age ranges) used to match expiations to a student automatically.';
+        $columns = [
+            'id' => 'ID', 'name_en' => 'English name', 'name_ar' => 'Arabic name',
+            'min_age' => 'Min age', 'max_age' => 'Max age', 'sort_order' => 'Order', 'status' => 'Status',
+        ];
+        $rows = $pdo->query(
+            "SELECT id, name_en, name_ar, min_age, max_age, sort_order, status
+             FROM age_groups ORDER BY sort_order, min_age, id"
         )->fetchAll();
     } elseif ($view === 'website-content') {
     } elseif ($view === 'parent-links') {
@@ -325,6 +502,12 @@ try {
          ORDER BY parent_name, student_name"
       )->fetchAll();
         $pageDescription = 'One creative workspace for homepage writing, slides, statistics, team members, gallery images, and partner logos.';
+        $admissionsBannerVisible = homepage_setting($pdo, 'admissions_banner_visible', '1') === '1';
+        $foundingDate = homepage_setting($pdo, 'founding_date');
+        $homepageMetrics = homepage_dynamic_metrics($pdo, ['founding_date' => $foundingDate]);
+        $pendingReviewCount = (int) $pdo->query(
+            "SELECT COUNT(*) FROM homepage_reviews WHERE status = 'pending'"
+        )->fetchColumn();
         $columns = [
             'id' => 'ID', 'content_type' => 'Type', 'content_key' => 'Content key',
             'title_en' => 'English title', 'title_ar' => 'Arabic title',
@@ -368,7 +551,8 @@ try {
              FROM homepage_slides ORDER BY sort_order, id"
         )->fetchAll();
     } elseif ($view === 'website-statistics') {
-        $pageDescription = 'Homepage numbers, suffixes, and bilingual labels.';
+        $pageDescription = 'Homepage numbers, suffixes, and bilingual labels. Learners, educators, family satisfaction,'
+            . ' and years of experience are calculated from live data, so their stored number is only a fallback.';
         $columns = [
             'id' => 'ID', 'stat_key' => 'Key', 'stat_value' => 'Number',
             'suffix' => 'Suffix', 'label_en' => 'English label',
@@ -410,6 +594,23 @@ try {
         $rows = $pdo->query(
             "SELECT id, name_en, name_ar, logo_path, website_url, sort_order, status
              FROM homepage_partners ORDER BY sort_order, id"
+        )->fetchAll();
+    } elseif ($view === 'website-reviews') {
+        $pageDescription = 'Reviews submitted by parents from their portal. Approved reviews appear on the public homepage.';
+        $columns = [
+            'id' => 'ID', 'display_name' => 'Parent', 'parent_email' => 'Account',
+            'rating' => 'Rating', 'review_text' => 'Review', 'created_at' => 'Submitted',
+            'sort_order' => 'Order', 'status' => 'Status',
+        ];
+        $rows = $pdo->query(
+            "SELECT homepage_reviews.id, homepage_reviews.display_name,
+                    COALESCE(users.email, 'Added by the administration') AS parent_email,
+                    homepage_reviews.rating, homepage_reviews.review_text,
+                    homepage_reviews.created_at, homepage_reviews.sort_order, homepage_reviews.status
+             FROM homepage_reviews
+             LEFT JOIN users ON users.id = homepage_reviews.parent_user_id
+             ORDER BY FIELD(homepage_reviews.status, 'pending', 'approved', 'rejected'),
+                      homepage_reviews.sort_order, homepage_reviews.id DESC"
         )->fetchAll();
     } elseif ($view === 'website-contacts') {
         $pageDescription = 'Phone, email, WhatsApp, social media, address, hours, and Google Maps links.';
@@ -463,7 +664,7 @@ try {
           <section class="metrics-grid" aria-label="Dashboard statistics">
             <?php foreach ($metrics as $metric): ?>
               <article class="metric-card metric-<?= e($metric['color']) ?>">
-                <span class="metric-dot"></span><strong><?= e($metric['value']) ?></strong><p><?= e($metric['label']) ?></p>
+                <span class="metric-dot"></span><strong><?= e($metric['value']) ?></strong><p><?= e($metric['label']) ?></p><?php if (!empty($metric['sub'])): ?><small class="metric-sub"><?= e($metric['sub']) ?></small><?php endif; ?>
               </article>
             <?php endforeach; ?>
           </section>
@@ -526,7 +727,83 @@ try {
             </section>
           <?php endif; ?>
 
-          <?php if ($view === 'website-content'): ?>
+          <?php if ($view === 'warnings'): ?>
+            <?php
+            $warningStatusMeta = [
+                'flagged' => ['label' => 'Teacher flags (admin only)', 'hint' => 'Raised by a teacher. Not visible to parents until you issue a warning.'],
+                'assigned' => ['label' => 'Expiation chosen by parent', 'hint' => 'Parent selected an expiation. Confirm once the student completes it.'],
+                'issued' => ['label' => 'Issued — waiting for parent', 'hint' => 'Visible to the parent. Parent can now choose an expiation.'],
+                'resolved' => ['label' => 'Resolved / removed', 'hint' => 'Completed and no longer valid.'],
+                'dismissed' => ['label' => 'Dismissed', 'hint' => 'Flag rejected; never shown to the parent.'],
+            ];
+            ?>
+            <section class="warning-board">
+              <?php foreach ($warningStatusMeta as $statusKey => $meta): ?>
+                <?php $groupRows = $warningGroups[$statusKey] ?? []; ?>
+                <article class="data-panel warning-column warning-column-<?= e($statusKey) ?>">
+                  <div class="panel-heading">
+                    <div>
+                      <span><?= e($meta['label']) ?> · <?= e((string) count($groupRows)) ?></span>
+                      <h2><?= e(ucfirst($statusKey)) ?></h2>
+                    </div>
+                  </div>
+                  <p class="warning-column-hint"><?= e($meta['hint']) ?></p>
+                  <?php if ($groupRows === []): ?>
+                    <p class="empty-value">Nothing here.</p>
+                  <?php else: ?>
+                    <?php foreach ($groupRows as $warning): ?>
+                      <div class="warning-card">
+                        <div class="warning-card-top">
+                          <strong><?= e((string) $warning['student_name']) ?></strong>
+                          <small><?= e((string) $warning['warning_date']) ?></small>
+                        </div>
+                        <p class="warning-reason"><?= e((string) $warning['reason']) ?></p>
+                        <small class="warning-meta">Flagged by <?= e((string) $warning['teacher_name']) ?></small>
+                        <?php if ($warning['warning_type']): ?>
+                          <small class="warning-meta"><?= e(ucfirst((string) $warning['warning_type'])) ?> warning<?= $warning['warning_number'] ? ' #' . e((string) $warning['warning_number']) : '' ?></small>
+                        <?php endif; ?>
+                        <?php if ($warning['expiation_title']): ?>
+                          <small class="warning-meta">Expiation: <?= e((string) $warning['expiation_title']) ?> (<?= e((string) $warning['expiation_category']) ?> · <?= e((string) $warning['expiation_age_group']) ?>)</small>
+                        <?php endif; ?>
+
+                        <?php if ($statusKey === 'flagged'): ?>
+                          <form method="post" class="warning-action-form">
+                            <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
+                            <input type="hidden" name="view" value="warnings">
+                            <input type="hidden" name="warning_id" value="<?= e((string) $warning['id']) ?>">
+                            <div class="warning-type-choice">
+                              <label><input type="radio" name="warning_type" value="oral" checked> Oral</label>
+                              <label><input type="radio" name="warning_type" value="written"> Written</label>
+                            </div>
+                            <div class="warning-inline-fields">
+                              <input type="number" name="warning_number" min="0" placeholder="Warning #">
+                              <input type="number" name="conversation_minutes" min="0" placeholder="Talk (min)">
+                            </div>
+                            <input type="text" name="action_taken" placeholder="Action taken (optional)">
+                            <div class="warning-card-actions">
+                              <button class="primary-action" type="submit" name="action" value="warning_issue">Issue warning</button>
+                              <button class="secondary-action" type="submit" name="action" value="warning_dismiss">Dismiss</button>
+                            </div>
+                          </form>
+                        <?php elseif ($statusKey === 'issued' || $statusKey === 'assigned'): ?>
+                          <form method="post" class="warning-action-form">
+                            <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
+                            <input type="hidden" name="view" value="warnings">
+                            <input type="hidden" name="warning_id" value="<?= e((string) $warning['id']) ?>">
+                            <div class="warning-card-actions">
+                              <button class="primary-action" type="submit" name="action" value="warning_resolve">Mark completed &amp; remove</button>
+                            </div>
+                          </form>
+                        <?php elseif ($warning['resolved_at']): ?>
+                          <small class="warning-meta"><?= e($statusKey === 'resolved' ? 'Resolved' : 'Dismissed') ?> on <?= e((string) $warning['resolved_at']) ?></small>
+                        <?php endif; ?>
+                      </div>
+                    <?php endforeach; ?>
+                  <?php endif; ?>
+                </article>
+              <?php endforeach; ?>
+            </section>
+          <?php elseif ($view === 'website-content'): ?>
             <?php
             $workspaceSections = [
                 [
@@ -607,6 +884,58 @@ try {
                 </div>
               </div>
 
+              <div class="studio-controls">
+                <form class="studio-switch-card" method="post">
+                  <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
+                  <input type="hidden" name="view" value="website-content">
+                  <input type="hidden" name="action" value="toggle_admissions_banner">
+                  <div class="studio-switch-copy">
+                    <small>Homepage banner</small>
+                    <h3>“Admissions are now open”</h3>
+                    <p>Show or hide the announcement badge above the homepage headline.</p>
+                  </div>
+                  <label class="switch-control">
+                    <input
+                      type="checkbox"
+                      name="admissions_banner_visible"
+                      value="1"
+                      <?= $admissionsBannerVisible ? 'checked' : '' ?>
+                    >
+                    <span class="switch-track"><i></i></span>
+                    <span class="switch-label"><?= $admissionsBannerVisible ? 'Open' : 'Closed' ?></span>
+                  </label>
+                  <button class="primary-action" type="submit">Save banner</button>
+                </form>
+
+                <form class="studio-switch-card" method="post">
+                  <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
+                  <input type="hidden" name="view" value="website-content">
+                  <input type="hidden" name="action" value="save_founding_date">
+                  <div class="studio-switch-copy">
+                    <small>Founding date</small>
+                    <h3>
+                      <?= e((string) ($homepageMetrics['years_of_experience'] ?? 0)) ?>
+                      years of experience
+                    </h3>
+                    <p>The homepage counter is calculated from this date, so it never needs editing again.</p>
+                  </div>
+                  <label class="studio-date-field">
+                    <span>Opened on</span>
+                    <input type="date" name="founding_date" value="<?= e($foundingDate) ?>" max="<?= e(date('Y-m-d')) ?>" required>
+                  </label>
+                  <button class="primary-action" type="submit">Save date</button>
+                </form>
+
+                <a class="studio-switch-card studio-review-card" href="admin.php?view=website-reviews">
+                  <div class="studio-switch-copy">
+                    <small>Parent reviews</small>
+                    <h3><?= e((string) $pendingReviewCount) ?> waiting for approval</h3>
+                    <p>Approve the reviews families submit from the parent portal to publish them on the homepage.</p>
+                  </div>
+                  <span class="studio-review-action">Open reviews</span>
+                </a>
+              </div>
+
               <nav class="website-studio-nav" aria-label="Website content sections">
                 <?php foreach ($workspaceSections as $section): ?>
                   <a class="studio-nav-<?= e($section['tone']) ?>" href="#<?= e($section['id']) ?>">
@@ -675,11 +1004,29 @@ try {
                   <?php elseif ($section['view'] === 'website-statistics'): ?>
                     <div class="stat-card-grid">
                       <?php foreach ($section['items'] as $item): ?>
+                        <?php
+                        $statisticKey = (string) $item['stat_key'];
+                        $isDynamicStatistic = in_array($statisticKey, homepage_dynamic_statistic_keys(), true);
+                        $liveValue = match ($statisticKey) {
+                            'learners_supported' => $homepageMetrics['learners_supported'] ?? null,
+                            'expert_educators' => $homepageMetrics['expert_educators'] ?? null,
+                            'family_satisfaction' => $homepageMetrics['family_satisfaction'] ?? null,
+                            'years_experience' => $homepageMetrics['years_of_experience'] ?? null,
+                            default => null,
+                        };
+                        ?>
                         <a class="stat-preview-card" href="admin-record.php?view=website-statistics&id=<?= e((string) $item['id']) ?>">
-                          <small><?= e((string) $item['stat_key']) ?></small>
-                          <strong><?= e((string) $item['stat_value']) ?><sup><?= e((string) $item['suffix']) ?></sup></strong>
+                          <small><?= e($statisticKey) ?></small>
+                          <strong>
+                            <?= e((string) ($liveValue ?? $item['stat_value'])) ?><sup><?= e((string) $item['suffix']) ?></sup>
+                          </strong>
                           <p><?= e((string) $item['label_en']) ?></p>
                           <span lang="ar" dir="rtl"><?= e((string) $item['label_ar']) ?></span>
+                          <?php if ($isDynamicStatistic): ?>
+                            <b class="stat-auto-badge">
+                              <?= $liveValue === null ? 'Auto · stored value in use' : 'Calculated automatically' ?>
+                            </b>
+                          <?php endif; ?>
                         </a>
                       <?php endforeach; ?>
                     </div>
@@ -807,6 +1154,18 @@ try {
                             <td data-sort-value="<?= e((string) ($row[$key] ?? '')) ?>"><?= render_value($key, $row[$key] ?? null) ?></td>
                           <?php endforeach; ?>
                           <td class="actions-column">
+                            <?php if ($view === 'website-reviews'): ?>
+                              <?php if ((string) $row['status'] !== 'approved'): ?>
+                                <button class="inline-approve-button" type="submit" name="review_approve_id" value="<?= e((string) $row['id']) ?>">
+                                  Approve
+                                </button>
+                              <?php endif; ?>
+                              <?php if ((string) $row['status'] !== 'rejected'): ?>
+                                <button class="inline-reject-button" type="submit" name="review_reject_id" value="<?= e((string) $row['id']) ?>">
+                                  Reject
+                                </button>
+                              <?php endif; ?>
+                            <?php endif; ?>
                             <button class="inline-delete-button" type="submit" name="delete_id" value="<?= e((string) $row['id']) ?>" data-delete-record>
                               Delete
                             </button>

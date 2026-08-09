@@ -13,7 +13,16 @@ $subjects = [];
 $attendance = [];
 $homeworkItems = [];
 $billing = [];
+$parentWarnings = [];
+$childAgeGroup = null;
+$expiationsByCategory = [];
+$parentReviews = [];
 $error = '';
+$reviewError = '';
+$parentMessage = isset($_GET['expiation']) ? 'Expiation saved. The administration will confirm it once completed.' : '';
+if (isset($_GET['review'])) {
+    $parentMessage = 'Thank you. Your review was sent to the administration and appears on the website once approved.';
+}
 
 try {
     $pdo = khotwa_db();
@@ -79,6 +88,122 @@ try {
             break;
         }
     }
+
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST'
+        && (string) ($_POST['action'] ?? '') === 'select_expiation'
+    ) {
+        verify_app_csrf();
+        $warningId = (int) ($_POST['warning_id'] ?? 0);
+        $expiationId = (int) ($_POST['expiation_id'] ?? 0);
+
+        // The warning must belong to one of this parent's children and still be awaiting an expiation.
+        $warningStatement = $pdo->prepare(
+            "SELECT student_warnings.student_id, student_warnings.status,
+                    TIMESTAMPDIFF(YEAR, students.date_of_birth, CURDATE()) AS student_age
+             FROM student_warnings
+             INNER JOIN students ON students.id = student_warnings.student_id
+             WHERE student_warnings.id = ?
+             LIMIT 1"
+        );
+        $warningStatement->execute([$warningId]);
+        $warningRow = $warningStatement->fetch();
+
+        if (!$warningRow || !in_array((int) $warningRow['student_id'], $allowedStudentIds, true)) {
+            throw new RuntimeException('That warning could not be found for your children.');
+        }
+        if ((string) $warningRow['status'] !== 'issued') {
+            throw new RuntimeException('An expiation has already been chosen for this warning.');
+        }
+
+        // The expiation must be active and appropriate for the student's age group.
+        $expiationStatement = $pdo->prepare(
+            "SELECT expiations.id
+             FROM expiations
+             INNER JOIN age_groups ON age_groups.id = expiations.age_group_id AND age_groups.status = 'active'
+             INNER JOIN expiation_categories ON expiation_categories.id = expiations.category_id AND expiation_categories.status = 'active'
+             WHERE expiations.id = ?
+               AND expiations.status = 'active'
+               AND ? BETWEEN age_groups.min_age AND age_groups.max_age
+             LIMIT 1"
+        );
+        $expiationStatement->execute([$expiationId, (int) $warningRow['student_age']]);
+        if (!$expiationStatement->fetchColumn()) {
+            throw new RuntimeException('That expiation is not available for this student.');
+        }
+
+        $assignStatement = $pdo->prepare(
+            "UPDATE student_warnings
+             SET expiation_id = ?, expiation_selected_by_user_id = ?, expiation_selected_at = NOW(), status = 'assigned'
+             WHERE id = ? AND status = 'issued'"
+        );
+        $assignStatement->execute([$expiationId, $parentUserId, $warningId]);
+
+        header('Location: parent.php?student_id=' . (int) $warningRow['student_id'] . '&expiation=1');
+        exit;
+    }
+
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST'
+        && (string) ($_POST['action'] ?? '') === 'submit_review'
+    ) {
+        try {
+            verify_app_csrf();
+            $rating = (int) ($_POST['rating'] ?? 0);
+            $reviewText = trim((string) ($_POST['review_text'] ?? ''));
+            $displayName = trim((string) ($_POST['display_name'] ?? ''));
+            if ($displayName === '') {
+                $displayName = trim((string) $user['first_name'] . ' ' . (string) ($user['last_name'] ?? ''));
+            }
+
+            if ($rating < 1 || $rating > 5) {
+                throw new RuntimeException('Choose a rating between 1 and 5 stars.');
+            }
+            if (mb_strlen($reviewText) < 20) {
+                throw new RuntimeException('Please write at least 20 characters so families can learn from your experience.');
+            }
+            if (mb_strlen($reviewText) > 1200) {
+                throw new RuntimeException('Please keep the review under 1200 characters.');
+            }
+
+            $pendingStatement = $pdo->prepare(
+                "SELECT COUNT(*) FROM homepage_reviews WHERE parent_user_id = ? AND status = 'pending'"
+            );
+            $pendingStatement->execute([$parentUserId]);
+            if ((int) $pendingStatement->fetchColumn() > 0) {
+                throw new RuntimeException('You already have a review waiting for approval. Please wait until it is reviewed.');
+            }
+
+            $relationshipLabel = parent_relationship_label(
+                (string) ($studentOverview['relationship'] ?? 'guardian')
+            );
+            $insertReview = $pdo->prepare(
+                "INSERT INTO homepage_reviews
+                    (parent_user_id, display_name, relationship_label, rating, review_text, status)
+                 VALUES (?, ?, ?, ?, ?, 'pending')"
+            );
+            $insertReview->execute([
+                $parentUserId,
+                mb_substr($displayName, 0, 120),
+                $relationshipLabel,
+                $rating,
+                $reviewText,
+            ]);
+
+            header('Location: parent.php?student_id=' . $selectedStudentId . '&review=1#reviews-panel');
+            exit;
+        } catch (Throwable $reviewException) {
+            $reviewError = $reviewException->getMessage();
+        }
+    }
+
+    $parentReviewsStatement = $pdo->prepare(
+        'SELECT id, display_name, rating, review_text, status, created_at
+         FROM homepage_reviews
+         WHERE parent_user_id = ?
+         ORDER BY id DESC
+         LIMIT 10'
+    );
+    $parentReviewsStatement->execute([$parentUserId]);
+    $parentReviews = $parentReviewsStatement->fetchAll();
 
     $subjectsStatement = $pdo->prepare(
         "SELECT
@@ -147,6 +272,55 @@ try {
     );
     $billingStatement->execute([$selectedStudentId]);
     $billing = $billingStatement->fetchAll();
+
+    $warningsStatement = $pdo->prepare(
+        "SELECT student_warnings.id, student_warnings.warning_date, student_warnings.warning_type,
+                student_warnings.reason, student_warnings.action_taken, student_warnings.status,
+                student_warnings.expiation_selected_at,
+                expiations.title_en AS expiation_title, expiations.title_ar AS expiation_title_ar,
+                expiation_categories.name_en AS expiation_category
+         FROM student_warnings
+         LEFT JOIN expiations ON expiations.id = student_warnings.expiation_id
+         LEFT JOIN expiation_categories ON expiation_categories.id = expiations.category_id
+         WHERE student_warnings.student_id = ?
+           AND student_warnings.status IN ('issued', 'assigned', 'resolved')
+         ORDER BY FIELD(student_warnings.status, 'issued', 'assigned', 'resolved'),
+                  student_warnings.warning_date DESC, student_warnings.id DESC"
+    );
+    $warningsStatement->execute([$selectedStudentId]);
+    $parentWarnings = $warningsStatement->fetchAll();
+
+    // Match the child to an age group and load expiations available for that age group.
+    $ageGroupStatement = $pdo->prepare(
+        "SELECT age_groups.id, age_groups.name_en, age_groups.name_ar,
+                TIMESTAMPDIFF(YEAR, students.date_of_birth, CURDATE()) AS student_age
+         FROM students
+         INNER JOIN age_groups
+            ON age_groups.status = 'active'
+           AND TIMESTAMPDIFF(YEAR, students.date_of_birth, CURDATE()) BETWEEN age_groups.min_age AND age_groups.max_age
+         WHERE students.id = ?
+         ORDER BY age_groups.sort_order, age_groups.min_age
+         LIMIT 1"
+    );
+    $ageGroupStatement->execute([$selectedStudentId]);
+    $childAgeGroup = $ageGroupStatement->fetch() ?: null;
+
+    if ($childAgeGroup !== null) {
+        $expiationOptionsStatement = $pdo->prepare(
+            "SELECT expiations.id, expiations.title_en, expiations.title_ar,
+                    expiation_categories.name_en AS category_name
+             FROM expiations
+             INNER JOIN expiation_categories
+                ON expiation_categories.id = expiations.category_id AND expiation_categories.status = 'active'
+             WHERE expiations.status = 'active' AND expiations.age_group_id = ?
+             ORDER BY expiation_categories.sort_order, expiation_categories.name_en,
+                      expiations.sort_order, expiations.title_en"
+        );
+        $expiationOptionsStatement->execute([(int) $childAgeGroup['id']]);
+        foreach ($expiationOptionsStatement->fetchAll() as $option) {
+            $expiationsByCategory[(string) $option['category_name']][] = $option;
+        }
+    }
 } catch (Throwable $exception) {
     $error = $exception->getMessage();
 }
@@ -175,6 +349,7 @@ function parent_icon(string $name): string
     'subjects' => '<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2Z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7Z"/>',
     'attendance' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18m-5 5 2 2 4-4"/>',
     'billing' => '<circle cx="12" cy="12" r="9"/><path d="M16 8h-5a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4H8m4-10v12"/>',
+    'review' => '<path d="M12 3.6 14.3 9l5.7.4-4.4 3.7 1.4 5.6L12 15.7 7 18.7l1.4-5.6L4 9.4 9.7 9Z"/>',
     'website' => '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
     'logout' => '<path d="M10 17l5-5-5-5M15 12H3"/><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/>',
   ];
@@ -262,6 +437,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
 
         <section class="nav-group">
           <h2>Shortcuts</h2>
+          <a href="parent.php?student_id=<?= e((string) $selectedStudentId) ?>#reviews-panel"><?= parent_icon('review') ?><span>Review the center</span></a>
           <a href="index.php"><?= parent_icon('website') ?><span>Website</span></a>
           <a href="logout.php"><?= parent_icon('logout') ?><span>Logout</span></a>
         </section>
@@ -318,6 +494,10 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
             </div>
             <span class="live-indicator"><span></span>Student view is live</span>
           </section>
+
+          <?php if ($parentMessage !== ''): ?>
+            <div class="form-notice success-notice"><?= e($parentMessage) ?></div>
+          <?php endif; ?>
 
           <section class="metrics-grid">
             <article class="metric-card metric-orange">
@@ -491,6 +671,157 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                   </tbody>
                 </table>
               </div>
+            </article>
+          </section>
+
+          <section class="parent-behaviour" id="behaviour-panel">
+            <article class="data-panel">
+              <div class="panel-heading">
+                <div>
+                  <span>Behaviour</span>
+                  <h2>Warnings &amp; expiations</h2>
+                </div>
+                <?php if ($childAgeGroup !== null): ?>
+                  <strong class="record-count">Age group: <?= e((string) $childAgeGroup['name_en']) ?></strong>
+                <?php endif; ?>
+              </div>
+              <?php if ($parentWarnings === []): ?>
+                <p class="linked-empty">No warnings for this child. Great work!</p>
+              <?php else: ?>
+                <div class="parent-warning-list">
+                  <?php foreach ($parentWarnings as $warning): ?>
+                    <div class="parent-warning-card parent-warning-<?= e((string) $warning['status']) ?>">
+                      <div class="parent-warning-top">
+                        <span class="status-pill <?= e(parent_status_class((string) ($warning['warning_type'] ?: 'warning'))) ?>">
+                          <?= e($warning['warning_type'] ? ucfirst((string) $warning['warning_type']) . ' warning' : 'Warning') ?>
+                        </span>
+                        <small><?= e((string) $warning['warning_date']) ?></small>
+                      </div>
+                      <p class="parent-warning-reason"><?= e((string) $warning['reason']) ?></p>
+                      <?php if ($warning['action_taken']): ?>
+                        <small class="parent-warning-note">Action taken: <?= e((string) $warning['action_taken']) ?></small>
+                      <?php endif; ?>
+
+                      <?php if ((string) $warning['status'] === 'issued'): ?>
+                        <?php if ($expiationsByCategory === []): ?>
+                          <p class="parent-warning-note">No expiations are available for this age group yet. Please contact the administration.</p>
+                        <?php else: ?>
+                          <form method="post" class="parent-expiation-form">
+                            <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
+                            <input type="hidden" name="action" value="select_expiation">
+                            <input type="hidden" name="warning_id" value="<?= e((string) $warning['id']) ?>">
+                            <label>
+                              <span>Choose an expiation for your child</span>
+                              <select name="expiation_id" required>
+                                <option value="">Select an expiation…</option>
+                                <?php foreach ($expiationsByCategory as $categoryName => $options): ?>
+                                  <optgroup label="<?= e((string) $categoryName) ?>">
+                                    <?php foreach ($options as $option): ?>
+                                      <option value="<?= e((string) $option['id']) ?>"><?= e((string) $option['title_en']) ?></option>
+                                    <?php endforeach; ?>
+                                  </optgroup>
+                                <?php endforeach; ?>
+                              </select>
+                            </label>
+                            <button class="primary-action" type="submit">Save expiation</button>
+                          </form>
+                        <?php endif; ?>
+                      <?php elseif ($warning['expiation_title']): ?>
+                        <div class="parent-warning-expiation">
+                          <span>Chosen expiation</span>
+                          <strong><?= e((string) $warning['expiation_title']) ?></strong>
+                          <small><?= e((string) $warning['expiation_category']) ?><?= (string) $warning['status'] === 'resolved' ? ' · Completed' : '' ?></small>
+                        </div>
+                      <?php elseif ((string) $warning['status'] === 'resolved'): ?>
+                        <small class="parent-warning-note">Resolved by the administration.</small>
+                      <?php endif; ?>
+                    </div>
+                  <?php endforeach; ?>
+                </div>
+              <?php endif; ?>
+            </article>
+          </section>
+
+          <section class="parent-reviews" id="reviews-panel">
+            <article class="data-panel">
+              <div class="panel-heading">
+                <div>
+                  <span>Your voice</span>
+                  <h2>Review the center</h2>
+                </div>
+                <strong class="record-count"><?= e((string) count($parentReviews)) ?> submitted</strong>
+              </div>
+
+              <p class="parent-review-intro">
+                Share your experience with Khotwa Education Center. The administration reviews every message,
+                and approved reviews are published on the public homepage.
+              </p>
+
+              <?php if ($reviewError !== ''): ?>
+                <div class="form-notice error-notice"><?= e($reviewError) ?></div>
+              <?php endif; ?>
+
+              <form class="parent-review-form" method="post">
+                <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
+                <input type="hidden" name="action" value="submit_review">
+
+                <label class="parent-review-field">
+                  <span>Name shown on the website</span>
+                  <input
+                    type="text"
+                    name="display_name"
+                    maxlength="120"
+                    value="<?= e(trim((string) $user['first_name'] . ' ' . (string) ($user['last_name'] ?? ''))) ?>"
+                    required
+                  >
+                </label>
+
+                <fieldset class="parent-review-rating">
+                  <legend>Your rating</legend>
+                  <div class="rating-options">
+                    <?php for ($star = 5; $star >= 1; $star--): ?>
+                      <label>
+                        <input type="radio" name="rating" value="<?= e((string) $star) ?>" <?= $star === 5 ? 'checked' : '' ?> required>
+                        <span aria-hidden="true"><?= str_repeat('★', $star) ?></span>
+                        <small><?= e((string) $star) ?></small>
+                      </label>
+                    <?php endfor; ?>
+                  </div>
+                </fieldset>
+
+                <label class="parent-review-field">
+                  <span>Your review</span>
+                  <textarea
+                    name="review_text"
+                    rows="4"
+                    minlength="20"
+                    maxlength="1200"
+                    placeholder="Tell other families what your child experienced at Khotwa."
+                    required
+                  ><?= e((string) ($_POST['review_text'] ?? '')) ?></textarea>
+                </label>
+
+                <button class="primary-action" type="submit">Send review</button>
+              </form>
+
+              <?php if ($parentReviews !== []): ?>
+                <div class="parent-review-list">
+                  <?php foreach ($parentReviews as $review): ?>
+                    <div class="parent-review-card">
+                      <div class="parent-review-top">
+                        <span class="status-pill <?= e(parent_status_class((string) $review['status'])) ?>">
+                          <?= e(ucfirst((string) $review['status'])) ?>
+                        </span>
+                        <small><?= e((string) $review['created_at']) ?></small>
+                      </div>
+                      <strong class="parent-review-stars" aria-label="<?= e((string) $review['rating']) ?> out of 5">
+                        <?= str_repeat('★', max(1, min(5, (int) $review['rating']))) ?>
+                      </strong>
+                      <p><?= e((string) $review['review_text']) ?></p>
+                    </div>
+                  <?php endforeach; ?>
+                </div>
+              <?php endif; ?>
             </article>
           </section>
         <?php endif; ?>

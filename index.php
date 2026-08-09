@@ -13,6 +13,8 @@ $homepageData = [
     'gallery' => [],
     'partners' => [],
     'contacts' => [],
+    'reviews' => [],
+    'settings' => [],
 ];
 $homepageDataLoaded = false;
 
@@ -27,13 +29,25 @@ function homepage_e(?string $value): string
 {
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 }
+
+// The admissions banner is switched on and off from the admin website workspace.
+// When the database is unreachable the banner stays visible, like the rest of the fallback markup.
+$admissionsBannerVisible = !$homepageDataLoaded
+    || (string) ($homepageData['settings']['admissions_banner_visible'] ?? '1') === '1';
+$homepageReviews = $homepageData['reviews'] ?? [];
+
+// The hero rating card and the "family satisfaction" counter share one aggregate score.
+$homepageRatingCount = (int) ($homepageData['metrics']['rating_count'] ?? 0);
+$homepageRating = $homepageRatingCount > 0
+    ? (float) $homepageData['metrics']['rating_average']
+    : 4.9;
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Khotwa Education Center helps students from KG to Grade 12 build confidence, skills, and lasting academic progress.">
+  <meta name="description" content="Khotwa Education Center helps students from Grade 1 till 12 build confidence, skills, and lasting academic progress.">
   <meta name="theme-color" content="#223F6B">
   <title>Khotwa Education Center | Every Step Builds a Future</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -126,15 +140,17 @@ function homepage_e(?string $value): string
       <span class="floating-shape shape-pink" aria-hidden="true"></span>
 
       <div class="hero-content">
-        <div class="eyebrow hero-eyebrow">
-          <span class="pulse-dot"></span>
-          Admissions are now open
-        </div>
+        <?php if ($admissionsBannerVisible): ?>
+          <div class="eyebrow hero-eyebrow">
+            <span class="pulse-dot"></span>
+            Admissions are now open
+          </div>
+        <?php endif; ?>
         <h1>
-          <span data-i18n="heroLineOne">Every step builds</span><br>
-          <span data-i18n="heroArticle">a</span> <span class="changing-word" data-i18n-skip data-words="brighter,stronger,bolder">brighter</span><br class="future-line-break"> <span data-i18n="heroFuture">future.</span>
+          <span class="hero-line-lead" data-i18n="heroLineOne">Every step builds</span><br>
+          <span data-i18n="heroArticle">a</span> <span class="changing-word" data-i18n-skip data-words="brighter,stronger,wiser">brighter</span><br class="future-line-break"> <span data-i18n="heroFuture">future.</span>
         </h1>
-        <p>Personalized learning, expert guidance, and purposeful practice for students from KG through Grade 12.</p>
+        <p>Personalized learning, expert guidance, and purposeful practice for students from Grade 1 till 12.</p>
         <div class="hero-actions">
           <a class="button button-primary magnetic" href="#programs">
             Explore our programs
@@ -159,7 +175,7 @@ function homepage_e(?string $value): string
           </svg>
         </div>
         <div>
-          <strong>KG to Grade 12</strong>
+          <strong>Grade 1 till 12</strong>
           <span>Support at every stage</span>
         </div>
       </div>
@@ -169,8 +185,12 @@ function homepage_e(?string $value): string
           <span>SA</span><span>MK</span><span>JL</span>
         </div>
         <div>
-          <strong>4.9 <span>★★★★★</span></strong>
-          <small>Trusted by families</small>
+          <strong data-i18n-skip><?= homepage_e(number_format($homepageRating, 1)) ?> <span>★★★★★</span></strong>
+          <?php if ($homepageRatingCount > 0): ?>
+            <small><?= homepage_e((string) $homepageRatingCount) ?> family reviews</small>
+          <?php else: ?>
+            <small>Trusted by families</small>
+          <?php endif; ?>
         </div>
       </div>
 
@@ -204,7 +224,7 @@ function homepage_e(?string $value): string
             <span class="eyebrow dark">Who we are</span>
             <h2>Learning that moves<br><span>people forward.</span></h2>
           </div>
-          <p>Khotwa means “step.” We believe meaningful achievement is built one clear, confident step at a time, with a plan shaped around each learner.</p>
+          <p>“Khotwa” signifies the beginning of every achievement. We believe that sustainable success is built with confidence and clarity, step by step, through a carefully designed educational journey tailored to each learner’s aspirations.</p>
         </div>
 
         <div class="vision-grid">
@@ -270,51 +290,52 @@ function homepage_e(?string $value): string
         <div class="approach-path" data-reveal>
           <div class="path-line"><span></span></div>
 
-          <article class="approach-step" data-homepage-content="step_diagnose" data-step="01">
+          <article class="approach-step" data-homepage-content="step_discover" data-step="01">
             <div class="step-node">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <circle cx="11" cy="11" r="6.5"/><path d="m16 16 5 5M8.5 11h5M11 8.5v5"/>
               </svg>
             </div>
             <span data-homepage-field="eyebrow">Step 01</span>
-            <h3 data-homepage-field="title">Diagnose</h3>
-            <p data-homepage-field="description">We identify strengths, gaps, learning habits, and goals through focused assessment.</p>
+            <h3 data-homepage-field="title">Discover</h3>
+            <p data-homepage-field="description">Student strengths, gaps, learning habits, and goals through focused assessment.</p>
           </article>
 
-          <article class="approach-step" data-homepage-content="step_build" data-step="02">
+          <article class="approach-step" data-homepage-content="step_guide" data-step="02">
+            <div class="step-node">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="m15.5 8.5-2 5-5 2 2-5 5-2Z"/>
+              </svg>
+            </div>
+            <span data-homepage-field="eyebrow">Step 02</span>
+            <h3 data-homepage-field="title">Guide</h3>
+            <p data-homepage-field="description">Students with targeted support and personalized direction for daily homework.</p>
+          </article>
+
+          <article class="approach-step" data-homepage-content="step_build" data-step="03">
             <div class="step-node">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/>
                 <path d="m4.5 7.8 7.5 4.3 7.5-4.3M12 12v9"/>
               </svg>
             </div>
-            <span data-homepage-field="eyebrow">Step 02</span>
-            <h3 data-homepage-field="title">Build</h3>
-            <p data-homepage-field="description">We create strong foundations with clear explanations and personalized strategies.</p>
-          </article>
-
-          <article class="approach-step" data-homepage-content="step_practice" data-step="03">
-            <div class="step-node">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M5 4h14v16H5zM8 8h8M8 12h5M8 16h3"/>
-                <path d="m15 15 1.5 1.5L20 13"/>
-              </svg>
-            </div>
             <span data-homepage-field="eyebrow">Step 03</span>
-            <h3 data-homepage-field="title">Practice</h3>
-            <p data-homepage-field="description">Students apply skills actively with coached repetition, challenge, and feedback.</p>
+            <h3 data-homepage-field="title">Build</h3>
+            <p data-homepage-field="description">Strong academic foundations through clear explanations and effective routines.</p>
           </article>
 
-          <article class="approach-step" data-homepage-content="step_progress" data-step="04">
+          <article class="approach-step" data-homepage-content="step_achieve" data-step="04">
             <div class="step-node">
               <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 19V9M10 19V5M16 19v-8M22 19V2"/>
-                <path d="m3 13 6-5 5 3 8-8"/>
+                <path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/>
+                <path d="M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3"/>
+                <path d="M12 14v3m-3 3h6"/>
               </svg>
             </div>
             <span data-homepage-field="eyebrow">Step 04</span>
-            <h3 data-homepage-field="title">Progress</h3>
-            <p data-homepage-field="description">We measure growth, celebrate milestones, and adjust the path for what comes next.</p>
+            <h3 data-homepage-field="title">Achieve</h3>
+            <p data-homepage-field="description">Continuous progress, celebrate key milestones, and reach academic success.</p>
           </article>
         </div>
       </div>
@@ -342,14 +363,14 @@ function homepage_e(?string $value): string
               <div class="book-stack" aria-hidden="true">
                 <span></span><span></span><span></span>
               </div>
-              <span class="visual-grade">KG–12</span>
+              <span class="visual-grade">1–12</span>
             </div>
             <div class="program-copy">
               <span data-homepage-field="category">Teaching</span>
-              <h3 data-homepage-field="title">Academic support from KG to Grade 12</h3>
+              <h3 data-homepage-field="title">Academic support from Grade 1 till 12</h3>
               <p data-homepage-field="description">Personalized and small-group learning across core school subjects.</p>
               <ul>
-                <li data-homepage-field="point_1">KG &amp; primary foundations</li>
+                <li data-homepage-field="point_1">Primary foundations</li>
                 <li data-homepage-field="point_2">Middle school support</li>
                 <li data-homepage-field="point_3">Grades 10, 11 &amp; 12 preparation</li>
               </ul>
@@ -414,29 +435,68 @@ function homepage_e(?string $value): string
 
     <section class="stats-section" aria-label="Quick statistics">
       <div class="stats-pattern" aria-hidden="true"></div>
-      <div class="section-shell stats-grid" data-homepage-statistics>
+      <?php
+      $statisticItems = $homepageData['statistics'] ?: [
+          ['stat_value' => 450, 'suffix' => '+', 'label_en' => 'learners supported'],
+          ['stat_value' => 18, 'suffix' => '+', 'label_en' => 'expert educators'],
+          ['stat_value' => 92, 'suffix' => '%', 'label_en' => 'family satisfaction'],
+          ['stat_value' => 12, 'suffix' => '+', 'label_en' => 'years of experience'],
+      ];
+      ?>
+      <div
+        class="section-shell stats-grid"
+        style="--stat-count: <?= homepage_e((string) count($statisticItems)) ?>"
+        data-homepage-statistics
+      >
         <div class="stats-heading" data-reveal>
           <span class="eyebrow">Khotwa in numbers</span>
           <h2>Small steps.<br>Big momentum.</h2>
         </div>
-        <div class="stat-item" data-reveal>
-          <strong><span data-counter="450">0</span><sup>+</sup></strong>
-          <p>learners supported</p>
-        </div>
-        <div class="stat-item" data-reveal>
-          <strong><span data-counter="18">0</span><sup>+</sup></strong>
-          <p>expert educators</p>
-        </div>
-        <div class="stat-item" data-reveal>
-          <strong><span data-counter="92">0</span><sup>%</sup></strong>
-          <p>family satisfaction</p>
-        </div>
-        <div class="stat-item" data-reveal>
-          <strong><span data-counter="12">0</span><sup>+</sup></strong>
-          <p>years of experience</p>
-        </div>
+        <?php foreach ($statisticItems as $statistic): ?>
+          <div class="stat-item" data-reveal>
+            <strong>
+              <span data-counter="<?= homepage_e((string) (int) $statistic['stat_value']) ?>">0</span>
+              <?php if (!empty($statistic['suffix'])): ?>
+                <sup><?= homepage_e((string) $statistic['suffix']) ?></sup>
+              <?php endif; ?>
+            </strong>
+            <p><?= homepage_e((string) $statistic['label_en']) ?></p>
+          </div>
+        <?php endforeach; ?>
       </div>
     </section>
+
+    <?php if ($homepageReviews !== []): ?>
+      <section class="reviews-section section" id="reviews">
+        <div class="section-shell">
+          <div class="section-intro centered" data-reveal>
+            <span class="eyebrow dark">Family voices</span>
+            <h2>What families say<br><span>about Khotwa.</span></h2>
+            <p>Reviews shared by parents from their own Khotwa parent portal account, published once the administration approves them.</p>
+          </div>
+
+          <div class="review-grid">
+            <?php foreach ($homepageReviews as $review): ?>
+              <?php $rating = max(1, min(5, (int) $review['rating'])); ?>
+              <article class="review-card" data-reveal>
+                <div class="review-stars" role="img" aria-label="<?= homepage_e((string) $rating) ?> out of 5">
+                  <?php for ($star = 1; $star <= 5; $star++): ?>
+                    <span class="<?= $star <= $rating ? 'is-filled' : '' ?>" aria-hidden="true">★</span>
+                  <?php endfor; ?>
+                </div>
+                <blockquote data-i18n-skip><?= homepage_e((string) $review['review_text']) ?></blockquote>
+                <footer>
+                  <strong data-i18n-skip><?= homepage_e((string) $review['display_name']) ?></strong>
+                  <?php if (!empty($review['relationship_label'])): ?>
+                    <small><?= homepage_e((string) $review['relationship_label']) ?></small>
+                  <?php endif; ?>
+                </footer>
+              </article>
+            <?php endforeach; ?>
+          </div>
+        </div>
+      </section>
+    <?php endif; ?>
 
     <section class="team-section section" id="team">
       <div class="section-shell">
@@ -527,7 +587,7 @@ function homepage_e(?string $value): string
             <span class="eyebrow dark">Inside Khotwa</span>
             <h2>Learning looks<br><span>good in action.</span></h2>
           </div>
-          <p>A glimpse of the energy, focus, collaboration, and joy that fill our classrooms, workshops, and learning activities.</p>
+          <p>An inside look at our dynamic learning spaces, crafted to cultivate focus and empower student collaboration.</p>
         </div>
 
         <div class="gallery-grid" data-homepage-gallery>
@@ -585,7 +645,7 @@ function homepage_e(?string $value): string
               <i></i>
             </button>
             <div class="faq-answer">
-              <p>We support learners from KG through Grade 12, with age-appropriate programs for foundational learning, school support, and exam preparation.</p>
+              <p>We support learners from Grade 1 till 12, with age-appropriate programs for foundational learning, school support, and exam preparation.</p>
             </div>
           </article>
           <article class="faq-item">
@@ -674,7 +734,7 @@ function homepage_e(?string $value): string
           </div>
           <div>
             <h3>Programs</h3>
-            <a href="#programs">KG &amp; primary</a>
+            <a href="#programs">Primary years</a>
             <a href="#programs">Middle school</a>
             <a href="#programs">Grades 10–12</a>
             <a href="#programs">Training &amp; activities</a>

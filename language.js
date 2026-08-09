@@ -8,7 +8,7 @@
     "Log In | Khotwa Education Center": "تسجيل الدخول | مركز خطوة التعليمي",
     "Reset Password | Khotwa Education Center": "إعادة تعيين كلمة المرور | مركز خطوة التعليمي",
     "Terms and Conditions | Khotwa Education Center": "الشروط والأحكام | مركز خطوة التعليمي",
-    "Khotwa Education Center helps students from KG to Grade 12 build confidence, skills, and lasting academic progress.": "يساعد مركز خطوة التعليمي الطلاب من الروضة حتى الصف الثاني عشر على بناء الثقة والمهارات وتحقيق تقدّم أكاديمي مستدام.",
+    "Khotwa Education Center helps students from Grade 1 till 12 build confidence, skills, and lasting academic progress.": "يساعد مركز خطوة التعليمي الطلاب من الصف الأول حتى الثاني عشر على بناء الثقة والمهارات وتحقيق تقدّم أكاديمي مستدام.",
     "Log in to the Khotwa Education Center learning portal.": "سجّل الدخول إلى البوابة التعليمية لمركز خطوة.",
     "Password recovery design for Khotwa Education Center.": "تصميم استعادة كلمة المرور لمركز خطوة التعليمي.",
     "Terms and conditions design for Khotwa Education Center.": "تصميم الشروط والأحكام لمركز خطوة التعليمي.",
@@ -28,23 +28,23 @@
     "Every step builds": "كلّ خطوة تبني",
     "a": "مستقبلاً",
     "future.": "واعداً.",
-    "Personalized learning, expert guidance, and purposeful practice for students from KG through Grade 12.": "تعليم مخصص، وإرشاد خبير، وتدريب هادف للطلاب من الروضة حتى الصف الثاني عشر.",
+    "Personalized learning, expert guidance, and purposeful practice for students from Grade 1 till 12.": "دعم فردي، وإرشاد خبير، وتدريب هادف للطلاب من الصف الأول حتى الثاني عشر.",
     "Explore our programs": "استكشف برامجنا",
     "See how we teach": "اكتشف طريقتنا",
-    "KG to Grade 12": "من الروضة حتى الصف الثاني عشر",
+    "Grade 1 till 12": "من الصف الأول حتى الثاني عشر",
     "Support at every stage": "دعم في كل مرحلة",
     "Trusted by families": "ثقة العائلات",
     "Scroll to discover": "مرّر للاستكشاف",
-    "Personalized learning": "تعليم مخصص",
+    "Personalized learning": "دعم فردي",
     "Academic confidence": "ثقة أكاديمية",
-    "Expert educators": "معلّمون خبراء",
+    "Expert educators": "معلّمون متخصصون",
     "Visible progress": "تقدّم ملموس",
     "Active learning": "تعلّم تفاعلي",
     "Future-ready skills": "مهارات للمستقبل",
     "Who we are": "من نحن",
     "Learning that moves": "تعلّم يدفع",
     "people forward.": "الناس إلى الأمام.",
-    "Khotwa means “step.” We believe meaningful achievement is built one clear, confident step at a time, with a plan shaped around each learner.": "خطوة تعني التقدّم بثبات. نؤمن أن الإنجاز الحقيقي يُبنى خطوة واضحة وواثقة في كل مرة، ضمن خطة مصممة لكل متعلّم.",
+    "“Khotwa” signifies the beginning of every achievement. We believe that sustainable success is built with confidence and clarity, step by step, through a carefully designed educational journey tailored to each learner’s aspirations.": "تعني \"خطوة\" البداية لكل إنجاز؛ فنحن نؤمن بأن النجاح المستدام يُبنى بثقة ووضوح، خطوة بعد أخرى، من خلال مسار تعليمي مُصمم بعناية ليناسب تطلعات كل متعلم.",
     "Our vision": "رؤيتنا",
     "Confident learners. Limitless futures.": "متعلّمون واثقون. وآفاق بلا حدود.",
     "To shape a generation of curious, capable students who understand how they learn and trust how far they can go.": "أن نصنع جيلاً من الطلاب الفضوليين والقادرين، يفهمون كيف يتعلّمون ويثقون بقدرتهم على التقدّم.",
@@ -57,23 +57,23 @@
     "Four steps. One clear path": "أربع خطوات. مسار واضح",
     "to real progress.": "نحو تقدّم حقيقي.",
     "No guesswork. Every learner follows a responsive cycle designed to reveal needs, build understanding, and make growth measurable.": "لا مكان للتخمين. يتبع كل متعلّم دورة مرنة تكشف احتياجاته، وتبني فهمه، وتجعل تطوّره قابلاً للقياس.",
-    "Diagnose": "نشخّص",
-    "We identify strengths, gaps, learning habits, and goals through focused assessment.": "نحدّد نقاط القوة والفجوات وعادات التعلّم والأهداف من خلال تقييم مركّز.",
-    "Build": "نبني",
-    "We create strong foundations with clear explanations and personalized strategies.": "نبني أسساً قوية بشرح واضح واستراتيجيات مخصصة.",
-    "Practice": "نتدرّب",
-    "Students apply skills actively with coached repetition, challenge, and feedback.": "يطبّق الطلاب مهاراتهم بفاعلية من خلال التكرار الموجّه والتحدّي والتغذية الراجعة.",
-    "Progress": "نتقدّم",
-    "We measure growth, celebrate milestones, and adjust the path for what comes next.": "نقيس التطوّر، ونحتفل بالمحطات، ونعدّل المسار للخطوة التالية.",
+    "Discover": "اكتشاف",
+    "Student strengths, gaps, learning habits, and goals through focused assessment.": "نقاط القوة والاحتياجات التعليمية لدى الطالب، وفهم نمط تعلمه وأهدافه عبر تقييمٍ مُوجَّه.",
+    "Guide": "إرشاد",
+    "Students with targeted support and personalized direction for daily homework.": "الطالب عبر توجيهٍ مباشر ومُخصص، لمساعدته في متابعة فروضه المدرسية اليومية وتنظيم دراسته.",
+    "Build": "تعزيز",
+    "Strong academic foundations through clear explanations and effective routines.": "المهارات والمفاهيم الأكاديمية الأساسية بأساليب شرحٍ واضحة وتطبيقاتٍ عمليّةٍ مُكثّفة.",
+    "Achieve": "إنجاز",
+    "Continuous progress, celebrate key milestones, and reach academic success.": "الأهداف الأكاديمية ومتابعة التقدم المستمر، لضمان الوصول إلى أفضل المستويات الدراسية.",
     "Our programs": "برامجنا",
     "More ways to": "طرق أكثر",
     "learn and thrive.": "للتعلّم والتميّز.",
     "From academic support to practical training and creative activities, every program is designed with a clear purpose and an active learning experience.": "من الدعم الأكاديمي إلى التدريب العملي والأنشطة الإبداعية، صُمم كل برنامج بهدف واضح وتجربة تعليمية تفاعلية.",
     "Core program": "البرنامج الأساسي",
     "Teaching": "التعليم",
-    "Academic support from KG to Grade 12": "دعم أكاديمي من الروضة حتى الصف الثاني عشر",
-    "Personalized and small-group learning across core school subjects.": "تعليم مخصص وضمن مجموعات صغيرة في المواد المدرسية الأساسية.",
-    "KG & primary foundations": "أساسيات الروضة والمرحلة الابتدائية",
+    "Academic support from Grade 1 till 12": "دعم أكاديمي من الصف الأول حتى الثاني عشر",
+    "Personalized and small-group learning across core school subjects.": "دعم فردي وضمن مجموعات صغيرة في المواد المدرسية الأساسية.",
+    "Primary foundations": "أساسيات المرحلة الابتدائية",
     "Middle school support": "دعم المرحلة المتوسطة",
     "Grades 10, 11 & 12 preparation": "تحضير الصفوف العاشر والحادي عشر والثاني عشر",
     "Skills program": "برنامج المهارات",
@@ -94,7 +94,7 @@
     "Small steps.": "خطوات صغيرة.",
     "Big momentum.": "انطلاقة كبيرة.",
     "learners supported": "متعلّم تلقى الدعم",
-    "expert educators": "معلّماً خبيراً",
+    "expert educators": "معلّماً متخصصاً",
     "family satisfaction": "رضا العائلات",
     "years of experience": "عاماً من الخبرة",
     "Meet our team": "تعرّف إلى فريقنا",
@@ -113,10 +113,14 @@
     "Grow with us": "تطوّر معنا",
     "Great educators are always welcome.": "نرحّب دائماً بالمعلّمين المميزين.",
     "Join our team": "انضم إلى فريقنا",
+    "Family voices": "آراء العائلات",
+    "What families say": "ما تقوله العائلات",
+    "about Khotwa.": "عن خطوة.",
+    "Reviews shared by parents from their own Khotwa parent portal account, published once the administration approves them.": "آراء يشاركها أولياء الأمور من حساباتهم في بوابة الأهل، وتُنشر بعد موافقة الإدارة.",
     "Inside Khotwa": "داخل خطوة",
     "Learning looks": "هكذا يبدو التعلّم",
     "good in action.": "حين يتحوّل إلى تجربة.",
-    "A glimpse of the energy, focus, collaboration, and joy that fill our classrooms, workshops, and learning activities.": "لمحة عن الطاقة والتركيز والتعاون والفرح الذي يملأ صفوفنا وورشاتنا وأنشطتنا التعليمية.",
+    "An inside look at our dynamic learning spaces, crafted to cultivate focus and empower student collaboration.": "لمحة من الأجواء التفاعلية التي نُصممها لنحفز التركيز، ونعزز روح العمل الجماعي لدى طلابنا.",
     "Collaborative learning": "تعلّم تعاوني",
     "Hands-on discovery": "اكتشاف بالتجربة",
     "Guided support": "دعم موجّه",
@@ -132,7 +136,7 @@
     "Still curious? Our team is ready to learn about your goals and recommend the right place to begin.": "هل ما زلت تتساءل؟ فريقنا مستعد لفهم أهدافك واقتراح أفضل نقطة للبدء.",
     "Ask us anything": "اسألنا عن أي شيء",
     "What grades do you support?": "ما الصفوف التي تدعمونها؟",
-    "We support learners from KG through Grade 12, with age-appropriate programs for foundational learning, school support, and exam preparation.": "ندعم المتعلمين من الروضة حتى الصف الثاني عشر، عبر برامج مناسبة لكل عمر تشمل التأسيس والدعم المدرسي والتحضير للامتحانات.",
+    "We support learners from Grade 1 till 12, with age-appropriate programs for foundational learning, school support, and exam preparation.": "ندعم المتعلمين من الصف الأول حتى الثاني عشر، عبر برامج مناسبة لكل عمر تشمل التأسيس والدعم المدرسي والتحضير للامتحانات.",
     "How do you decide where a student should begin?": "كيف تحددون نقطة البداية المناسبة للطالب؟",
     "Every journey starts with a conversation and a focused diagnostic assessment. We use the results to build a clear learning plan around the student's current needs and goals.": "تبدأ كل رحلة بحوار وتقييم تشخيصي مركّز. نستخدم النتائج لبناء خطة تعليمية واضحة وفق احتياجات الطالب الحالية وأهدافه.",
     "Do you offer individual and group sessions?": "هل تقدمون جلسات فردية وجماعية؟",
@@ -149,7 +153,7 @@
     "Explore": "استكشف",
     "About us": "من نحن",
     "Our team": "فريقنا",
-    "KG & primary": "الروضة والابتدائي",
+    "Primary years": "المرحلة الابتدائية",
     "Middle school": "المرحلة المتوسطة",
     "Grades 10–12": "الصفوف 10–12",
     "Training & activities": "التدريب والأنشطة",
@@ -539,6 +543,7 @@
     const digitMatch = trimmed.match(/^Digit\s+(\d+)$/);
     const stepMatch = trimmed.match(/^Step\s+(\d+)$/);
     const recordMatch = trimmed.match(/^(\d+)\s+records$/);
+    const reviewCountMatch = trimmed.match(/^(\d+)\s+family reviews$/);
     const connectedMatch = trimmed.match(/^(\d+)\s+connected tables$/);
     const idMatch = trimmed.match(/^ID\s+(\d+)$/);
     const recordNumberMatch = trimmed.match(/^Record\s+#(\d+)$/);
@@ -546,6 +551,7 @@
     if (digitMatch) return preserveWhitespace(value, `الرقم ${digitMatch[1]}`);
     if (stepMatch) return preserveWhitespace(value, `الخطوة ${stepMatch[1]}`);
     if (recordMatch) return preserveWhitespace(value, `${recordMatch[1]} سجلات`);
+    if (reviewCountMatch) return preserveWhitespace(value, `${reviewCountMatch[1]} تقييماً من العائلات`);
     if (connectedMatch) return preserveWhitespace(value, `${connectedMatch[1]} جداول مرتبطة`);
     if (idMatch) return preserveWhitespace(value, `المعرّف ${idMatch[1]}`);
     if (recordNumberMatch) return preserveWhitespace(value, `السجل #${recordNumberMatch[1]}`);
@@ -628,8 +634,8 @@
     if (!word) return;
 
     word.dataset.words = language === "ar"
-      ? "أكثر إشراقاً,أكثر قوة,أكثر جرأة"
-      : "brighter,stronger,bolder";
+      ? "أكثر إشراقًا,أكثر قوة,أكثر معرفة"
+      : "brighter,stronger,wiser";
     word.textContent = word.dataset.words.split(",")[0];
   };
 
