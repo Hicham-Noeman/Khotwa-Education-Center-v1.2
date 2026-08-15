@@ -1,0 +1,33 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "vscode-edge-devtools.debug",
+      "request": "launch",
+      "name": "Preview homepage (phone view)",
+      "url": "http://localhost/Khotwa%20Education%20Center%20v1.2/index.php",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "type": "vscode-edge-devtools.debug",
+      "request": "launch",
+      "name": "Preview login",
+      "url": "http://localhost/Khotwa%20Education%20Center%20v1.2/login.php",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "type": "vscode-edge-devtools.debug",
+      "request": "launch",
+      "name": "Preview admin panel",
+      "url": "http://localhost/Khotwa%20Education%20Center%20v1.2/admin/index.php",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "type": "vscode-edge-devtools.debug",
+      "request": "launch",
+      "name": "Preview parent portal",
+      "url": "http://localhost/Khotwa%20Education%20Center%20v1.2/parent/index.php",
+      "webRoot": "${workspaceFolder}"
+    }
+  ]
+}

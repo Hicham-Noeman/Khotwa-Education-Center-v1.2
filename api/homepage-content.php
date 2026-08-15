@@ -2,8 +2,8 @@
 declare(strict_types=1);
 
 define('KHOTWA_SKIP_AUTO_BOOTSTRAP', true);
-require_once __DIR__ . '/database.php';
-require_once __DIR__ . '/homepage-data.php';
+require_once __DIR__ . '/../src/database.php';
+require_once __DIR__ . '/../src/homepage-data.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, max-age=0');

@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
-require_once __DIR__ . '/admin-data.php';
+require_once __DIR__ . '/../src/auth.php';
+require_once __DIR__ . '/../src/admin-data.php';
 
 $user = require_roles(['admin', 'manager']);
 $isManager = ($user['role'] ?? '') === 'manager';
@@ -67,7 +67,7 @@ try {
             }
 
             header(
-                'Location: admin-person.php?type=' . rawurlencode($type)
+                'Location: ' . khotwa_url('admin/person.php') . '?type=' . rawurlencode($type)
                 . '&id=' . $personId . '&saved=1'
             );
             exit;
@@ -148,7 +148,7 @@ try {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
-  <link rel="stylesheet" href="admin.css?v=<?= e((string) filemtime(__DIR__ . '/admin.css')) ?>">
+  <link rel="stylesheet" href="<?= e(khotwa_asset('css/admin.css')) ?>">
 </head>
 <body class="admin-page">
   <div class="admin-shell" data-admin-shell>
@@ -163,7 +163,7 @@ try {
         <?php else: ?>
           <section class="content-heading profile-heading">
             <div>
-              <a class="back-to-table" href="admin.php?view=<?= e($activeView) ?>">Go back to <?= e(ucfirst($activeView)) ?></a>
+              <a class="back-to-table" href="<?= e(khotwa_url('admin/index.php')) ?>?view=<?= e($activeView) ?>">Go back to <?= e(ucfirst($activeView)) ?></a>
               <h1><?= e($personName) ?></h1>
               <p>Complete <?= e($type) ?> profile with every directly linked database record.</p>
             </div>
@@ -241,7 +241,7 @@ try {
                 class="linked-section"
                 id="linked-<?= e($table) ?>"
                 data-linked-section
-                data-linked-url="admin-linked-records.php?type=<?= e($type) ?>&id=<?= e((string) $personId) ?>&table=<?= e($table) ?><?= $isAddingHere ? '&add=1' : '' ?>"
+                data-linked-url="<?= e(khotwa_url('admin/linked-records.php')) ?>?type=<?= e($type) ?>&id=<?= e((string) $personId) ?>&table=<?= e($table) ?><?= $isAddingHere ? '&add=1' : '' ?>"
                 <?= $isAddingHere ? ' open' : '' ?>
               >
                 <summary>
@@ -260,8 +260,8 @@ try {
     <button class="sidebar-scrim" type="button" aria-label="Close navigation panel" data-sidebar-scrim></button>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" defer></script>
-  <script src="language.js?v=<?= e((string) filemtime(__DIR__ . '/language.js')) ?>" defer></script>
-  <script src="qr-tools.js?v=<?= e((string) filemtime(__DIR__ . '/qr-tools.js')) ?>" defer></script>
-  <script src="admin.js?v=<?= e((string) filemtime(__DIR__ . '/admin.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/qr-tools.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/admin.js')) ?>" defer></script>
 </body>
 </html>

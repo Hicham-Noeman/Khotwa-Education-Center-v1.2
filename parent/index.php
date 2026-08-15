@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/../src/auth.php';
 
 $user = require_roles(['parent']);
 $parentUserId = (int) ($user['id'] ?? 0);
@@ -138,7 +138,7 @@ try {
         );
         $assignStatement->execute([$expiationId, $parentUserId, $warningId]);
 
-        header('Location: parent.php?student_id=' . (int) $warningRow['student_id'] . '&expiation=1');
+        header('Location: ' . khotwa_url('parent/index.php') . '?student_id=' . (int) $warningRow['student_id'] . '&expiation=1');
         exit;
     }
 
@@ -188,7 +188,7 @@ try {
                 $reviewText,
             ]);
 
-            header('Location: parent.php?student_id=' . $selectedStudentId . '&review=1#reviews-panel');
+            header('Location: ' . khotwa_url('parent/index.php') . '?student_id=' . $selectedStudentId . '&review=1#reviews-panel');
             exit;
         } catch (Throwable $reviewException) {
             $reviewError = $reviewException->getMessage();
@@ -402,14 +402,14 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet"></noscript>
-  <link rel="stylesheet" href="admin.css?v=<?= e((string) filemtime(__DIR__ . '/admin.css')) ?>">
-  <link rel="stylesheet" href="parent.css?v=<?= e((string) filemtime(__DIR__ . '/parent.css')) ?>">
+  <link rel="stylesheet" href="<?= e(khotwa_asset('css/admin.css')) ?>">
+  <link rel="stylesheet" href="<?= e(khotwa_asset('css/parent.css')) ?>">
 </head>
 <body class="admin-page parent-page">
   <div class="admin-shell" data-admin-shell>
     <aside class="admin-sidebar parent-sidebar" id="admin-sidebar" aria-label="Parent navigation">
       <div class="sidebar-top">
-        <a class="admin-brand" href="parent.php" aria-label="Khotwa parent portal home">
+        <a class="admin-brand" href="<?= e(khotwa_url('parent/index.php')) ?>" aria-label="Khotwa parent portal home">
           <span class="admin-brand-mark">K<span>.</span></span>
           <span class="admin-brand-copy"><strong>Khotwa</strong><small>Parent Portal</small></span>
         </a>
@@ -428,7 +428,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
             $isActiveChild = $childId === $selectedStudentId;
             $label = (string) $child['student_name'] . ' (' . parent_relationship_label((string) $child['relationship']) . ')';
             ?>
-            <a class="<?= $isActiveChild ? 'is-active' : '' ?>" href="parent.php?student_id=<?= e((string) $childId) ?>" title="<?= e($label) ?>">
+            <a class="<?= $isActiveChild ? 'is-active' : '' ?>" href="<?= e(khotwa_url('parent/index.php')) ?>?student_id=<?= e((string) $childId) ?>" title="<?= e($label) ?>">
               <?= parent_icon('children') ?><span><?= e($label) ?></span>
               <?php if ($isActiveChild): ?><i></i><?php endif; ?>
             </a>
@@ -437,9 +437,9 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
 
         <section class="nav-group">
           <h2>Shortcuts</h2>
-          <a href="parent.php?student_id=<?= e((string) $selectedStudentId) ?>#reviews-panel"><?= parent_icon('review') ?><span>Review the center</span></a>
-          <a href="index.php"><?= parent_icon('website') ?><span>Website</span></a>
-          <a href="logout.php"><?= parent_icon('logout') ?><span>Logout</span></a>
+          <a href="<?= e(khotwa_url('parent/index.php')) ?>?student_id=<?= e((string) $selectedStudentId) ?>#reviews-panel"><?= parent_icon('review') ?><span>Review the center</span></a>
+          <a href="<?= e(khotwa_url('index.php')) ?>"><?= parent_icon('website') ?><span>Website</span></a>
+          <a href="<?= e(khotwa_url('logout.php')) ?>"><?= parent_icon('logout') ?><span>Logout</span></a>
         </section>
       </nav>
 
@@ -454,7 +454,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
             <strong><?= e(trim((string) $user['first_name'] . ' ' . (string) $user['last_name'])) ?></strong>
             <small>Parent</small>
           </span>
-          <a href="logout.php" aria-label="Log out" title="Log out"><?= parent_icon('logout') ?></a>
+          <a href="<?= e(khotwa_url('logout.php')) ?>" aria-label="Log out" title="Log out"><?= parent_icon('logout') ?></a>
         </div>
       </div>
     </aside>
@@ -474,11 +474,11 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
             <i></i>
             <span data-language-label>AR</span>
           </button>
-          <a class="website-link" href="index.php">
+          <a class="website-link" href="<?= e(khotwa_url('index.php')) ?>">
             <?= parent_icon('website') ?>
             <span>Website</span>
           </a>
-          <a class="logout-link" href="logout.php">Logout</a>
+          <a class="logout-link" href="<?= e(khotwa_url('logout.php')) ?>">Logout</a>
         </div>
       </header>
 
@@ -526,7 +526,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
             <article class="data-panel">
               <div class="panel-heading">
                 <div><span>Student profile</span><h2><?= e($selectedChildName) ?></h2></div>
-                <a href="parent.php?student_id=<?= e((string) $selectedStudentId) ?>">Refresh</a>
+                <a href="<?= e(khotwa_url('parent/index.php')) ?>?student_id=<?= e((string) $selectedStudentId) ?>">Refresh</a>
               </div>
               <?php if ($studentOverview !== null): ?>
                 <div class="parent-kv-grid">
@@ -832,8 +832,8 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" defer></script>
-  <script src="language.js?v=<?= e((string) filemtime(__DIR__ . '/language.js')) ?>" defer></script>
-  <script src="qr-tools.js?v=<?= e((string) filemtime(__DIR__ . '/qr-tools.js')) ?>" defer></script>
-  <script src="admin.js?v=<?= e((string) filemtime(__DIR__ . '/admin.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/qr-tools.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/admin.js')) ?>" defer></script>
 </body>
 </html>

@@ -189,7 +189,7 @@ const autosaveAttendanceRow = async (row) => {
     payload.set("note", row.querySelector("[data-note-input]")?.value || "");
     payload.set("homework_note", row.querySelector("[data-homework-input]")?.value || "");
 
-    const response = await fetch("teacher-subject-attendance-save.php", {
+    const response = await fetch("subject-attendance-save.php", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",

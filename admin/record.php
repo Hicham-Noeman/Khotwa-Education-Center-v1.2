@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
-require_once __DIR__ . '/admin-data.php';
+require_once __DIR__ . '/../src/auth.php';
+require_once __DIR__ . '/../src/admin-data.php';
 
 $user = require_roles(['admin', 'manager']);
 $isManager = ($user['role'] ?? '') === 'manager';
@@ -51,7 +51,7 @@ try {
                 throw $exception;
             }
             header(
-                'Location: admin-record.php?view=' . rawurlencode($view)
+                'Location: ' . khotwa_url('admin/record.php') . '?view=' . rawurlencode($view)
                 . '&id=' . $recordId . '&saved=1'
             );
             exit;
@@ -96,7 +96,7 @@ try {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
-  <link rel="stylesheet" href="admin.css?v=<?= e((string) filemtime(__DIR__ . '/admin.css')) ?>">
+  <link rel="stylesheet" href="<?= e(khotwa_asset('css/admin.css')) ?>">
 </head>
 <body class="admin-page">
   <div class="admin-shell" data-admin-shell>
@@ -282,7 +282,7 @@ try {
     </div>
     <button class="sidebar-scrim" type="button" aria-label="Close navigation panel" data-sidebar-scrim></button>
   </div>
-  <script src="language.js?v=<?= e((string) filemtime(__DIR__ . '/language.js')) ?>" defer></script>
-  <script src="admin.js?v=<?= e((string) filemtime(__DIR__ . '/admin.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/admin.js')) ?>" defer></script>
 </body>
 </html>

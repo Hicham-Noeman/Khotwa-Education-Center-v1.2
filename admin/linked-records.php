@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
-require_once __DIR__ . '/admin-data.php';
+require_once __DIR__ . '/../src/auth.php';
+require_once __DIR__ . '/../src/admin-data.php';
 
 $user = current_user();
 if (!$user || !in_array(($user['role'] ?? ''), ['admin', 'manager'], true)) {
@@ -46,7 +46,7 @@ try {
 }
 ?>
 <div class="linked-section-actions">
-  <a class="add-record-button" href="admin-person.php?type=<?= e($type) ?>&id=<?= e((string) $personId) ?>&add_table=<?= e($table) ?>#linked-<?= e($table) ?>">
+  <a class="add-record-button" href="<?= e(khotwa_url('admin/person.php')) ?>?type=<?= e($type) ?>&id=<?= e((string) $personId) ?>&add_table=<?= e($table) ?>#linked-<?= e($table) ?>">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
     Add linked record
   </a>
@@ -70,7 +70,7 @@ try {
     </div>
     <div class="record-form-actions">
       <button class="primary-action" type="submit">Save linked record</button>
-      <a class="secondary-action" href="admin-person.php?type=<?= e($type) ?>&id=<?= e((string) $personId) ?>#linked-<?= e($table) ?>">Cancel</a>
+      <a class="secondary-action" href="<?= e(khotwa_url('admin/person.php')) ?>?type=<?= e($type) ?>&id=<?= e((string) $personId) ?>#linked-<?= e($table) ?>">Cancel</a>
     </div>
   </form>
 <?php endif; ?>

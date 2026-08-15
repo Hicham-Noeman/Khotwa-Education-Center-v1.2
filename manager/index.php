@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
-require_once __DIR__ . '/admin-data.php';
+require_once __DIR__ . '/../src/auth.php';
+require_once __DIR__ . '/../src/admin-data.php';
 
 $user = require_roles(['manager']);
 $views = [
@@ -10,7 +10,7 @@ $views = [
 ];
 $view = (string) ($_GET['view'] ?? 'overview');
 if ($view !== 'overview' && admin_user_can_access_view($user, $view)) {
-    header('Location: admin.php?view=' . rawurlencode($view));
+    header('Location: ' . khotwa_url('admin/index.php') . '?view=' . rawurlencode($view));
     exit;
 }
 if (!isset($views[$view])) {
@@ -61,7 +61,7 @@ function render_manager_sidebar(array $user, string $activeView): void
         'Workspace' => [
             'overview' => [
                 'label' => 'Dashboard',
-                'href' => 'manager.php',
+                'href' => khotwa_url('manager/index.php'),
                 'icon' => 'overview',
             ],
         ],
@@ -72,14 +72,14 @@ function render_manager_sidebar(array $user, string $activeView): void
         }
         $groups[$item['group']][$key] = [
             'label' => $item['label'],
-            'href' => 'admin.php?view=' . $key,
+            'href' => khotwa_url('admin/index.php') . '?view=' . $key,
             'icon' => $key,
         ];
     }
     ?>
     <aside class="admin-sidebar manager-sidebar" id="admin-sidebar" aria-label="Manager navigation">
       <div class="sidebar-top">
-        <a class="admin-brand" href="manager.php" aria-label="Khotwa manager dashboard">
+        <a class="admin-brand" href="<?= e(khotwa_url('manager/index.php')) ?>" aria-label="Khotwa manager dashboard">
           <span class="admin-brand-mark">K<span>.</span></span>
           <span class="admin-brand-copy"><strong>Khotwa</strong><small>Manager Portal</small></span>
         </a>
@@ -108,7 +108,7 @@ function render_manager_sidebar(array $user, string $activeView): void
           <strong><?= e(trim((string) $user['first_name'] . ' ' . (string) $user['last_name'])) ?></strong>
           <small>Manager</small>
         </span>
-        <a href="logout.php" aria-label="Log out" title="Log out"><?= admin_icon('users') ?></a>
+        <a href="<?= e(khotwa_url('logout.php')) ?>" aria-label="Log out" title="Log out"><?= admin_icon('users') ?></a>
       </div>
     </aside>
     <?php
@@ -407,8 +407,8 @@ $page = $views[$view];
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
-  <link rel="stylesheet" href="admin.css?v=<?= e((string) filemtime(__DIR__ . '/admin.css')) ?>">
-  <link rel="stylesheet" href="manager.css?v=<?= e((string) filemtime(__DIR__ . '/manager.css')) ?>">
+  <link rel="stylesheet" href="<?= e(khotwa_asset('css/admin.css')) ?>">
+  <link rel="stylesheet" href="<?= e(khotwa_asset('css/manager.css')) ?>">
 </head>
 <body class="admin-page manager-page manager-view-<?= e($view) ?>">
   <div class="admin-shell" data-admin-shell>
@@ -448,23 +448,23 @@ $page = $views[$view];
           </section>
 
           <section class="manager-action-strip" aria-label="Manager quick actions">
-            <a href="admin.php?view=students">
+            <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=students">
               <?= admin_icon('students') ?>
               <span><strong>Edit students</strong><small>Profiles, photos, grades, and linked records</small></span>
             </a>
-            <a href="admin.php?view=teachers">
+            <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=teachers">
               <?= admin_icon('teachers') ?>
               <span><strong>Edit teachers</strong><small>Open a teacher to add subjects</small></span>
             </a>
-            <a href="admin.php?view=enrollments&new=1">
+            <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=enrollments&new=1">
               <?= admin_icon('enrollments') ?>
               <span><strong>Assign student</strong><small>Connect students to teacher subjects</small></span>
             </a>
-            <a href="admin.php?view=payments&new=1">
+            <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=payments&new=1">
               <?= admin_icon('payments') ?>
               <span><strong>Record payment</strong><small>Update subscriptions and receipts</small></span>
             </a>
-            <a href="admin.php?view=website-content">
+            <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=website-content">
               <?= admin_icon('website-content') ?>
               <span><strong>Website content</strong><small>Homepage, contact, and social sections</small></span>
             </a>
@@ -627,9 +627,9 @@ $page = $views[$view];
             </article>
             <aside class="quick-panel">
               <span>Editable records</span><h2>Double-click any row in these sections to open full information.</h2>
-              <a href="admin.php?view=students"><?= admin_icon('students') ?><span><strong>Students</strong><small>Profiles, photos, grades, and status</small></span></a>
-              <a href="admin.php?view=teachers"><?= admin_icon('teachers') ?><span><strong>Teachers</strong><small>Subjects and student coverage</small></span></a>
-              <a href="admin.php?view=website-contacts"><?= admin_icon('website-contacts') ?><span><strong>Contact & social</strong><small>Phone, email, links, and maps</small></span></a>
+              <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=students"><?= admin_icon('students') ?><span><strong>Students</strong><small>Profiles, photos, grades, and status</small></span></a>
+              <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=teachers"><?= admin_icon('teachers') ?><span><strong>Teachers</strong><small>Subjects and student coverage</small></span></a>
+              <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=website-contacts"><?= admin_icon('website-contacts') ?><span><strong>Contact & social</strong><small>Phone, email, links, and maps</small></span></a>
             </aside>
           </section>
         <?php else: ?>
@@ -661,9 +661,9 @@ $page = $views[$view];
                   <?php else: ?>
                     <?php foreach ($rows as $row): ?>
                       <?php
-                      $detailUrl = $view === 'teachers'
-                          ? 'admin-person.php?type=teacher&id=' . (int) $row['id']
-                          : 'admin-person.php?type=student&id=' . (int) $row['id'];
+                      $detailUrl = khotwa_url('admin/person.php')
+                          . ($view === 'teachers' ? '?type=teacher&id=' : '?type=student&id=')
+                          . (int) $row['id'];
                       ?>
                       <tr class="is-openable" data-record-row data-detail-url="<?= e($detailUrl) ?>" title="Double-click to open the full record" tabindex="0">
                         <?php foreach ($columns as $key => $label): ?>
@@ -682,8 +682,8 @@ $page = $views[$view];
     </div>
     <button class="sidebar-scrim" type="button" aria-label="Close navigation panel" data-sidebar-scrim></button>
   </div>
-  <script src="language.js?v=<?= e((string) filemtime(__DIR__ . '/language.js')) ?>" defer></script>
-  <script src="admin.js?v=<?= e((string) filemtime(__DIR__ . '/admin.js')) ?>" defer></script>
-  <script src="manager.js?v=<?= e((string) filemtime(__DIR__ . '/manager.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/admin.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/manager.js')) ?>" defer></script>
 </body>
 </html>

@@ -5,12 +5,12 @@ declare(strict_types=1);
  * Khotwa Education Center - Database Setup & Seeding Script
  * 
  * This file can be run in two ways:
- * 1. From the Web: Open http://localhost/Khotwa%20Education%20Center%20v1.2/setup.php
- * 2. From CLI: Run `php setup.php` or `c:\xampp\php\php.exe setup.php`
+ * 1. From the Web: Open http://localhost/Khotwa%20Education%20Center%20v1.2/tools/setup.php
+ * 2. From CLI: Run `php tools/setup.php` from the project root
  */
 
 define('KHOTWA_SKIP_AUTO_BOOTSTRAP', true);
-require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/../src/database.php';
 
 $isCli = php_sapi_name() === 'cli';
 $message = '';
@@ -1188,8 +1188,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' || $isCli) {
       </div>
 
       <div class="success-footer">
-        <a href="login.php" class="btn btn-primary">Proceed to Portal Login</a>
-        <a href="index.php" class="btn btn-secondary">Go to Homepage</a>
+        <a href="<?= e(khotwa_url('login.php')) ?>" class="btn btn-primary">Proceed to Portal Login</a>
+        <a href="<?= e(khotwa_url('index.php')) ?>" class="btn btn-secondary">Go to Homepage</a>
       </div>
 
     <?php else: ?>
@@ -1223,7 +1223,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' || $isCli) {
 
       <form id="setup-form" method="post" onsubmit="startSeeding()">
         <button type="submit" class="btn btn-primary">Initialize & Seed Database</button>
-        <a href="login.php" class="btn btn-secondary">Cancel and Return</a>
+        <a href="<?= e(khotwa_url('login.php')) ?>" class="btn btn-secondary">Cancel and Return</a>
       </form>
 
       <div id="setup-loader" class="loader">

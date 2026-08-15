@@ -334,27 +334,27 @@ const renderContacts = (language) => {
   const socialContainer = document.querySelector("[data-homepage-socials]");
   if (!socialContainer) return;
 
-  const socialTypes = new Set(["instagram", "facebook", "whatsapp", "tiktok", "linkedin", "google_map"]);
-  const shortLabels = {
-    instagram: "ig",
-    facebook: "f",
-    whatsapp: "wa",
-    tiktok: "tk",
-    linkedin: "in",
-    google_map: "map",
-  };
+  // The brand icons are rendered by PHP, so only the link target and label are
+  // refreshed here — replacing the markup would throw the logos away.
+  const socialRows = new Map(homepageCollections.contacts.map((row) => [row.link_type, row]));
 
-  socialContainer.replaceChildren();
-  homepageCollections.contacts.filter((row) => socialTypes.has(row.link_type)).forEach((row) => {
-    const link = document.createElement("a");
+  socialContainer.querySelectorAll("[data-social-type]").forEach((link) => {
+    const row = socialRows.get(link.dataset.socialType);
+    if (!row) {
+      link.hidden = true;
+      return;
+    }
+
+    link.hidden = false;
     link.href = row.url || "#";
-    link.textContent = shortLabels[row.link_type] || row.label_en;
     link.setAttribute("aria-label", row[`label_${language}`] || row.label_en);
     if (/^https?:/i.test(row.url || "")) {
       link.target = "_blank";
       link.rel = "noopener noreferrer";
+    } else {
+      link.removeAttribute("target");
+      link.removeAttribute("rel");
     }
-    socialContainer.append(link);
   });
 };
 
@@ -370,7 +370,7 @@ const renderHomepageCollections = (language = window.KhotwaI18n?.current() || "e
 const embeddedHomepageData = window.KhotwaHomepageData;
 const homepageDataPromise = (embeddedHomepageData
   ? Promise.resolve(embeddedHomepageData)
-  : fetch("homepage-content.php", { headers: { Accept: "application/json" } }).then((response) => {
+  : fetch("api/homepage-content.php", { headers: { Accept: "application/json" } }).then((response) => {
       if (!response.ok) throw new Error(`Homepage content request failed: ${response.status}`);
       return response.json();
     }))

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/src/auth.php';
 
 $_SESSION = [];
 
@@ -19,5 +19,5 @@ if (ini_get('session.use_cookies')) {
 }
 
 session_destroy();
-header('Location: login.php');
+header('Location: ' . khotwa_url('login.php'));
 exit;

@@ -148,7 +148,7 @@
     "Your next step": "خطوتك التالية",
     "Let’s build a learning plan": "لنصمم خطة تعليمية",
     "that fits.": "تناسبك.",
-    "Book a free consultation": "احجز استشارة مجانية",
+    "Contact us now": "تواصل معنا الآن",
     "One step at a time, toward stronger skills, greater confidence, and a future full of possibility.": "خطوة بعد خطوة نحو مهارات أقوى وثقة أكبر ومستقبل مليء بالفرص.",
     "Explore": "استكشف",
     "About us": "من نحن",

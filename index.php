@@ -2,8 +2,8 @@
 declare(strict_types=1);
 
 define('KHOTWA_SKIP_AUTO_BOOTSTRAP', true);
-require_once __DIR__ . '/database.php';
-require_once __DIR__ . '/homepage-data.php';
+require_once __DIR__ . '/src/database.php';
+require_once __DIR__ . '/src/homepage-data.php';
 
 $homepageData = [
     'content' => [],
@@ -52,14 +52,14 @@ $homepageRating = $homepageRatingCount > 0
   <title>Khotwa Education Center | Every Step Builds a Future</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" href="assets/images/khotwa-hero.webp" as="image" type="image/webp" fetchpriority="high">
+  <link rel="preload" href="<?= homepage_e(khotwa_url('assets/images/khotwa-hero.webp')) ?>" as="image" type="image/webp" fetchpriority="high">
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
-  <link rel="stylesheet" href="index.css?v=<?= homepage_e((string) filemtime(__DIR__ . '/index.css')) ?>">
+  <link rel="stylesheet" href="<?= homepage_e(khotwa_asset('css/index.css')) ?>">
 </head>
 <body>
   <div class="page-loader" aria-hidden="true">
-    <div class="loader-mark"><img src="assets/images/logo-white.svg" alt="Khotwa Education Center" width="162" height="54"><i></i></div>
+    <div class="loader-mark"><img src="<?= homepage_e(khotwa_url('assets/images/logo-white.svg')) ?>" alt="Khotwa Education Center" width="162" height="54"><i></i></div>
     <p>Building brighter steps</p>
   </div>
 
@@ -68,8 +68,8 @@ $homepageRating = $homepageRatingCount > 0
 
   <header class="site-header" id="top">
     <a class="brand" href="#home" aria-label="Khotwa Education Center home">
-      <img class="brand-logo brand-logo-white" src="assets/images/logo-white.svg" alt="Khotwa Education Center" width="148" height="71">
-      <img class="brand-logo brand-logo-color" src="assets/images/logo-color.svg" alt="Khotwa Education Center" width="148" height="71">
+      <img class="brand-logo brand-logo-white" src="<?= homepage_e(khotwa_url('assets/images/logo-white.svg')) ?>" alt="Khotwa Education Center" width="148" height="71">
+      <img class="brand-logo brand-logo-color" src="<?= homepage_e(khotwa_url('assets/images/logo-color.svg')) ?>" alt="Khotwa Education Center" width="148" height="71">
     </a>
 
     <nav class="desktop-nav" aria-label="Main navigation">
@@ -87,7 +87,7 @@ $homepageRating = $homepageRatingCount > 0
         <i></i>
         <span data-language-label>العربية</span>
       </button>
-      <a class="header-login" href="login.php">
+      <a class="header-login" href="<?= homepage_e(khotwa_url('login.php')) ?>">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="9" cy="8" r="3.5"/>
           <path d="M3.5 20c.5-4 2.4-6 5.5-6s5 2 5.5 6M14 12h7M18 9l3 3-3 3"/>
@@ -120,7 +120,7 @@ $homepageRating = $homepageRatingCount > 0
       <a href="#team"><span>04</span>Team</a>
       <a href="#gallery"><span>05</span>Gallery</a>
       <a href="#faq"><span>06</span>FAQ</a>
-      <a class="mobile-login-link" href="login.php"><span>07</span>Log in</a>
+      <a class="mobile-login-link" href="<?= homepage_e(khotwa_url('login.php')) ?>"><span>07</span>Log in</a>
     </nav>
     <p>Learn deeply. Grow confidently.</p>
   </div>
@@ -128,7 +128,7 @@ $homepageRating = $homepageRatingCount > 0
   <main>
     <section class="hero" id="home">
       <div class="hero-media" aria-hidden="true">
-        <img src="assets/images/khotwa-hero.webp" alt="" width="1600" height="854" fetchpriority="high">
+        <img src="<?= homepage_e(khotwa_url('assets/images/khotwa-hero.webp')) ?>" alt="" width="1600" height="854" fetchpriority="high">
         <div class="hero-overlay"></div>
         <div class="hero-grid"></div>
       </div>
@@ -261,7 +261,7 @@ $homepageRating = $homepageRatingCount > 0
 
           <figure class="vision-photo vision-slideshow" data-vision-slideshow data-reveal>
             <div class="vision-slides" data-vision-slides>
-              <img class="vision-slide is-active" src="assets/images/khotwa-classroom-gallery.webp" alt="Teacher guiding students through a collaborative classroom activity" width="1400" height="933" loading="lazy" decoding="async">
+              <img class="vision-slide is-active" src="<?= homepage_e(khotwa_url('assets/images/khotwa-classroom-gallery.webp')) ?>" alt="Teacher guiding students through a collaborative classroom activity" width="1400" height="933" loading="lazy" decoding="async">
             </div>
             <figcaption data-vision-caption>
               <strong>Human guidance</strong>
@@ -542,7 +542,7 @@ $homepageRating = $homepageRatingCount > 0
                 <?php if (!empty($member['image_path'])): ?>
                   <img
                     class="team-portrait-image"
-                    src="<?= homepage_e((string) $member['image_path']) ?>"
+                    src="<?= homepage_e(khotwa_url((string) $member['image_path'])) ?>"
                     alt="<?= homepage_e((string) $member['name_en']) ?>"
                     loading="lazy"
                     decoding="async"
@@ -573,7 +573,7 @@ $homepageRating = $homepageRatingCount > 0
             <div>
               <span>Grow with us</span>
               <h3>Great educators are always welcome.</h3>
-              <a href="mailto:hello@khotwa.edu">Join our team <b>↗</b></a>
+              <a href="mailto:khotwacenter.lb@gmail.com">Join our team <b>↗</b></a>
             </div>
           </article>
         </div>
@@ -592,19 +592,19 @@ $homepageRating = $homepageRatingCount > 0
 
         <div class="gallery-grid" data-homepage-gallery>
           <button class="gallery-item gallery-wide" type="button" data-image="assets/images/khotwa-classroom-gallery.webp" data-caption="Collaborative learning">
-            <img src="assets/images/khotwa-classroom-gallery.webp" alt="Students learning together with their teacher" width="1400" height="933" loading="lazy" decoding="async">
+            <img src="<?= homepage_e(khotwa_url('assets/images/khotwa-classroom-gallery.webp')) ?>" alt="Students learning together with their teacher" width="1400" height="933" loading="lazy" decoding="async">
             <span><b>Collaborative learning</b><i>View image ↗</i></span>
           </button>
           <button class="gallery-item gallery-tall" type="button" data-image="assets/images/khotwa-stem-gallery.webp" data-caption="Hands-on discovery">
-            <img src="assets/images/khotwa-stem-gallery.webp" alt="Students building a project during a STEM activity" width="1400" height="933" loading="lazy" decoding="async">
+            <img src="<?= homepage_e(khotwa_url('assets/images/khotwa-stem-gallery.webp')) ?>" alt="Students building a project during a STEM activity" width="1400" height="933" loading="lazy" decoding="async">
             <span><b>Hands-on discovery</b><i>View image ↗</i></span>
           </button>
           <button class="gallery-item gallery-crop-one" type="button" data-image="assets/images/khotwa-hero.webp" data-caption="Guided academic support">
-            <img src="assets/images/khotwa-hero.webp" alt="Teacher supporting students around a learning table" width="1600" height="854" loading="lazy" decoding="async">
+            <img src="<?= homepage_e(khotwa_url('assets/images/khotwa-hero.webp')) ?>" alt="Teacher supporting students around a learning table" width="1600" height="854" loading="lazy" decoding="async">
             <span><b>Guided support</b><i>View image ↗</i></span>
           </button>
           <button class="gallery-item gallery-crop-two" type="button" data-image="assets/images/khotwa-stem-gallery.webp" data-caption="Curiosity at work">
-            <img src="assets/images/khotwa-stem-gallery.webp" alt="Young students focused on a classroom project" width="1400" height="933" loading="lazy" decoding="async">
+            <img src="<?= homepage_e(khotwa_url('assets/images/khotwa-stem-gallery.webp')) ?>" alt="Young students focused on a classroom project" width="1400" height="933" loading="lazy" decoding="async">
             <span><b>Curiosity at work</b><i>View image ↗</i></span>
           </button>
           <div class="gallery-quote" data-reveal>
@@ -698,8 +698,8 @@ $homepageRating = $homepageRatingCount > 0
           <h2>Let’s build a learning plan<br>that fits.</h2>
         </div>
         <div class="contact-actions">
-          <a class="button button-light magnetic" href="mailto:hello@khotwa.edu" data-contact-link="primary_email">
-            Book a free consultation
+          <a class="button button-light magnetic" href="mailto:khotwacenter.lb@gmail.com" data-contact-link="primary_email">
+            Contact us now
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </a>
           <a href="tel:+9611000000" data-contact-link="primary_phone">+961 1 000 000</a>
@@ -713,14 +713,32 @@ $homepageRating = $homepageRatingCount > 0
       <div class="footer-main">
         <div class="footer-brand">
           <a class="brand brand-light" href="#home">
-            <img class="brand-logo" src="assets/images/logo-white.svg" alt="Khotwa Education Center" width="148" height="71">
+            <img class="brand-logo" src="<?= homepage_e(khotwa_url('assets/images/logo-white.svg')) ?>" alt="Khotwa Education Center" width="148" height="71">
           </a>
           <p>One step at a time, toward stronger skills, greater confidence, and a future full of possibility.</p>
+          <?php
+          $socialTypes = homepage_social_link_types();
+          $socialLinks = array_values(array_filter(
+              $homepageData['contacts'],
+              static fn (array $row): bool => in_array($row['link_type'], $socialTypes, true)
+          ));
+          if ($socialLinks === []) {
+              $socialLinks = array_map(
+                  static fn (string $type): array => ['link_type' => $type, 'label_en' => ucfirst($type), 'url' => '#'],
+                  $socialTypes
+              );
+          }
+          ?>
           <div class="social-links" aria-label="Social media links" data-homepage-socials>
-            <a href="#" aria-label="Instagram">ig</a>
-            <a href="#" aria-label="Facebook">f</a>
-            <a href="#" aria-label="TikTok">tk</a>
-            <a href="#" aria-label="LinkedIn">in</a>
+            <?php foreach ($socialLinks as $social): ?>
+              <?php $socialUrl = (string) ($social['url'] ?? '') ?: '#'; ?>
+              <a
+                href="<?= homepage_e($socialUrl) ?>"
+                aria-label="<?= homepage_e((string) $social['label_en']) ?>"
+                data-social-type="<?= homepage_e((string) $social['link_type']) ?>"
+                <?= preg_match('/^https?:/i', $socialUrl) ? 'target="_blank" rel="noopener noreferrer"' : '' ?>
+              ><?= homepage_social_icon((string) $social['link_type']) ?></a>
+            <?php endforeach; ?>
           </div>
         </div>
 
@@ -742,7 +760,7 @@ $homepageRating = $homepageRatingCount > 0
           <div>
             <h3>Visit</h3>
             <p data-contact-value="address">Beirut, Lebanon</p>
-            <a href="mailto:hello@khotwa.edu" data-contact-link="primary_email">hello@khotwa.edu</a>
+            <a href="mailto:khotwacenter.lb@gmail.com" data-contact-link="primary_email">khotwacenter.lb@gmail.com</a>
             <a href="tel:+9611000000" data-contact-link="primary_phone">+961 1 000 000</a>
             <a href="https://maps.google.com/?q=Beirut%2C+Lebanon" data-contact-link="google_map">Google Maps</a>
             <p data-contact-value="opening_hours">Mon–Sat, 9:00–19:00</p>
@@ -751,7 +769,7 @@ $homepageRating = $homepageRatingCount > 0
       </div>
       <div class="footer-bottom">
         <p>© <span id="year"></span> Khotwa Education Center. All rights reserved.</p>
-        <div><a href="login.php">Log in</a><a href="terms.html">Terms</a></div>
+        <div><a href="<?= homepage_e(khotwa_url('login.php')) ?>">Log in</a><a href="<?= homepage_e(khotwa_url('terms.html')) ?>">Terms</a></div>
         <a href="#home">Back to top ↑</a>
       </div>
     </div>
@@ -797,7 +815,7 @@ $homepageRating = $homepageRatingCount > 0
         )
         : 'null' ?>;
   </script>
-  <script src="language.js?v=<?= homepage_e((string) filemtime(__DIR__ . '/language.js')) ?>" defer></script>
-  <script src="index.js?v=<?= homepage_e((string) filemtime(__DIR__ . '/index.js')) ?>" defer></script>
+  <script src="<?= homepage_e(khotwa_asset('js/language.js')) ?>" defer></script>
+  <script src="<?= homepage_e(khotwa_asset('js/index.js')) ?>" defer></script>
 </body>
 </html>

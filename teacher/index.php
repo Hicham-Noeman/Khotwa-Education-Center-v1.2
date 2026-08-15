@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/../src/auth.php';
 
 $user = require_roles(['teacher']);
 $teacherId = (int) ($user['teacher_id'] ?? 0);
@@ -52,7 +52,7 @@ function render_teacher_sidebar(array $user, string $activeView): void
     ?>
     <aside class="admin-sidebar" id="admin-sidebar" aria-label="Teacher navigation">
       <div class="sidebar-top">
-        <a class="admin-brand" href="teacher.php" aria-label="Khotwa teacher portal home">
+        <a class="admin-brand" href="<?= e(khotwa_url('teacher/index.php')) ?>" aria-label="Khotwa teacher portal home">
           <span class="admin-brand-mark">K<span>.</span></span>
           <span class="admin-brand-copy"><strong>Khotwa</strong><small>Teacher Portal</small></span>
         </a>
@@ -65,7 +65,7 @@ function render_teacher_sidebar(array $user, string $activeView): void
         <section class="nav-group">
           <h2>My Workspace</h2>
           <?php foreach (['attendance' => 'Attendance', 'submission' => "Today's Submission", 'students' => 'Students', 'warnings' => 'Behaviour', 'profile' => 'My Profile'] as $key => $label): ?>
-            <?php $href = 'teacher.php?view=' . rawurlencode($key); ?>
+            <?php $href = khotwa_url('teacher/index.php') . '?view=' . rawurlencode($key); ?>
             <a class="<?= $activeView === $key ? 'is-active' : '' ?>" href="<?= e($href) ?>" title="<?= e($label) ?>">
               <?= teacher_icon($key) ?><span><?= e($label) ?></span>
               <?php if ($activeView === $key): ?><i></i><?php endif; ?>
@@ -84,7 +84,7 @@ function render_teacher_sidebar(array $user, string $activeView): void
             <strong><?= e(trim((string) $user['first_name'] . ' ' . (string) $user['last_name'])) ?></strong>
             <small>Teacher</small>
           </span>
-          <a href="logout.php" aria-label="Log out" title="Log out"><?= teacher_icon('logout') ?></a>
+          <a href="<?= e(khotwa_url('logout.php')) ?>" aria-label="Log out" title="Log out"><?= teacher_icon('logout') ?></a>
         </div>
       </div>
     </aside>
@@ -190,7 +190,7 @@ try {
             }
             $pdo->commit();
 
-            header('Location: teacher.php?view=' . rawurlencode($view) . '&saved=' . $savedCount);
+            header('Location: ' . khotwa_url('teacher/index.php') . '?view=' . rawurlencode($view) . '&saved=' . $savedCount);
             exit;
         } catch (Throwable $exception) {
             if ($pdo->inTransaction()) {
@@ -233,7 +233,7 @@ try {
                 substr($flagNotes, 0, 60000),
             ]);
 
-            header('Location: teacher.php?view=warnings&flagged=1');
+            header('Location: ' . khotwa_url('teacher/index.php') . '?view=warnings&flagged=1');
             exit;
         } catch (Throwable $exception) {
             $error = $exception->getMessage();
@@ -375,8 +375,8 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
-  <link rel="stylesheet" href="admin.css?v=<?= e((string) filemtime(__DIR__ . '/admin.css')) ?>">
-  <link rel="stylesheet" href="teacher.css?v=<?= e((string) filemtime(__DIR__ . '/teacher.css')) ?>">
+  <link rel="stylesheet" href="<?= e(khotwa_asset('css/admin.css')) ?>">
+  <link rel="stylesheet" href="<?= e(khotwa_asset('css/teacher.css')) ?>">
 </head>
 <body
   class="admin-page teacher-admin-page teacher-view-<?= e($view) ?>"
@@ -419,7 +419,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
               </label>
               <div class="table-heading-actions">
                 <strong class="record-count"><?= e((string) count($studentRows)) ?> assignments</strong>
-                <a class="add-record-button" href="teacher.php?view=attendance">
+                <a class="add-record-button" href="<?= e(khotwa_url('teacher/index.php')) ?>?view=attendance">
                   <?= teacher_icon('attendance') ?> Record subject attendance
                 </a>
               </div>
@@ -635,7 +635,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
             <section class="data-panel">
               <div class="panel-heading submission-heading">
                 <div><span>Final validation</span><h2>Today's Subject Attendance Submission</h2></div>
-                <a class="secondary-action" href="teacher.php?view=attendance">Back to attendance</a>
+                <a class="secondary-action" href="<?= e(khotwa_url('teacher/index.php')) ?>?view=attendance">Back to attendance</a>
               </div>
 
               <?php if ($attendanceRows === []): ?>
@@ -784,8 +784,8 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
     </div>
     <button class="sidebar-scrim" type="button" aria-label="Close navigation panel" data-sidebar-scrim></button>
   </div>
-  <script src="language.js?v=<?= e((string) filemtime(__DIR__ . '/language.js')) ?>" defer></script>
-  <script src="admin.js?v=<?= e((string) filemtime(__DIR__ . '/admin.js')) ?>" defer></script>
-  <script src="teacher.js?v=<?= e((string) filemtime(__DIR__ . '/teacher.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/admin.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/teacher.js')) ?>" defer></script>
 </body>
 </html>

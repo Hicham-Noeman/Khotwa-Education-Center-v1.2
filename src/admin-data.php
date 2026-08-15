@@ -245,11 +245,11 @@ function admin_workspace_url(string $view, array $query = []): string
     $workspaceViews = admin_website_workspace_views();
     if (!isset($workspaceViews[$view])) {
         $parameters = ['view' => $view, ...$query];
-        return 'admin.php?' . http_build_query($parameters);
+        return khotwa_url('admin/index.php') . '?' . http_build_query($parameters);
     }
 
     $parameters = ['view' => 'website-content', ...$query];
-    return 'admin.php?' . http_build_query($parameters) . '#' . $workspaceViews[$view];
+    return khotwa_url('admin/index.php') . '?' . http_build_query($parameters) . '#' . $workspaceViews[$view];
 }
 
 function admin_column_label(string $column): string
@@ -422,7 +422,7 @@ function admin_prepare_uploads(string $table, array $fields, array $uploads): ar
             throw new RuntimeException('Use a JPEG, PNG, GIF, or WebP image.');
         }
 
-        $directory = __DIR__ . '/assets/uploads/' . $table;
+        $directory = khotwa_path('assets/uploads/' . $table);
         if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
             throw new RuntimeException('The upload folder could not be created.');
         }
@@ -448,7 +448,7 @@ function admin_prepare_uploads(string $table, array $fields, array $uploads): ar
 
 function admin_remove_uploaded_files(array $paths): void
 {
-    $uploadRoot = realpath(__DIR__ . '/assets/uploads');
+    $uploadRoot = realpath(khotwa_path('assets/uploads'));
     if ($uploadRoot === false) {
         return;
     }
@@ -458,7 +458,7 @@ function admin_remove_uploaded_files(array $paths): void
             continue;
         }
 
-        $absolutePath = realpath(__DIR__ . '/' . $path);
+        $absolutePath = realpath(khotwa_path($path));
         if (
             $absolutePath !== false
             && str_starts_with($absolutePath, $uploadRoot . DIRECTORY_SEPARATOR)
@@ -505,7 +505,7 @@ function admin_render_field(
 
     if (in_array($name, admin_upload_columns($table), true)) {
         if ((string) $value !== '') {
-            echo '<span class="admin-image-preview"><img src="' . e((string) $value) . '" alt=""></span>';
+            echo '<span class="admin-image-preview"><img src="' . e(khotwa_url((string) $value)) . '" alt=""></span>';
         }
         echo '<input type="hidden" name="fields[' . e($name) . ']" value="' . e((string) $value) . '">';
         if (!$isLocked) {
@@ -830,7 +830,7 @@ function admin_render_sidebar(array $user, string $activeView): void
         $groups['Workspace']['manager-dashboard'] = [
             'label' => 'Dashboard',
             'group' => 'Workspace',
-            'href' => 'manager.php',
+            'href' => khotwa_url('manager/index.php'),
             'icon' => 'overview',
         ];
     }
@@ -843,7 +843,7 @@ function admin_render_sidebar(array $user, string $activeView): void
     if (isset(admin_website_workspace_views()[$activeView])) {
         $activeView = 'website-content';
     }
-    $brandHref = $isManager ? 'manager.php' : 'admin.php';
+    $brandHref = khotwa_url($isManager ? 'manager/index.php' : 'admin/index.php');
     $brandLabel = $isManager ? 'Khotwa management home' : 'Khotwa administration home';
     $brandSubline = $isManager ? 'Management' : 'Administration';
     $roleLabel = $isManager ? 'Manager' : 'Administrator';
@@ -867,7 +867,7 @@ function admin_render_sidebar(array $user, string $activeView): void
             <?php foreach ($items as $key => $item): ?>
               <?php
               $isActive = $key === 'manager-dashboard' ? $activeView === 'overview' : $activeView === $key;
-              $href = $item['href'] ?? ('admin.php?view=' . $key);
+              $href = $item['href'] ?? (khotwa_url('admin/index.php') . '?view=' . $key);
               $icon = $item['icon'] ?? $key;
               ?>
               <a class="<?= $isActive ? 'is-active' : '' ?>" href="<?= e($href) ?>" title="<?= e($item['label']) ?>">
@@ -886,7 +886,7 @@ function admin_render_sidebar(array $user, string $activeView): void
         <div class="sidebar-account">
           <span class="account-avatar"><?= e(strtoupper(substr((string) $user['first_name'], 0, 1))) ?></span>
           <span class="account-copy"><strong><?= e(trim((string) $user['first_name'] . ' ' . (string) $user['last_name'])) ?></strong><small><?= e($roleLabel) ?></small></span>
-          <a href="logout.php" aria-label="Log out" title="Log out"><?= admin_icon('users') ?></a>
+          <a href="<?= e(khotwa_url('logout.php')) ?>" aria-label="Log out" title="Log out"><?= admin_icon('users') ?></a>
         </div>
       </div>
     </aside>

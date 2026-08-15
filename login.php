@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/src/auth.php';
 
 if (is_logged_in()) {
     redirect_to_role_home((array) current_user());
@@ -82,22 +82,22 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
   <title>Log In | Khotwa Education Center</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" href="assets/images/khotwa-hero.webp" as="image" type="image/webp" fetchpriority="high">
+  <link rel="preload" href="<?= e(khotwa_url('assets/images/khotwa-hero.webp')) ?>" as="image" type="image/webp" fetchpriority="high">
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
-  <link rel="prefetch" href="admin.css" as="style">
-  <link rel="prefetch" href="admin.js" as="script">
-  <link rel="prefetch" href="language.js" as="script">
-  <link rel="stylesheet" href="auth.css?v=<?= e((string) filemtime(__DIR__ . '/auth.css')) ?>">
+  <link rel="prefetch" href="<?= e(khotwa_asset('css/admin.css')) ?>" as="style">
+  <link rel="prefetch" href="<?= e(khotwa_asset('js/admin.js')) ?>" as="script">
+  <link rel="prefetch" href="<?= e(khotwa_asset('js/language.js')) ?>" as="script">
+  <link rel="stylesheet" href="<?= e(khotwa_asset('css/auth.css')) ?>">
 </head>
 <body class="auth-page">
   <div class="auth-shell">
     <section class="auth-visual" aria-label="Khotwa learning community">
-      <img src="assets/images/khotwa-hero.webp" alt="Students learning together at Khotwa Education Center" width="1600" height="854" fetchpriority="high">
+      <img src="<?= e(khotwa_url('assets/images/khotwa-hero.webp')) ?>" alt="Students learning together at Khotwa Education Center" width="1600" height="854" fetchpriority="high">
       <div class="visual-wash"></div>
       <div class="visual-grid" aria-hidden="true"></div>
 
-      <a class="auth-brand brand-on-image" href="index.php" aria-label="Khotwa Education Center home">
+      <a class="auth-brand brand-on-image" href="<?= e(khotwa_url('index.php')) ?>" aria-label="Khotwa Education Center home">
         <span class="brand-mark">K<span>.</span></span>
         <span>
           <strong>Khotwa</strong>
@@ -130,7 +130,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
     <main class="auth-main">
       <div class="auth-topbar">
-        <a class="auth-brand brand-mobile" href="index.php">
+        <a class="auth-brand brand-mobile" href="<?= e(khotwa_url('index.php')) ?>">
           <span class="brand-mark">K<span>.</span></span>
           <span>
             <strong>Khotwa</strong>
@@ -143,7 +143,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             <i></i>
             <span data-language-label>العربية</span>
           </button>
-          <a class="back-link" href="index.php">
+          <a class="back-link" href="<?= e(khotwa_url('index.php')) ?>">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg>
             Back to website
           </a>
@@ -186,10 +186,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
         <div style="text-align: center; margin: -12px 0 24px; font-size: 0.81rem; color: var(--muted);">
           Need to reset or seed the demo data? 
-          <a href="setup.php" style="color: var(--navy); font-weight: 700; text-decoration: underline; transition: color 0.2s ease;">Initialize & Seed Database</a>
+          <a href="<?= e(khotwa_url('tools/setup.php')) ?>" style="color: var(--navy); font-weight: 700; text-decoration: underline; transition: color 0.2s ease;">Initialize & Seed Database</a>
         </div>
 
-        <form class="auth-form" id="login-form" method="post" action="login.php">
+        <form class="auth-form" id="login-form" method="post" action="<?= e(khotwa_url('login.php')) ?>">
           <label class="field">
             <span>Email address</span>
             <span class="input-wrap">
@@ -218,7 +218,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
               </span>
               Remember me
             </label>
-            <a href="forgot-password.html">Forgot password?</a>
+            <a href="<?= e(khotwa_url('forgot-password.html')) ?>">Forgot password?</a>
           </div>
 
           <button class="primary-auth-button" type="submit">
@@ -239,10 +239,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
           </button>
         </form>
 
-        <p class="legal-copy">By continuing, you agree to Khotwa's <a href="terms.html">Terms and Conditions</a>.</p>
+        <p class="legal-copy">By continuing, you agree to Khotwa's <a href="<?= e(khotwa_url('terms.html')) ?>">Terms and Conditions</a>.</p>
       </div>
 
-      <p class="auth-support">Need help? <a href="mailto:hello@khotwa.edu">Contact our support team</a></p>
+      <p class="auth-support">Need help? <a href="mailto:khotwacenter.lb@gmail.com">Contact our support team</a></p>
     </main>
   </div>
 
@@ -250,7 +250,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     <span></span>
     <div><strong>Design preview</strong><small>No account data is being submitted.</small></div>
   </div>
-  <script src="language.js?v=<?= e((string) filemtime(__DIR__ . '/language.js')) ?>" defer></script>
-  <script src="auth.js?v=<?= e((string) filemtime(__DIR__ . '/auth.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/auth.js')) ?>" defer></script>
 </body>
 </html>

@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
-require_once __DIR__ . '/admin-data.php';
-require_once __DIR__ . '/homepage-data.php';
+require_once __DIR__ . '/../src/auth.php';
+require_once __DIR__ . '/../src/admin-data.php';
+require_once __DIR__ . '/../src/homepage-data.php';
 
 $user = require_roles(['admin', 'manager']);
 $isManager = ($user['role'] ?? '') === 'manager';
@@ -34,12 +34,12 @@ function render_value(string $key, mixed $value): string
 $navigation = admin_navigation_for_user($user);
 $view = (string) ($_GET['view'] ?? ($isManager ? '' : 'overview'));
 if ($isManager && $view === '') {
-    header('Location: manager.php');
+    header('Location: ' . khotwa_url('manager/index.php'));
     exit;
 }
 if (!isset($navigation[$view])) {
     if ($isManager) {
-        header('Location: manager.php');
+        header('Location: ' . khotwa_url('manager/index.php'));
         exit;
     }
     $view = 'overview';
@@ -639,7 +639,7 @@ try {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
-  <link rel="stylesheet" href="admin.css?v=<?= e((string) filemtime(__DIR__ . '/admin.css')) ?>">
+  <link rel="stylesheet" href="<?= e(khotwa_asset('css/admin.css')) ?>">
 </head>
 <body class="admin-page">
   <div class="admin-shell" data-admin-shell>
@@ -672,7 +672,7 @@ try {
             <article class="data-panel overview-attendance">
               <div class="panel-heading">
                 <div><span>Latest records</span><h2>Recent attendance</h2></div>
-                <a href="admin.php?view=attendance">View all</a>
+                <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=attendance">View all</a>
               </div>
               <div class="table-scroll">
                 <table>
@@ -691,9 +691,9 @@ try {
             </article>
             <aside class="quick-panel">
               <span>Quick access</span><h2>Move through your center.</h2>
-              <a href="admin.php?view=students"><?= admin_icon('students') ?><span><strong>Students</strong><small>Profiles and grades</small></span></a>
-              <a href="admin.php?view=teachers"><?= admin_icon('teachers') ?><span><strong>Teachers</strong><small>Team and subjects</small></span></a>
-              <a href="admin.php?view=attendance"><?= admin_icon('attendance') ?><span><strong>Attendance</strong><small>Daily and subject records</small></span></a>
+              <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=students"><?= admin_icon('students') ?><span><strong>Students</strong><small>Profiles and grades</small></span></a>
+              <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=teachers"><?= admin_icon('teachers') ?><span><strong>Teachers</strong><small>Team and subjects</small></span></a>
+              <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=attendance"><?= admin_icon('attendance') ?><span><strong>Attendance</strong><small>Daily and subject records</small></span></a>
             </aside>
           </section>
         <?php else: ?>
@@ -926,7 +926,7 @@ try {
                   <button class="primary-action" type="submit">Save date</button>
                 </form>
 
-                <a class="studio-switch-card studio-review-card" href="admin.php?view=website-reviews">
+                <a class="studio-switch-card studio-review-card" href="<?= e(khotwa_url('admin/index.php')) ?>?view=website-reviews">
                   <div class="studio-switch-copy">
                     <small>Parent reviews</small>
                     <h3><?= e((string) $pendingReviewCount) ?> waiting for approval</h3>
@@ -962,7 +962,7 @@ try {
                     </div>
                     <div class="collection-actions">
                       <span><?= e((string) count($section['items'])) ?> records</span>
-                      <a href="admin.php?view=<?= e($section['view']) ?>&new=1">
+                      <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=<?= e($section['view']) ?>&new=1">
                         <?= admin_icon($section['view']) ?> Add new
                       </a>
                     </div>
@@ -982,7 +982,7 @@ try {
                           <p lang="ar" dir="rtl"><?= e((string) ($item['title_ar'] ?: 'No Arabic title')) ?></p>
                           <footer>
                             <small>Order <?= e((string) $item['sort_order']) ?></small>
-                            <a href="admin-record.php?view=website-content&id=<?= e((string) $item['id']) ?>">Edit content</a>
+                            <a href="<?= e(khotwa_url('admin/record.php')) ?>?view=website-content&id=<?= e((string) $item['id']) ?>">Edit content</a>
                           </footer>
                         </article>
                       <?php endforeach; ?>
@@ -991,12 +991,12 @@ try {
                     <div class="slide-card-grid">
                       <?php foreach ($section['items'] as $item): ?>
                         <article class="slide-preview-card">
-                          <img src="<?= e((string) $item['image_path']) ?>" alt="">
+                          <img src="<?= e(khotwa_url((string) $item['image_path'])) ?>" alt="">
                           <div>
                             <span><?= render_value('status', $item['status']) ?></span>
                             <strong><?= e((string) ($item['title_en'] ?: 'Untitled slide')) ?></strong>
                             <p lang="ar" dir="rtl"><?= e((string) ($item['title_ar'] ?: '')) ?></p>
-                            <a href="admin-record.php?view=website-slides&id=<?= e((string) $item['id']) ?>">Edit slide</a>
+                            <a href="<?= e(khotwa_url('admin/record.php')) ?>?view=website-slides&id=<?= e((string) $item['id']) ?>">Edit slide</a>
                           </div>
                         </article>
                       <?php endforeach; ?>
@@ -1015,7 +1015,7 @@ try {
                             default => null,
                         };
                         ?>
-                        <a class="stat-preview-card" href="admin-record.php?view=website-statistics&id=<?= e((string) $item['id']) ?>">
+                        <a class="stat-preview-card" href="<?= e(khotwa_url('admin/record.php')) ?>?view=website-statistics&id=<?= e((string) $item['id']) ?>">
                           <small><?= e($statisticKey) ?></small>
                           <strong>
                             <?= e((string) ($liveValue ?? $item['stat_value'])) ?><sup><?= e((string) $item['suffix']) ?></sup>
@@ -1033,9 +1033,9 @@ try {
                   <?php elseif ($section['view'] === 'website-team'): ?>
                     <div class="partner-preview-grid">
                       <?php foreach ($section['items'] as $item): ?>
-                        <a class="partner-preview-card" href="admin-record.php?view=website-team&id=<?= e((string) $item['id']) ?>">
+                        <a class="partner-preview-card" href="<?= e(khotwa_url('admin/record.php')) ?>?view=website-team&id=<?= e((string) $item['id']) ?>">
                           <?php if ($item['image_path']): ?>
-                            <img src="<?= e((string) $item['image_path']) ?>" alt="">
+                            <img src="<?= e(khotwa_url((string) $item['image_path'])) ?>" alt="">
                           <?php else: ?>
                             <span><?= e(strtoupper(substr((string) $item['name_en'], 0, 2))) ?></span>
                           <?php endif; ?>
@@ -1049,9 +1049,9 @@ try {
                       <?php foreach ($section['items'] as $item): ?>
                         <a
                           class="gallery-preview-card gallery-layout-<?= e((string) $item['layout_style']) ?>"
-                          href="admin-record.php?view=website-gallery&id=<?= e((string) $item['id']) ?>"
+                          href="<?= e(khotwa_url('admin/record.php')) ?>?view=website-gallery&id=<?= e((string) $item['id']) ?>"
                         >
-                          <img src="<?= e((string) $item['image_path']) ?>" alt="">
+                          <img src="<?= e(khotwa_url((string) $item['image_path'])) ?>" alt="">
                           <span><strong><?= e((string) $item['caption_en']) ?></strong><small>Edit image</small></span>
                         </a>
                       <?php endforeach; ?>
@@ -1059,9 +1059,9 @@ try {
                   <?php elseif ($section['view'] === 'website-partners'): ?>
                     <div class="partner-preview-grid">
                       <?php foreach ($section['items'] as $item): ?>
-                        <a class="partner-preview-card" href="admin-record.php?view=website-partners&id=<?= e((string) $item['id']) ?>">
+                        <a class="partner-preview-card" href="<?= e(khotwa_url('admin/record.php')) ?>?view=website-partners&id=<?= e((string) $item['id']) ?>">
                           <?php if ($item['logo_path']): ?>
-                            <img src="<?= e((string) $item['logo_path']) ?>" alt="">
+                            <img src="<?= e(khotwa_url((string) $item['logo_path'])) ?>" alt="">
                           <?php else: ?>
                             <span><?= e(strtoupper(substr((string) $item['name_en'], 0, 2))) ?></span>
                           <?php endif; ?>
@@ -1096,7 +1096,7 @@ try {
                       Scan
                     </button>
                   <?php endif; ?>
-                  <a class="add-record-button" href="admin.php?view=<?= e($view) ?>&new=1">
+                  <a class="add-record-button" href="<?= e(khotwa_url('admin/index.php')) ?>?view=<?= e($view) ?>&new=1">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
                     Add record
                   </a>
@@ -1126,11 +1126,11 @@ try {
                       <?php foreach ($rows as $row): ?>
                         <?php
                         if ($view === 'students') {
-                            $detailUrl = 'admin-person.php?type=student&id=' . (int) $row['id'];
+                            $detailUrl = khotwa_url('admin/person.php') . '?type=student&id=' . (int) $row['id'];
                         } elseif ($view === 'teachers') {
-                            $detailUrl = 'admin-person.php?type=teacher&id=' . (int) $row['id'];
+                            $detailUrl = khotwa_url('admin/person.php') . '?type=teacher&id=' . (int) $row['id'];
                         } else {
-                            $detailUrl = 'admin-record.php?view=' . rawurlencode($view) . '&id=' . (int) $row['id'];
+                            $detailUrl = khotwa_url('admin/record.php') . '?view=' . rawurlencode($view) . '&id=' . (int) $row['id'];
                         }
                         ?>
                         <?php
@@ -1185,7 +1185,7 @@ try {
     </div>
 
     <?php if ($view === 'attendance'): ?>
-      <div class="qr-scan-modal" data-qr-scan-modal data-qr-scan-csrf="<?= e(admin_csrf_token()) ?>" hidden>
+      <div class="qr-scan-modal" data-qr-scan-modal data-qr-scan-csrf="<?= e(admin_csrf_token()) ?>" data-qr-scan-url="<?= e(khotwa_url('admin/qr-attendance.php')) ?>" data-qr-student-url="<?= e(khotwa_url('admin/person.php')) ?>" hidden>
         <div class="qr-scan-backdrop" data-qr-scan-close></div>
         <section class="qr-scan-dialog" role="dialog" aria-modal="true" aria-label="Scan student QR code">
           <header class="qr-scan-head">
@@ -1215,8 +1215,8 @@ try {
     <script src="https://unpkg.com/html5-qrcode" defer></script>
   <?php endif; ?>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" defer></script>
-  <script src="language.js?v=<?= e((string) filemtime(__DIR__ . '/language.js')) ?>" defer></script>
-  <script src="qr-tools.js?v=<?= e((string) filemtime(__DIR__ . '/qr-tools.js')) ?>" defer></script>
-  <script src="admin.js?v=<?= e((string) filemtime(__DIR__ . '/admin.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/qr-tools.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/admin.js')) ?>" defer></script>
 </body>
 </html>

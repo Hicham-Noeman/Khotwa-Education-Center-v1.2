@@ -10,21 +10,26 @@ declare(strict_types=1);
  * pass: empty
  *
  * Include this file in PHP pages to get a ready PDO connection:
- * require_once __DIR__ . '/database.php';
+ * require_once __DIR__ . '/../src/database.php';
  */
 
-$dbHost = 'localhost';
+require_once __DIR__ . '/paths.php';
+
+$dbHost = '127.0.0.1';
+// XAMPP's MariaDB runs on 3307 here because a separate Windows "MySQL80" service
+// holds the default 3306. Set this back to 3306 once MariaDB owns that port again.
+$dbPort = 3307;
 $dbName = 'khotwa_education_center';
 $dbUser = 'root';
 $dbPass = '';
 $dbCharset = 'utf8mb4';
 
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
-const KHOTWA_SCHEMA_VERSION = 8;
+const KHOTWA_SCHEMA_VERSION = 9;
 
 function getDatabaseConnection(): PDO
 {
-    global $dbHost, $dbName, $dbUser, $dbPass, $dbCharset;
+    global $dbHost, $dbPort, $dbName, $dbUser, $dbPass, $dbCharset;
 
     $options = [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -33,7 +38,7 @@ function getDatabaseConnection(): PDO
         PDO::ATTR_PERSISTENT => true,
     ];
 
-    $databaseDsn = "mysql:host={$dbHost};dbname={$dbName};charset={$dbCharset}";
+    $databaseDsn = "mysql:host={$dbHost};port={$dbPort};dbname={$dbName};charset={$dbCharset}";
     try {
         $pdo = new PDO($databaseDsn, $dbUser, $dbPass, $options);
     } catch (PDOException $exception) {
@@ -41,7 +46,7 @@ function getDatabaseConnection(): PDO
             throw $exception;
         }
 
-        $serverDsn = "mysql:host={$dbHost};charset={$dbCharset}";
+        $serverDsn = "mysql:host={$dbHost};port={$dbPort};charset={$dbCharset}";
         $serverConnection = new PDO($serverDsn, $dbUser, $dbPass, $options);
         $serverConnection->exec(
             "CREATE DATABASE IF NOT EXISTS `{$dbName}`
@@ -1250,7 +1255,7 @@ function seedHomepageCollectionsDefaults(PDO $pdo): void
     $contacts = [
         [
             'primary_email', 'email', 'Email', 'البريد الإلكتروني',
-            'hello@khotwa.edu', 'hello@khotwa.edu', 'mailto:hello@khotwa.edu', 1,
+            'khotwacenter.lb@gmail.com', 'khotwacenter.lb@gmail.com', 'mailto:khotwacenter.lb@gmail.com', 1,
         ],
         [
             'primary_phone', 'phone', 'Phone', 'الهاتف',
@@ -1620,7 +1625,7 @@ function applyKhotwaMigrations(PDO $pdo): void
 
 // Raise this when the canonical homepage copy changes and every existing
 // database has to be brought back in line with khotwa_homepage_content_defaults().
-const KHOTWA_HOMEPAGE_COPY_REVISION = 2;
+const KHOTWA_HOMEPAGE_COPY_REVISION = 3;
 
 /**
  * Brings an existing database back to the canonical homepage copy.
@@ -1695,6 +1700,15 @@ function applyHomepageCopyMigration(PDO $pdo): void
         "UPDATE homepage_statistics
          SET label_ar = 'معلّماً متخصصاً'
          WHERE stat_key = 'expert_educators' AND label_ar = 'معلّماً خبيراً'"
+    );
+
+    // The center's public email address.
+    $pdo->exec(
+        "UPDATE homepage_contact_links
+         SET value_en = 'khotwacenter.lb@gmail.com',
+             value_ar = 'khotwacenter.lb@gmail.com',
+             url = 'mailto:khotwacenter.lb@gmail.com'
+         WHERE link_key = 'primary_email'"
     );
 
     homepage_setting_save($pdo, 'homepage_copy_revision', (string) KHOTWA_HOMEPAGE_COPY_REVISION);

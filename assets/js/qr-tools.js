@@ -201,6 +201,9 @@
     const openStudentLink = modal?.querySelector("[data-qr-open-student]");
     const closeButtons = modal?.querySelectorAll("[data-qr-scan-close]");
     const csrf = modal?.getAttribute("data-qr-scan-csrf") || "";
+    // The endpoint is supplied by the page so the modal works from any folder.
+    const attendanceUrl = modal?.getAttribute("data-qr-scan-url") || "qr-attendance.php";
+    const studentUrl = modal?.getAttribute("data-qr-student-url") || "person.php";
 
     if (!modal || !openButton || !reader || !result || !openStudentLink || !imageButton || !imageInput || !toast) {
       return;
@@ -295,7 +298,7 @@
       body.set("csrf", csrf);
       body.set("student_id", String(studentId));
 
-      const response = await fetch("admin-qr-attendance.php", {
+      const response = await fetch(attendanceUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
@@ -347,7 +350,7 @@
         `Scanned: ${serverName} (ID: ${serverId}) | ${actionText} for ${date} | status: ${status}`
       );
 
-      openStudentLink.href = `admin-person.php?type=student&id=${serverId}`;
+      openStudentLink.href = `${studentUrl}?type=student&id=${serverId}`;
       openStudentLink.hidden = false;
 
       const tableSearchInput = document.querySelector("[data-table-search]");

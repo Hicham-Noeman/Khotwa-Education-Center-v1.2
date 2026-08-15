@@ -71,6 +71,47 @@ function homepage_dynamic_statistic_keys(): array
     return ['learners_supported', 'expert_educators', 'family_satisfaction', 'years_experience'];
 }
 
+/**
+ * Contact link types that belong in the footer's social row.
+ */
+function homepage_social_link_types(): array
+{
+    return ['whatsapp', 'instagram', 'facebook', 'google_map', 'tiktok', 'linkedin'];
+}
+
+/**
+ * White brand mark for a social link, drawn in the same stroke style as the rest
+ * of the site so the footer row stays visually consistent.
+ */
+function homepage_social_icon(string $linkType): string
+{
+    $icons = [
+        'whatsapp' =>
+            '<path d="M3.5 20.5l1.2-4.1a8 8 0 1 1 3 3l-4.2 1.1Z"/>'
+            . '<path d="M9.2 8.6h.9l1 2.2-.9 1a6.3 6.3 0 0 0 2.9 2.6l1-.9 2.2 1v.9c0 .8-.7 1.3-1.6 1.3-3 0-6.8-3.8-6.8-6.8 0-.9.5-1.6 1.3-1.6Z"/>',
+        'instagram' =>
+            '<rect x="3" y="3" width="18" height="18" rx="5"/>'
+            . '<circle cx="12" cy="12" r="4"/>'
+            . '<path d="M17.5 6.5h.01"/>',
+        'facebook' =>
+            '<path d="M14 8.5V7a1.5 1.5 0 0 1 1.5-1.5H17V2.8h-2.4A4.1 4.1 0 0 0 10.5 7v1.5H8V12h2.5v9.2H14V12h2.6l.5-3.5H14Z"/>',
+        'google_map' =>
+            '<path d="M12 21.5s6.5-6.1 6.5-11a6.5 6.5 0 1 0-13 0c0 4.9 6.5 11 6.5 11Z"/>'
+            . '<circle cx="12" cy="10.2" r="2.6"/>',
+        'tiktok' =>
+            '<path d="M14.4 2.8v11.6a3.6 3.6 0 1 1-3.6-3.6c.3 0 .6 0 .9.1"/>'
+            . '<path d="M14.4 2.8a5 5 0 0 0 5 5"/>',
+        'linkedin' =>
+            '<path d="M15.5 9.2a5 5 0 0 1 5 5v6.6h-3.4v-6.6a1.6 1.6 0 0 0-3.2 0v6.6h-3.4V9.6h3.4v1a5 5 0 0 1 1.6-1.4Z"/>'
+            . '<rect x="3.2" y="9.6" width="3.4" height="11.2" rx="0.4"/>'
+            . '<circle cx="4.9" cy="5.2" r="1.9"/>',
+    ];
+
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+        . ($icons[$linkType] ?? '<circle cx="12" cy="12" r="9"/>')
+        . '</svg>';
+}
+
 function load_homepage_data(PDO $pdo): array
 {
     $content = $pdo->query(

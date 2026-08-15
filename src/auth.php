@@ -53,14 +53,14 @@ function verify_app_csrf(): void
 function redirect_to_role_home(array $user): never
 {
     $target = match ($user['role']) {
-        'teacher' => 'teacher.php',
-        'manager' => 'manager.php',
-    'parent' => 'parent.php',
-        'admin' => 'admin.php',
+        'teacher' => 'teacher/index.php',
+        'manager' => 'manager/index.php',
+        'parent' => 'parent/index.php',
+        'admin' => 'admin/index.php',
         default => 'login.php',
     };
 
-    header("Location: {$target}");
+    header('Location: ' . khotwa_url($target));
     exit;
 }
 
@@ -69,7 +69,7 @@ function require_login(): array
     $user = current_user();
 
     if ($user === null) {
-        header('Location: login.php');
+        header('Location: ' . khotwa_url('login.php'));
         exit;
     }
 
@@ -92,7 +92,7 @@ function render_app_header(string $title, array $user): void
     $roleLabel = ucfirst($user['role']);
     ?>
     <header class="app-header">
-      <a class="app-brand" href="dashboard.php">
+      <a class="app-brand" href="<?= e(khotwa_url()) ?>">
         <span>K</span>
         <strong>Khotwa</strong>
       </a>
@@ -103,17 +103,17 @@ function render_app_header(string $title, array $user): void
       <nav class="app-nav" aria-label="Application navigation">
         <?php if ($user['role'] !== 'admin'): ?>
           <?php if ($user['role'] === 'teacher'): ?>
-            <a href="teacher.php">My Students</a>
+            <a href="<?= e(khotwa_url('teacher/index.php')) ?>">My Students</a>
           <?php endif; ?>
           <?php if ($user['role'] === 'manager'): ?>
-            <a href="manager.php">Dashboard</a>
+            <a href="<?= e(khotwa_url('manager/index.php')) ?>">Dashboard</a>
           <?php endif; ?>
           <?php if ($user['role'] === 'parent'): ?>
-            <a href="parent.php">My Children</a>
+            <a href="<?= e(khotwa_url('parent/index.php')) ?>">My Children</a>
           <?php endif; ?>
-          <a href="index.php">Website</a>
+          <a href="<?= e(khotwa_url()) ?>">Website</a>
         <?php endif; ?>
-        <a href="logout.php">Logout</a>
+        <a href="<?= e(khotwa_url('logout.php')) ?>">Logout</a>
       </nav>
     </header>
     <?php
@@ -129,14 +129,14 @@ function render_db_error(Throwable $exception): void
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Khotwa Database Error</title>
-        <link rel="stylesheet" href="app.css">
+        <link rel="stylesheet" href="<?= e(khotwa_asset('css/auth.css')) ?>">
       </head>
       <body class="app-body">
         <main class="auth-shell">
           <section class="auth-panel">
             <span class="auth-mark">K</span>
             <h1>Database connection failed</h1>
-            <p>Start MySQL in XAMPP, then open <a href="setup.php">setup.php</a> to create the database and seed demo users.</p>
+            <p>Start MySQL in XAMPP, then open <a href="<?= e(khotwa_url('tools/setup.php')) ?>">tools/setup.php</a> to create the database and seed demo users.</p>
           </section>
         </main>
       </body>

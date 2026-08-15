@@ -1,0 +1,12 @@
+{
+  // Microsoft Edge Tools preview. The site is served by Apache (it is PHP, so it
+  // cannot be previewed from the file system or by a static Live Server).
+  "vscode-edge-devtools.defaultUrl": "http://localhost/Khotwa%20Education%20Center%20v1.2/index.php",
+  "vscode-edge-devtools.webRoot": "${workspaceFolder}",
+  "vscode-edge-devtools.defaultEntrypoint": "index.php",
+  "vscode-edge-devtools.headless": true,
+
+  "files.associations": {
+    "*.php": "php"
+  }
+}
