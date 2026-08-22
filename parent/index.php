@@ -150,6 +150,7 @@ try {
             $rating = (int) ($_POST['rating'] ?? 0);
             $reviewText = trim((string) ($_POST['review_text'] ?? ''));
             $displayName = trim((string) ($_POST['display_name'] ?? ''));
+            $displayNameAr = trim((string) ($_POST['display_name_ar'] ?? ''));
             if ($displayName === '') {
                 $displayName = trim((string) $user['first_name'] . ' ' . (string) ($user['last_name'] ?? ''));
             }
@@ -177,12 +178,13 @@ try {
             );
             $insertReview = $pdo->prepare(
                 "INSERT INTO homepage_reviews
-                    (parent_user_id, display_name, relationship_label, rating, review_text, status)
-                 VALUES (?, ?, ?, ?, ?, 'pending')"
+                    (parent_user_id, display_name, display_name_ar, relationship_label, rating, review_text, status)
+                 VALUES (?, ?, ?, ?, ?, ?, 'pending')"
             );
             $insertReview->execute([
                 $parentUserId,
                 mb_substr($displayName, 0, 120),
+                $displayNameAr === '' ? null : mb_substr($displayNameAr, 0, 120),
                 $relationshipLabel,
                 $rating,
                 $reviewText,
@@ -773,6 +775,19 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                     maxlength="120"
                     value="<?= e(trim((string) $user['first_name'] . ' ' . (string) ($user['last_name'] ?? ''))) ?>"
                     required
+                  >
+                </label>
+
+                <label class="parent-review-field">
+                  <span>Name in Arabic (optional)</span>
+                  <input
+                    type="text"
+                    name="display_name_ar"
+                    maxlength="120"
+                    dir="rtl"
+                    lang="ar"
+                    placeholder="الاسم كما يظهر في الموقع العربي"
+                    value="<?= e((string) ($_POST['display_name_ar'] ?? '')) ?>"
                   >
                 </label>
 

@@ -598,12 +598,12 @@ try {
     } elseif ($view === 'website-reviews') {
         $pageDescription = 'Reviews submitted by parents from their portal. Approved reviews appear on the public homepage.';
         $columns = [
-            'id' => 'ID', 'display_name' => 'Parent', 'parent_email' => 'Account',
+            'id' => 'ID', 'display_name' => 'Parent', 'display_name_ar' => 'Arabic name', 'parent_email' => 'Account',
             'rating' => 'Rating', 'review_text' => 'Review', 'created_at' => 'Submitted',
             'sort_order' => 'Order', 'status' => 'Status',
         ];
         $rows = $pdo->query(
-            "SELECT homepage_reviews.id, homepage_reviews.display_name,
+            "SELECT homepage_reviews.id, homepage_reviews.display_name, homepage_reviews.display_name_ar,
                     COALESCE(users.email, 'Added by the administration') AS parent_email,
                     homepage_reviews.rating, homepage_reviews.review_text,
                     homepage_reviews.created_at, homepage_reviews.sort_order, homepage_reviews.status
@@ -668,7 +668,7 @@ try {
               </article>
             <?php endforeach; ?>
           </section>
-          <section class="overview-grid">
+          <section class="overview-grid is-single">
             <article class="data-panel overview-attendance">
               <div class="panel-heading">
                 <div><span>Latest records</span><h2>Recent attendance</h2></div>
@@ -689,12 +689,6 @@ try {
                 </table>
               </div>
             </article>
-            <aside class="quick-panel">
-              <span>Quick access</span><h2>Move through your center.</h2>
-              <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=students"><?= admin_icon('students') ?><span><strong>Students</strong><small>Profiles and grades</small></span></a>
-              <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=teachers"><?= admin_icon('teachers') ?><span><strong>Teachers</strong><small>Team and subjects</small></span></a>
-              <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=attendance"><?= admin_icon('attendance') ?><span><strong>Attendance</strong><small>Daily and subject records</small></span></a>
-            </aside>
           </section>
         <?php else: ?>
           <?php if ($message !== ''): ?><div class="form-notice success-notice"><?= e($message) ?></div><?php endif; ?>

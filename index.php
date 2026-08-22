@@ -467,6 +467,7 @@ $homepageRating = $homepageRatingCount > 0
     </section>
 
     <?php if ($homepageReviews !== []): ?>
+      <?php $reviewCount = count($homepageReviews); ?>
       <section class="reviews-section section" id="reviews">
         <div class="section-shell">
           <div class="section-intro centered" data-reveal>
@@ -475,24 +476,56 @@ $homepageRating = $homepageRatingCount > 0
             <p>Reviews shared by parents from their own Khotwa parent portal account, published once the administration approves them.</p>
           </div>
 
-          <div class="review-grid">
-            <?php foreach ($homepageReviews as $review): ?>
-              <?php $rating = max(1, min(5, (int) $review['rating'])); ?>
-              <article class="review-card" data-reveal>
-                <div class="review-stars" role="img" aria-label="<?= homepage_e((string) $rating) ?> out of 5">
-                  <?php for ($star = 1; $star <= 5; $star++): ?>
-                    <span class="<?= $star <= $rating ? 'is-filled' : '' ?>" aria-hidden="true">★</span>
-                  <?php endfor; ?>
-                </div>
-                <blockquote data-i18n-skip><?= homepage_e((string) $review['review_text']) ?></blockquote>
-                <footer>
-                  <strong data-i18n-skip><?= homepage_e((string) $review['display_name']) ?></strong>
-                  <?php if (!empty($review['relationship_label'])): ?>
-                    <small><?= homepage_e((string) $review['relationship_label']) ?></small>
-                  <?php endif; ?>
-                </footer>
-              </article>
-            <?php endforeach; ?>
+          <?php // data-reveal sits on the slider, not the cards: a card scrolled out of
+                // view horizontally would never intersect the viewport and stay hidden. ?>
+          <div class="review-slider" data-review-slider data-reveal>
+            <div
+              class="review-track<?= $reviewCount === 1 ? ' is-single' : '' ?>"
+              data-review-track
+              tabindex="0"
+              role="group"
+              aria-label="Family reviews"
+            >
+              <?php foreach ($homepageReviews as $review): ?>
+                <?php $rating = max(1, min(5, (int) $review['rating'])); ?>
+                <article class="review-card">
+                  <div class="review-stars" role="img" aria-label="<?= homepage_e((string) $rating) ?> out of 5">
+                    <?php for ($star = 1; $star <= 5; $star++): ?>
+                      <span class="<?= $star <= $rating ? 'is-filled' : '' ?>" aria-hidden="true">★</span>
+                    <?php endfor; ?>
+                  </div>
+                  <blockquote data-i18n-skip><?= homepage_e((string) $review['review_text']) ?></blockquote>
+                  <footer>
+                    <?php // The reviewer's own name, then a generic role label. Whether they are
+                          // the mother or the father stays internal to the admin panel. ?>
+                    <?php // Both spellings ship with the card; the language switch picks one.
+                          // Falls back to the Latin name when no Arabic name was given. ?>
+                    <strong
+                      data-i18n-skip
+                      data-review-name-en="<?= homepage_e((string) $review['display_name']) ?>"
+                      data-review-name-ar="<?= homepage_e((string) ($review['display_name_ar'] ?: $review['display_name'])) ?>"
+                    ><?= homepage_e((string) $review['display_name']) ?></strong>
+                    <small>Parents</small>
+                  </footer>
+                </article>
+              <?php endforeach; ?>
+            </div>
+
+            <?php // Two cards fit per view on desktop and one on a phone, so paging is
+                  // needed past that. The buttons start hidden and the script reveals them
+                  // only when the track can actually scroll, which keeps them honest at
+                  // every screen width and leaves nothing dead if JavaScript is off. ?>
+            <?php if ($reviewCount > 1): ?>
+              <div class="review-controls" data-review-controls hidden>
+                <button class="review-nav" type="button" data-review-prev aria-label="Previous reviews">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+                </button>
+                <span class="review-progress" data-review-progress aria-live="polite"></span>
+                <button class="review-nav" type="button" data-review-next aria-label="Next reviews">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+                </button>
+              </div>
+            <?php endif; ?>
           </div>
         </div>
       </section>

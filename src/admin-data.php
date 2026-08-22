@@ -196,6 +196,7 @@ function admin_linked_tables_for_user(string $type, array $user): array
 function admin_icon(string $name): string
 {
     $paths = [
+        'logout' => '<path d="M10 17l5-5-5-5M15 12H3"/><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/>',
         'overview' => '<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
         'students' => '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
         'teachers' => '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
@@ -822,6 +823,29 @@ function admin_verify_csrf(): void
     }
 }
 
+/**
+ * Applies the saved collapsed state while the page is still parsing.
+ *
+ * The panel is collapsed by a class on .admin-shell, and .admin-sidebar animates its
+ * width. Waiting for the deferred admin.js meant every page load painted the panel
+ * open and then animated it shut. This runs synchronously as the first child of the
+ * shell, so the sidebar's very first layout is already correct.
+ */
+function admin_sidebar_boot_script(): void
+{
+    ?>
+    <script>
+      try {
+        if (localStorage.getItem('khotwa-v12-admin-sidebar-collapsed') === 'true') {
+          document.currentScript.parentElement.classList.add('is-sidebar-collapsed');
+        }
+      } catch (error) {
+        /* private mode or storage disabled: fall back to the expanded panel */
+      }
+    </script>
+    <?php
+}
+
 function admin_render_sidebar(array $user, string $activeView): void
 {
     $isManager = ($user['role'] ?? '') === 'manager';
@@ -846,15 +870,40 @@ function admin_render_sidebar(array $user, string $activeView): void
     $brandHref = khotwa_url($isManager ? 'manager/index.php' : 'admin/index.php');
     $brandLabel = $isManager ? 'Khotwa management home' : 'Khotwa administration home';
     $brandSubline = $isManager ? 'Management' : 'Administration';
-    $roleLabel = $isManager ? 'Manager' : 'Administrator';
     $sidebarLabel = $isManager ? 'Manager navigation' : 'Administrator navigation';
     ?>
+    <?php admin_sidebar_boot_script(); ?>
     <aside class="admin-sidebar" id="admin-sidebar" aria-label="<?= e($sidebarLabel) ?>">
       <div class="sidebar-top">
         <a class="admin-brand" href="<?= e($brandHref) ?>" aria-label="<?= e($brandLabel) ?>">
-          <span class="admin-brand-mark">K<span>.</span></span>
-          <span class="admin-brand-copy"><strong>Khotwa</strong><small><?= e($brandSubline) ?></small></span>
+          <?php // The logo carries the name, so the wordmark replaces the "Khotwa" text. ?>
+          <span class="admin-brand-mark admin-brand-mark-logo">
+            <img
+              class="admin-brand-logo"
+              src="<?= e(khotwa_asset('images/logo-white.svg')) ?>"
+              alt="Khotwa"
+              width="148"
+              height="71"
+            >
+          </span>
+          <span class="admin-brand-copy"><small><?= e($brandSubline) ?></small></span>
         </a>
+        <div class="sidebar-top-actions">
+          <?php // Language and logout live beside the brand; the footer keeps only the account. ?>
+          <button
+            class="sidebar-top-action sidebar-language-compact"
+            type="button"
+            title="Switch language"
+            aria-label="Switch language"
+            data-language-toggle
+          ><strong data-language-current>EN</strong></button>
+          <a
+            class="sidebar-top-action"
+            href="<?= e(khotwa_url('logout.php')) ?>"
+            title="Log out"
+            aria-label="Log out"
+          ><?= admin_icon('logout') ?></a>
+        </div>
         <button class="sidebar-toggle" type="button" aria-label="Close navigation panel" aria-controls="admin-sidebar" aria-expanded="true" data-sidebar-toggle>
           <svg class="collapse-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
           <svg class="expand-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
@@ -878,17 +927,6 @@ function admin_render_sidebar(array $user, string $activeView): void
           </section>
         <?php endforeach; ?>
       </nav>
-      <div class="sidebar-footer">
-        <button class="sidebar-language" type="button" data-language-toggle>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
-          <span><strong data-language-current>EN</strong><small data-language-label>العربية</small></span>
-        </button>
-        <div class="sidebar-account">
-          <span class="account-avatar"><?= e(strtoupper(substr((string) $user['first_name'], 0, 1))) ?></span>
-          <span class="account-copy"><strong><?= e(trim((string) $user['first_name'] . ' ' . (string) $user['last_name'])) ?></strong><small><?= e($roleLabel) ?></small></span>
-          <a href="<?= e(khotwa_url('logout.php')) ?>" aria-label="Log out" title="Log out"><?= admin_icon('users') ?></a>
-        </div>
-      </div>
     </aside>
     <?php
 }

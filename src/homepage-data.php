@@ -174,7 +174,7 @@ function load_homepage_data(PDO $pdo): array
     )->fetchAll();
 
     $reviews = $pdo->query(
-        "SELECT id, display_name, relationship_label, rating, review_text, created_at
+        "SELECT id, display_name, display_name_ar, relationship_label, rating, review_text, created_at
          FROM homepage_reviews
          WHERE status = 'approved'
          ORDER BY sort_order, id DESC

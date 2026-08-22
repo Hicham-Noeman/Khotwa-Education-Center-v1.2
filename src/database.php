@@ -25,7 +25,7 @@ $dbPass = '';
 $dbCharset = 'utf8mb4';
 
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
-const KHOTWA_SCHEMA_VERSION = 9;
+const KHOTWA_SCHEMA_VERSION = 10;
 
 function getDatabaseConnection(): PDO
 {
@@ -855,6 +855,7 @@ function createKhotwaTables(PDO $pdo): void
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             parent_user_id BIGINT UNSIGNED NULL,
             display_name VARCHAR(120) NOT NULL,
+            display_name_ar VARCHAR(120) NULL,
             relationship_label VARCHAR(120) NULL,
             rating TINYINT UNSIGNED NOT NULL DEFAULT 5,
             review_text TEXT NOT NULL,
@@ -1618,6 +1619,14 @@ function applyKhotwaMigrations(PDO $pdo): void
                 students.first_name_en,
                 students.last_name_en,
                 student_warnings.warning_year"
+    );
+
+    // Reviews can carry the reviewer's name in Arabic as well as Latin script.
+    addColumnIfMissing(
+        $pdo,
+        'homepage_reviews',
+        'display_name_ar',
+        'display_name_ar VARCHAR(120) NULL AFTER display_name'
     );
 
     applyHomepageCopyMigration($pdo);

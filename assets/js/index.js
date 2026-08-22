@@ -558,6 +558,79 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+// Family reviews pager. Two cards fit per view, so anything beyond that is paged
+// with the prev/next buttons. Scroll position drives the button state, which keeps
+// touch swiping and the buttons in sync.
+// Reviewer names are proper nouns, so they are not in the translation dictionary.
+// The card carries both spellings and the right one is shown for the active language.
+const applyReviewNames = (language = window.KhotwaI18n?.current() || "en") => {
+  document.querySelectorAll("[data-review-name-en]").forEach((element) => {
+    const name = language === "ar"
+      ? element.dataset.reviewNameAr || element.dataset.reviewNameEn
+      : element.dataset.reviewNameEn;
+    if (name) element.textContent = name;
+  });
+};
+
+document.addEventListener("khotwa:languagechange", (event) => {
+  applyReviewNames(event.detail?.language);
+});
+applyReviewNames();
+
+const setupReviewSlider = () => {
+  const slider = document.querySelector("[data-review-slider]");
+  const track = slider?.querySelector("[data-review-track]");
+  const controls = slider?.querySelector("[data-review-controls]");
+  if (!slider || !track || !controls) return;
+
+  const previous = controls.querySelector("[data-review-prev]");
+  const next = controls.querySelector("[data-review-next]");
+  const progress = controls.querySelector("[data-review-progress]");
+  const cards = track.querySelectorAll(".review-card");
+
+  // In RTL the browser reports scrollLeft as a negative offset.
+  const offset = () => Math.abs(track.scrollLeft);
+  const maxOffset = () => Math.max(0, track.scrollWidth - track.clientWidth);
+  const isRtl = () => document.documentElement.dir === "rtl";
+
+  const sync = () => {
+    const pageable = maxOffset() > 2;
+    controls.hidden = !pageable;
+    if (!pageable) return;
+
+    previous.disabled = offset() <= 2;
+    next.disabled = offset() >= maxOffset() - 2;
+
+    if (progress) {
+      const perView = Math.max(1, Math.round(track.clientWidth / (cards[0]?.offsetWidth || track.clientWidth)));
+      const pages = Math.max(1, Math.ceil(cards.length / perView));
+      const current = maxOffset() === 0 ? 1 : Math.round((offset() / maxOffset()) * (pages - 1)) + 1;
+      progress.textContent = `${current} / ${pages}`;
+    }
+  };
+
+  const page = (direction) => {
+    const step = track.clientWidth || 1;
+    track.scrollBy({
+      left: direction * step * (isRtl() ? -1 : 1),
+      behavior: reduceMotion ? "auto" : "smooth",
+    });
+  };
+
+  previous.addEventListener("click", () => page(-1));
+  next.addEventListener("click", () => page(1));
+  track.addEventListener("scroll", sync, { passive: true });
+  window.addEventListener("resize", sync);
+  document.addEventListener("khotwa:languagechange", () => {
+    track.scrollTo({ left: 0, behavior: "auto" });
+    sync();
+  });
+
+  sync();
+};
+
+setupReviewSlider();
+
 const changingWord = document.querySelector(".changing-word");
 
 if (changingWord && !reduceMotion) {

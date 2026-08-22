@@ -114,6 +114,8 @@
     "Great educators are always welcome.": "نرحّب دائماً بالمعلّمين المميزين.",
     "Join our team": "انضم إلى فريقنا",
     "Family voices": "آراء العائلات",
+    "Parents": "الأهل",
+    "Switch language": "تبديل اللغة",
     "What families say": "ما تقوله العائلات",
     "about Khotwa.": "عن خطوة.",
     "Reviews shared by parents from their own Khotwa parent portal account, published once the administration approves them.": "آراء يشاركها أولياء الأمور من حساباتهم في بوابة الأهل، وتُنشر بعد موافقة الإدارة.",

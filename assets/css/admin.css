@@ -90,18 +90,17 @@ svg {
 .sidebar-top {
   display: flex;
   min-height: 62px;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
   gap: 10px;
   padding: 0 3px 19px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .admin-brand {
-  display: inline-flex;
+  display: inline-grid;
   min-width: 0;
-  align-items: center;
-  gap: 12px;
+  justify-items: start;
+  gap: 7px;
 }
 
 .admin-brand-mark {
@@ -123,6 +122,21 @@ svg {
   color: var(--orange);
 }
 
+.admin-brand-mark-logo {
+  width: auto;
+  min-width: 46px;
+  padding: 0 11px;
+}
+
+.admin-brand-logo {
+  width: auto;
+  height: 24px;
+}
+
+.admin-brand-copy small:only-child {
+  margin-top: 0;
+}
+
 .admin-brand-copy,
 .account-copy {
   display: grid;
@@ -142,6 +156,45 @@ svg {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.sidebar-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.sidebar-top-action {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.055);
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.sidebar-top-action:hover {
+  color: var(--paper);
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.sidebar-top-action svg {
+  width: 18px;
+  height: 18px;
+}
+
+.sidebar-language-compact strong {
+  color: var(--orange);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 .sidebar-toggle,
@@ -175,7 +228,11 @@ svg {
 
 .admin-nav {
   min-height: 0;
-  padding: 21px 0;
+  /* The 3px hover nudge on a nav item needs somewhere to go: without this padding
+     the item overflows the right edge, and because overflow-y is auto the x-axis
+     computes to auto as well, so a horizontal scrollbar flickers in on hover. */
+  padding: 21px 3px 21px 0;
+  overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
@@ -555,6 +612,11 @@ svg {
   display: grid;
   grid-template-columns: minmax(0, 1.8fr) minmax(270px, 0.7fr);
   gap: 18px;
+}
+
+/* Overview with the side panel removed: the remaining panel spans the row. */
+.overview-grid.is-single {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .data-panel {
@@ -1035,19 +1097,26 @@ tbody tr:has([data-record-select]:checked) {
 }
 
 .admin-file-input {
-  padding: 8px !important;
+  padding: 6px !important;
+  font-size: 0.76rem !important;
   background: var(--paper) !important;
 }
 
 .admin-file-input::file-selector-button {
-  margin-right: 10px;
-  padding: 8px 11px;
+  /* Logical margin so the gap sits correctly in Arabic too. */
+  margin-inline-end: 9px;
+  padding: 5px 10px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 7px;
   color: var(--paper);
   background: var(--navy);
-  font-weight: 800;
+  font-size: 0.7rem;
+  font-weight: 700;
   cursor: pointer;
+}
+
+.admin-file-input::file-selector-button:hover {
+  background: var(--navy-dark);
 }
 
 .admin-field-help {
@@ -1658,6 +1727,8 @@ tbody tr:has([data-record-select]:checked) {
   padding-left: 12px;
 }
 
+.admin-shell.is-sidebar-collapsed .admin-brand,
+.admin-shell.is-sidebar-collapsed .sidebar-top-actions,
 .admin-shell.is-sidebar-collapsed .admin-brand-copy,
 .admin-shell.is-sidebar-collapsed .nav-group h2,
 .admin-shell.is-sidebar-collapsed .nav-group a span,
@@ -1676,10 +1747,6 @@ tbody tr:has([data-record-select]:checked) {
 .admin-shell.is-sidebar-collapsed .sidebar-top {
   display: grid;
   justify-items: center;
-}
-
-.admin-shell.is-sidebar-collapsed .admin-brand {
-  justify-content: center;
 }
 
 .admin-shell.is-sidebar-collapsed .sidebar-toggle {
@@ -2577,6 +2644,16 @@ html[dir="rtl"] th:last-child {
   .admin-shell.is-sidebar-collapsed .admin-brand-copy,
   .admin-shell.is-sidebar-collapsed .account-copy {
     display: grid;
+  }
+
+  /* On phones the collapsed class means "drawer closed", not "rail", so the
+     brand and its actions stay visible inside the opened drawer. */
+  .admin-shell.is-sidebar-collapsed .admin-brand {
+    display: inline-grid;
+  }
+
+  .admin-shell.is-sidebar-collapsed .sidebar-top-actions {
+    display: flex;
   }
 
   .admin-shell.is-sidebar-collapsed .sidebar-language span {
