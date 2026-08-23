@@ -13,8 +13,19 @@ $email = '';
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     try {
         $pdo = khotwa_db();
+        verify_app_csrf();
         $email = trim((string) ($_POST['email'] ?? ''));
         $password = (string) ($_POST['password'] ?? '');
+        $clientIp = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+
+        // Slow down guessing: too many recent failures from this address, or against
+        // this account, and the attempt is refused without touching the password.
+        $recent = login_attempts_recent($pdo, $clientIp, $email);
+        if ($recent['ip'] >= 10 || $recent['email'] >= 6) {
+            throw new RuntimeException(
+                'Too many failed sign-in attempts. Please wait 15 minutes and try again.'
+            );
+        }
 
         $login = $pdo->prepare(
             "SELECT id, teacher_id, first_name, last_name, email, password_hash, role, status
@@ -25,7 +36,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $login->execute([$email]);
         $user = $login->fetch();
 
-        if (!$user && $email === 'admin@khotwa.test' && $password === 'admin123') {
+        // First-run bootstrap only. Once any account exists this branch is dead, so the
+        // demo credentials can never be used to mint a second administrator.
+        $accountsExist = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() > 0;
+        if (!$user && !$accountsExist && $email === 'admin@khotwa.test' && $password === 'admin123') {
             $insert = $pdo->prepare(
                 "INSERT INTO users (
                     teacher_id, first_name, last_name, email, password_hash,
@@ -50,8 +64,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             ($user['role'] === 'teacher' && $user['teacher_id'] === null) ||
             !password_verify($password, (string) $user['password_hash'])
         ) {
+            // Spend the same time hashing whether or not the account exists, so the
+            // response time does not reveal which emails are registered.
+            if (!$user) {
+                password_verify($password, '$2y$12$usesomesillystringforsalt0000000000000000000000000000000');
+            }
+            login_attempt_record($pdo, $clientIp, $email);
             $error = 'Invalid email or password, or this account is not ready for portal access.';
         } else {
+            login_attempts_clear($pdo, $clientIp, $email);
             session_regenerate_id(true);
             $_SESSION['user'] = [
                 'id' => (int) $user['id'],
@@ -67,6 +88,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
             redirect_to_role_home($_SESSION['user']);
         }
+    } catch (RuntimeException $exception) {
+        // Raised deliberately above (expired form token, too many attempts), so the
+        // message is safe to show as written.
+        $error = $exception->getMessage();
     } catch (Throwable $exception) {
         $error = 'The database is unavailable. Start MySQL in XAMPP and try again.';
     }
@@ -190,6 +215,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         </div>
 
         <form class="auth-form" id="login-form" method="post" action="<?= e(khotwa_url('login.php')) ?>">
+          <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
           <label class="field">
             <span>Email address</span>
             <span class="input-wrap">

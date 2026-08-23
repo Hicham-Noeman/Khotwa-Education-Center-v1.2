@@ -111,15 +111,18 @@ try {
         <?php else: ?>
           <section class="content-heading profile-heading">
             <div>
-              <a class="back-to-table" href="<?= e(admin_workspace_url($view)) ?>">Go back to <?= e($pageTitle) ?></a>
+              <?php // data-back-to-view lets the table's stored address (filters, tab, search,
+                    // sort, scroll) replace this plain fallback link once the page loads. ?>
+              <a class="back-to-table" href="<?= e(admin_workspace_url($view, ['restore' => 1])) ?>" data-back-to-view="<?= e($view) ?>">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7"/></svg>
+                Back to <?= e($pageTitle) ?>
+              </a>
               <h1><?= e($pageTitle) ?> record</h1>
               <p>Every stored field for this record is shown below.</p>
             </div>
             <span class="profile-id">ID <?= e((string) $recordId) ?></span>
           </section>
 
-          <?php if ($message !== ''): ?><div class="form-notice success-notice"><?= e($message) ?></div><?php endif; ?>
-          <?php if ($error !== ''): ?><div class="form-notice error-notice"><?= e($error) ?></div><?php endif; ?>
 
           <section class="data-panel profile-main-card<?= $view === 'website-content' ? ' website-content-record' : '' ?>">
             <form method="post" enctype="multipart/form-data" data-edit-form>
@@ -282,6 +285,10 @@ try {
     </div>
     <button class="sidebar-scrim" type="button" aria-label="Close navigation panel" data-sidebar-scrim></button>
   </div>
+  <?php render_toasts([
+      ['type' => 'success', 'text' => $message ?? ''],
+      ['type' => 'error', 'text' => $error ?? ''],
+  ]); ?>
   <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/admin.js')) ?>" defer></script>
 </body>

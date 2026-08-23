@@ -25,7 +25,7 @@ $dbPass = '';
 $dbCharset = 'utf8mb4';
 
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
-const KHOTWA_SCHEMA_VERSION = 10;
+const KHOTWA_SCHEMA_VERSION = 14;
 
 function getDatabaseConnection(): PDO
 {
@@ -134,6 +134,42 @@ function seedHomepageSettingsDefaults(PDO $pdo): void
     }
 }
 
+/**
+ * Login throttling. Only failures are recorded, and a successful login clears them,
+ * so a legitimate user who mistypes once is never held back for long.
+ */
+function login_attempts_recent(PDO $pdo, string $ip, string $email): array
+{
+    $statement = $pdo->prepare(
+        'SELECT
+            SUM(ip_address = ?) AS from_ip,
+            SUM(email = ?) AS for_email
+         FROM login_attempts
+         WHERE attempted_at > (NOW() - INTERVAL 15 MINUTE)'
+    );
+    $statement->execute([$ip, $email]);
+    $row = $statement->fetch() ?: [];
+
+    return [
+        'ip' => (int) ($row['from_ip'] ?? 0),
+        'email' => (int) ($row['for_email'] ?? 0),
+    ];
+}
+
+function login_attempt_record(PDO $pdo, string $ip, string $email): void
+{
+    $pdo->prepare('INSERT INTO login_attempts (ip_address, email, attempted_at) VALUES (?, ?, NOW())')
+        ->execute([$ip, mb_substr($email, 0, 190)]);
+    // Keep the table small; yesterday's failures are of no further use.
+    $pdo->exec('DELETE FROM login_attempts WHERE attempted_at < (NOW() - INTERVAL 1 DAY)');
+}
+
+function login_attempts_clear(PDO $pdo, string $ip, string $email): void
+{
+    $pdo->prepare('DELETE FROM login_attempts WHERE ip_address = ? OR email = ?')
+        ->execute([$ip, mb_substr($email, 0, 190)]);
+}
+
 function homepage_setting(PDO $pdo, string $key, string $default = ''): string
 {
     $statement = $pdo->prepare('SELECT setting_value FROM homepage_settings WHERE setting_key = ? LIMIT 1');
@@ -235,9 +271,9 @@ function createKhotwaTables(PDO $pdo): void
             blood_type ENUM('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-') NOT NULL,
             date_of_birth DATE NOT NULL,
             address TEXT NULL,
-            family_status VARCHAR(100) NOT NULL,
+            family_status ENUM('Married', 'Divorced', 'Widowed', 'Separated', 'Single') NOT NULL,
             number_of_people_in_household TINYINT UNSIGNED NOT NULL,
-            current_teaching_language ENUM('Arabic', 'English') NOT NULL,
+            current_teaching_language ENUM('French', 'English') NOT NULL,
             father_phone_number VARCHAR(30) NULL,
             mother_phone_number VARCHAR(30) NULL,
             home_phone_number VARCHAR(30) NULL,
@@ -384,8 +420,6 @@ function createKhotwaTables(PDO $pdo): void
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             parent_user_id BIGINT UNSIGNED NOT NULL,
             student_id BIGINT UNSIGNED NOT NULL,
-            relationship ENUM('father', 'mother', 'guardian', 'relative') NOT NULL DEFAULT 'guardian',
-            notes VARCHAR(255) NULL,
             status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -590,7 +624,7 @@ function createKhotwaTables(PDO $pdo): void
             warning_number TINYINT UNSIGNED NULL,
             conversation_minutes SMALLINT UNSIGNED NULL,
             reason VARCHAR(255) NOT NULL,
-            action_taken VARCHAR(255) NULL,
+            parent_message TEXT NULL,
             parent_notified TINYINT(1) NOT NULL DEFAULT 0,
             notes TEXT NULL,
 
@@ -838,6 +872,17 @@ function createKhotwaTables(PDO $pdo): void
             PRIMARY KEY (id),
             UNIQUE KEY uq_homepage_contact_key (link_key),
             INDEX idx_homepage_contact_type_order (status, link_type, sort_order)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        // Failed logins, so repeated guessing can be slowed down.
+        "CREATE TABLE IF NOT EXISTS login_attempts (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            ip_address VARCHAR(45) NOT NULL,
+            email VARCHAR(190) NOT NULL,
+            attempted_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            INDEX idx_login_attempts_ip (ip_address, attempted_at),
+            INDEX idx_login_attempts_email (email, attempted_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
         // Small key/value store for homepage switches such as the admissions banner.
@@ -1394,21 +1439,51 @@ function addIndexIfMissing(PDO $pdo, string $tableName, string $indexName, strin
 
 function applyKhotwaMigrations(PDO $pdo): void
 {
+    // The teaching language is the foreign-language stream the student follows, so the
+    // options are French and English. Rows recorded as 'Arabic' predate that and are
+    // moved to French, which keeps the two original groups distinct.
     $teachingLanguageType = columnType($pdo, 'students', 'current_teaching_language');
 
-    if ($teachingLanguageType !== "enum('Arabic','English')") {
-        if (str_contains(strtolower((string) $teachingLanguageType), 'french')) {
+    if ($teachingLanguageType !== "enum('French','English')") {
+        if (str_contains(strtolower((string) $teachingLanguageType), 'arabic')) {
+            $pdo->exec(
+                "ALTER TABLE students
+                 MODIFY current_teaching_language
+                 ENUM('Arabic', 'English', 'French') NOT NULL"
+            );
             $pdo->exec(
                 "UPDATE students
-                 SET current_teaching_language = 'English'
-                 WHERE current_teaching_language = 'French'"
+                 SET current_teaching_language = 'French'
+                 WHERE current_teaching_language = 'Arabic'"
             );
         }
 
         $pdo->exec(
             "ALTER TABLE students
-             MODIFY current_teaching_language ENUM('Arabic', 'English') NOT NULL"
+             MODIFY current_teaching_language ENUM('French', 'English') NOT NULL"
         );
+    }
+
+    // Family status used to be free text; the known values map straight onto the list.
+    $familyStatusType = (string) columnType($pdo, 'students', 'family_status');
+    if (!str_starts_with(strtolower($familyStatusType), 'enum')) {
+        $pdo->exec("UPDATE students SET family_status = 'Married' WHERE family_status = '' OR family_status IS NULL");
+        $pdo->exec(
+            "ALTER TABLE students
+             MODIFY family_status
+             ENUM('Married', 'Divorced', 'Widowed', 'Separated', 'Single') NOT NULL"
+        );
+    }
+
+    // A parent link only records which parent belongs to which student. The
+    // relationship kind and the free-text note were never used, so they are gone.
+    foreach (['relationship', 'notes'] as $unusedParentLinkColumn) {
+        if (columnExists($pdo, 'parent_students', $unusedParentLinkColumn)) {
+            $pdo->exec(
+                'ALTER TABLE parent_students DROP COLUMN '
+                . '`' . $unusedParentLinkColumn . '`'
+            );
+        }
     }
 
     addColumnIfMissing(
@@ -1480,8 +1555,6 @@ function applyKhotwaMigrations(PDO $pdo): void
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             parent_user_id BIGINT UNSIGNED NOT NULL,
             student_id BIGINT UNSIGNED NOT NULL,
-            relationship ENUM('father', 'mother', 'guardian', 'relative') NOT NULL DEFAULT 'guardian',
-            notes VARCHAR(255) NULL,
             status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -1613,13 +1686,22 @@ function applyKhotwaMigrations(PDO $pdo): void
                 MAX(student_warnings.warning_date) AS latest_warning_date
             FROM students
             INNER JOIN student_warnings ON student_warnings.student_id = students.id
-            WHERE student_warnings.status IN ('issued', 'assigned', 'resolved')
+            WHERE student_warnings.status IN ('issued', 'assigned')
             GROUP BY
                 students.id,
                 students.first_name_en,
                 students.last_name_en,
                 student_warnings.warning_year"
     );
+
+    // 'action_taken' became the message the parent reads, so it is renamed and widened
+    // from VARCHAR(255) to TEXT. Existing text carries over untouched.
+    if (columnExists($pdo, 'student_warnings', 'action_taken')
+        && !columnExists($pdo, 'student_warnings', 'parent_message')
+    ) {
+        $pdo->exec('ALTER TABLE student_warnings CHANGE action_taken parent_message TEXT NULL');
+    }
+    addColumnIfMissing($pdo, 'student_warnings', 'parent_message', 'parent_message TEXT NULL AFTER reason');
 
     // Reviews can carry the reviewer's name in Arabic as well as Latin script.
     addColumnIfMissing(

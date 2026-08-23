@@ -163,17 +163,83 @@ try {
         <?php else: ?>
           <section class="content-heading profile-heading">
             <div>
-              <a class="back-to-table" href="<?= e(khotwa_url('admin/index.php')) ?>?view=<?= e($activeView) ?>">Go back to <?= e(ucfirst($activeView)) ?></a>
+              <?php // restore=1 tells the table to put back the search, sort and scroll position,
+                    // and data-back-to-view swaps in the address the record was opened from. ?>
+              <a class="back-to-table" href="<?= e(khotwa_url('admin/index.php')) ?>?view=<?= e($activeView) ?>&restore=1" data-back-to-view="<?= e($activeView) ?>">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7"/></svg>
+                Back to <?= e(ucfirst($activeView)) ?>
+              </a>
               <h1><?= e($personName) ?></h1>
               <p>Complete <?= e($type) ?> profile with every directly linked database record.</p>
             </div>
-            <span class="profile-id">ID <?= e((string) $personId) ?></span>
+            <div class="profile-heading-actions">
+              <?php if ($type === 'student' && $studentQrPayloadJson !== null): ?>
+                <div
+                  class="profile-qr"
+                  data-student-qr
+                  data-qr-file-base="<?= e((string) $studentQrFileBase) ?>"
+                  data-qr-payload="<?= e((string) $studentQrPayloadJson) ?>"
+                >
+                  <?php // Kept in the layout but clipped out of sight: the export reads
+                        // this canvas, so it must render rather than be display:none. ?>
+                  <span class="profile-qr-canvas" data-qr-canvas aria-hidden="true"></span>
+                  <button class="secondary-action" type="button" data-qr-download="png">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14"/></svg>
+                    QR PNG
+                  </button>
+                  <button class="secondary-action" type="button" data-qr-download="jpg">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14"/></svg>
+                    QR JPG
+                  </button>
+                </div>
+              <?php endif; ?>
+              <span class="profile-id">ID <?= e((string) $personId) ?></span>
+            </div>
           </section>
 
-          <?php if ($message !== ''): ?><div class="form-notice success-notice"><?= e($message) ?></div><?php endif; ?>
-          <?php if ($error !== ''): ?><div class="form-notice error-notice"><?= e($error) ?></div><?php endif; ?>
 
-          <section class="data-panel profile-main-card">
+          <?php
+          // One button per section so the whole profile is reachable without scrolling.
+          $profileTabs = ['main' => ucfirst($type) . ' information'];
+          foreach ($linkedTables as $linkedTable => $linkedLabel) {
+              $profileTabs[$linkedTable] = $linkedLabel;
+          }
+          // Opening an "add" link jumps straight to that section.
+          $activeTab = isset($linkedTables[$addTable]) ? $addTable : 'main';
+          ?>
+          <?php // Tabs and panels share one card, so the strip belongs to the
+                // rectangle holding the data rather than floating above it. ?>
+          <div class="profile-workspace">
+          <?php // Icons only, so all sections fit one line; the name appears on hover
+                // and stays visible on the section you are in. ?>
+          <nav class="profile-tabs profile-tabs-icons" role="tablist" aria-label="Profile sections">
+            <?php foreach ($profileTabs as $tabKey => $tabLabel): ?>
+              <button
+                class="profile-tab<?= $tabKey === $activeTab ? ' is-active' : '' ?>"
+                type="button"
+                role="tab"
+                aria-selected="<?= $tabKey === $activeTab ? 'true' : 'false' ?>"
+                aria-controls="panel-<?= e($tabKey) ?>"
+                data-profile-tab="<?= e($tabKey) ?>"
+                title="<?= e($tabLabel) ?>"
+              >
+                <?= admin_icon(admin_profile_section_icon($tabKey)) ?>
+                <span><?= e($tabLabel) ?></span>
+                <?php if (isset($linkedCounts[$tabKey])): ?>
+                  <i><?= e((string) $linkedCounts[$tabKey]) ?></i>
+                <?php endif; ?>
+              </button>
+            <?php endforeach; ?>
+          </nav>
+
+          <div class="profile-panels">
+          <section
+            class="data-panel profile-main-card"
+            id="panel-main"
+            role="tabpanel"
+            data-profile-panel="main"
+            <?= $activeTab === 'main' ? '' : 'hidden' ?>
+          >
             <div class="panel-heading">
               <div><span>Main record</span><h2><?= e(ucfirst($type)) ?> information</h2></div>
               <span class="read-only-status" data-edit-status>Read only</span>
@@ -210,49 +276,28 @@ try {
             </form>
           </section>
 
-          <?php if ($type === 'student' && $studentQrPayloadJson !== null): ?>
-            <section class="data-panel profile-main-card">
+
+          <?php foreach ($linkedTables as $table => $label): ?>
+            <?php $isAddingHere = $addTable === $table; ?>
+            <section
+              class="data-panel linked-section"
+              id="panel-<?= e($table) ?>"
+              role="tabpanel"
+              data-profile-panel="<?= e($table) ?>"
+              data-linked-section
+              data-linked-url="<?= e(khotwa_url('admin/linked-records.php')) ?>?type=<?= e($type) ?>&id=<?= e((string) $personId) ?>&table=<?= e($table) ?><?= $isAddingHere ? '&add=1' : '' ?>"
+              <?= $activeTab === $table ? '' : 'hidden' ?>
+            >
               <div class="panel-heading">
-                <div><span>Student QR</span><h2>Student identity code</h2></div>
+                <div><span><?= e(admin_table_label($table)) ?></span><h2><?= e($label) ?></h2></div>
+                <strong class="record-count"><?= e((string) ($linkedCounts[$table] ?? 0)) ?> records</strong>
               </div>
-              <div class="student-qr-panel" data-student-qr data-qr-file-base="<?= e((string) $studentQrFileBase) ?>" data-qr-payload="<?= e((string) $studentQrPayloadJson) ?>">
-                <div class="student-qr-head">
-                  <strong>Auto-generated student QR code</strong>
-                  <span>Contains JSON fields: Full Name in EN, Full Name in AR, ID.</span>
-                </div>
-                <div class="student-qr-box" data-qr-canvas></div>
-                <div class="qr-download-actions">
-                  <button class="secondary-action" type="button" data-qr-download="png">Download PNG</button>
-                  <button class="secondary-action" type="button" data-qr-download="jpg">Download JPG</button>
-                </div>
+              <div class="linked-section-body" data-linked-content>
+                <p class="linked-empty">Loading records...</p>
               </div>
             </section>
-          <?php endif; ?>
-
-          <section class="linked-records-heading">
-            <div><span>Linked database</span><h2>Related records</h2></div>
-            <p><?= e((string) count($linkedTables)) ?> connected tables</p>
-          </section>
-
-          <div class="linked-records">
-            <?php foreach ($linkedTables as $table => $label): ?>
-              <?php $isAddingHere = $addTable === $table; ?>
-              <details
-                class="linked-section"
-                id="linked-<?= e($table) ?>"
-                data-linked-section
-                data-linked-url="<?= e(khotwa_url('admin/linked-records.php')) ?>?type=<?= e($type) ?>&id=<?= e((string) $personId) ?>&table=<?= e($table) ?><?= $isAddingHere ? '&add=1' : '' ?>"
-                <?= $isAddingHere ? ' open' : '' ?>
-              >
-                <summary>
-                  <span><strong><?= e($label) ?></strong><small><?= e(admin_table_label($table)) ?></small></span>
-                  <i><?= e((string) ($linkedCounts[$table] ?? 0)) ?></i>
-                </summary>
-                <div class="linked-section-body" data-linked-content>
-                  <p class="linked-empty">Open this section to load its records.</p>
-                </div>
-              </details>
-            <?php endforeach; ?>
+          <?php endforeach; ?>
+          </div>
           </div>
         <?php endif; ?>
       </main>
@@ -260,6 +305,10 @@ try {
     <button class="sidebar-scrim" type="button" aria-label="Close navigation panel" data-sidebar-scrim></button>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" defer></script>
+  <?php render_toasts([
+      ['type' => 'success', 'text' => $message ?? ''],
+      ['type' => 'error', 'text' => $error ?? ''],
+  ]); ?>
   <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/qr-tools.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/admin.js')) ?>" defer></script>

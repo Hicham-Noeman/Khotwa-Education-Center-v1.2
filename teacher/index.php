@@ -206,6 +206,9 @@ try {
             $flagStudentId = (int) ($_POST['student_id'] ?? 0);
             $flagReason = trim((string) ($_POST['reason'] ?? ''));
             $flagNotes = trim((string) ($_POST['notes'] ?? ''));
+            // The teacher records how long they talked it through; the admin never edits it.
+            $flagMinutes = trim((string) ($_POST['conversation_minutes'] ?? ''));
+            $flagMinutes = $flagMinutes === '' ? null : min(600, max(0, (int) $flagMinutes));
 
             if ($flagReason === '') {
                 throw new RuntimeException('Describe the behaviour you want to flag.');
@@ -223,14 +226,16 @@ try {
             }
 
             $insertFlag = $pdo->prepare(
-                "INSERT INTO student_warnings (student_id, teacher_id, warning_date, reason, notes, status)
-                 VALUES (?, ?, CURDATE(), ?, NULLIF(?, ''), 'flagged')"
+                "INSERT INTO student_warnings (
+                    student_id, teacher_id, warning_date, reason, notes, conversation_minutes, status
+                 ) VALUES (?, ?, CURDATE(), ?, NULLIF(?, ''), ?, 'flagged')"
             );
             $insertFlag->execute([
                 $flagStudentId,
                 $teacherId,
                 substr($flagReason, 0, 255),
                 substr($flagNotes, 0, 60000),
+                $flagMinutes,
             ]);
 
             header('Location: ' . khotwa_url('teacher/index.php') . '?view=warnings&flagged=1');
@@ -400,8 +405,6 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
           <div class="live-indicator"><span></span><?= e($teacherName) ?></div>
         </section>
 
-        <?php if ($message !== ''): ?><div class="form-notice success-notice"><?= e($message) ?></div><?php endif; ?>
-        <?php if ($error !== ''): ?><div class="form-notice error-notice"><?= e($error) ?></div><?php endif; ?>
 
         <?php if ($view === 'students'): ?>
           <section class="metrics-grid teacher-summary-grid" aria-label="Student summary">
@@ -705,6 +708,10 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                     <input type="text" name="reason" maxlength="255" placeholder="Short reason for the flag" required>
                   </label>
                   <label>
+                    <span>Time spent talking with the student, in minutes (optional)</span>
+                    <input type="number" name="conversation_minutes" min="0" max="600" placeholder="e.g. 15">
+                  </label>
+                  <label>
                     <span>Notes for administration (optional)</span>
                     <textarea name="notes" rows="3" placeholder="Any extra context only the administration will see"></textarea>
                   </label>
@@ -722,12 +729,12 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
               <?php else: ?>
                 <div class="behaviour-flag-list">
                   <?php
+                  // A completed or rejected flag is deleted, so only the three live
+                  // stages can ever show here.
                   $flagStatusLabels = [
                       'flagged' => 'Pending review',
                       'issued' => 'Warning issued',
                       'assigned' => 'Expiation chosen',
-                      'resolved' => 'Resolved',
-                      'dismissed' => 'Dismissed',
                   ];
                   ?>
                   <?php foreach ($myFlags as $flag): ?>
@@ -784,6 +791,10 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
     </div>
     <button class="sidebar-scrim" type="button" aria-label="Close navigation panel" data-sidebar-scrim></button>
   </div>
+  <?php render_toasts([
+      ['type' => 'success', 'text' => $message ?? ''],
+      ['type' => 'error', 'text' => $error ?? ''],
+  ]); ?>
   <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/admin.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/teacher.js')) ?>" defer></script>

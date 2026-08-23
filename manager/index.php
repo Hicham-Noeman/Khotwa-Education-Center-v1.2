@@ -351,7 +351,7 @@ try {
         )->fetchAll();
     } elseif ($view === 'students') {
         $columns = [
-            'id' => 'ID', 'student_name' => 'Student', 'student_name_ar' => 'Arabic name',
+            'student_name' => 'Student', 'student_name_ar' => 'Arabic name',
             'gender' => 'Gender', 'date_of_birth' => 'Birth date', 'grade_name' => 'Current grade',
             'current_teaching_language' => 'Language', 'status' => 'Status',
         ];
@@ -370,7 +370,7 @@ try {
         )->fetchAll();
     } else {
         $columns = [
-            'id' => 'ID', 'teacher_name' => 'Teacher', 'email' => 'Email',
+            'teacher_name' => 'Teacher', 'email' => 'Email',
             'phone_number' => 'Phone', 'subjects' => 'Subjects',
             'student_count' => 'Students', 'status' => 'Status',
         ];

@@ -994,6 +994,119 @@ tbody tr:has([data-record-select]:checked) {
   font-weight: 800;
 }
 
+/* Transient status messages, floated above the page and self-dismissing. */
+.toast-stack {
+  position: fixed;
+  z-index: 90;
+  right: 24px;
+  bottom: 24px;
+  display: grid;
+  gap: 10px;
+  width: min(380px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+html[dir="rtl"] .toast-stack {
+  right: auto;
+  left: 24px;
+}
+
+.toast {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 24px;
+  align-items: start;
+  gap: 12px;
+  padding: 15px 16px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--paper);
+  box-shadow: 0 18px 44px rgba(20, 42, 73, 0.18);
+  pointer-events: auto;
+  animation: toastIn 0.32s var(--ease) both;
+}
+
+.toast.is-leaving {
+  animation: toastOut 0.28s var(--ease) both;
+}
+
+.toast p {
+  margin: 0;
+  font-size: 0.79rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.toast-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
+.toast-success {
+  border-color: rgba(79, 187, 55, 0.32);
+}
+
+.toast-success .toast-icon {
+  color: #2f7d22;
+}
+
+.toast-error {
+  border-color: rgba(229, 28, 111, 0.32);
+}
+
+.toast-error .toast-icon {
+  color: #a30e4e;
+}
+
+.toast-close {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  color: var(--muted);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.toast-close:hover {
+  color: var(--navy);
+  background: rgba(20, 42, 73, 0.07);
+}
+
+.toast-close svg {
+  width: 14px;
+  height: 14px;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes toastOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(10px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast,
+  .toast.is-leaving {
+    animation-duration: 0.01s;
+  }
+}
+
+@media (max-width: 700px) {
+  .toast-stack {
+    right: 16px;
+    bottom: 16px;
+  }
+
+  html[dir="rtl"] .toast-stack {
+    left: 16px;
+  }
+}
+
 .success-notice {
   color: #2f7d22;
   border: 1px solid rgba(79, 187, 55, 0.2);
@@ -1340,11 +1453,69 @@ tbody tr:has([data-record-select]:checked) {
   align-items: center;
 }
 
+/* Reads as a button rather than a caption: it is the way back to the table. */
 .back-to-table {
   display: inline-flex;
-  color: var(--orange);
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+  padding: 7px 13px 7px 10px;
+  border: 1px solid var(--navy);
+  border-radius: 999px;
+  background: var(--navy);
+  color: var(--paper);
   font-size: 0.72rem;
   font-weight: 800;
+  box-shadow: 0 8px 20px rgba(34, 63, 107, 0.22);
+  transition: background 0.2s var(--ease), border-color 0.2s var(--ease), transform 0.2s var(--ease);
+}
+
+.back-to-table svg {
+  width: 14px;
+  height: 14px;
+}
+
+.back-to-table:hover {
+  border-color: var(--navy-deep);
+  background: var(--navy-deep);
+  transform: translateX(-2px);
+}
+
+/* QR export buttons sit next to the ID badge in the profile header. */
+.profile-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-qr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The QR itself is not shown here, only exported, so clip it out of view while
+   keeping it rendered. */
+.profile-qr-canvas {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  pointer-events: none;
+}
+
+.profile-qr .secondary-action {
+  min-height: 38px;
+  gap: 7px;
+  padding: 0 13px;
+  font-size: 0.72rem;
+}
+
+.profile-qr .secondary-action svg {
+  width: 15px;
+  height: 15px;
 }
 
 .profile-id {
@@ -1591,12 +1762,163 @@ tbody tr:has([data-record-select]:checked) {
   gap: 10px;
 }
 
+/* Profile workspace: a strip of section tabs joined to the pane beneath it. The
+   selected tab carries the pane's own background and reaches its top edge, so the
+   two form one surface instead of a chip sitting above a separate card. */
+.profile-workspace {
+  border: 1px solid var(--line);
+  border-radius: 19px;
+  background: var(--paper);
+  box-shadow: 0 13px 35px rgba(20, 42, 73, 0.045);
+  overflow: hidden;
+}
+
+.profile-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 4px;
+  /* Zero bottom padding: a tab has to touch the pane to look joined to it. */
+  padding: 11px 12px 0;
+  background: rgba(34, 63, 107, 0.03);
+  overflow-x: auto;
+  /* Never let the strip grow a vertical scrollbar of its own. */
+  overflow-y: hidden;
+  /* A visible scrollbar would sit between the tabs and the pane and break the join,
+     so it is hidden; the strip is moved with the wheel, arrow keys, or by selecting
+     a tab, which scrolls it into view. */
+  scrollbar-width: none;
+}
+
+.profile-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.profile-panels {
+  min-width: 0;
+}
+
+/* Panels sit inside the workspace, so they drop their own card chrome. */
+.profile-panels > [data-profile-panel] {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.profile-tab {
+  display: flex;
+  flex: 0 0 auto;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  color: var(--navy);
+  border: 0;
+  /* Curved on top only, so the bottom edge can run into the pane. */
+  border-radius: 11px 11px 0 0;
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.profile-tab:hover {
+  background: rgba(34, 63, 107, 0.06);
+}
+
+.profile-tab.is-active {
+  color: var(--navy-deep);
+  background: var(--paper);
+  font-weight: 800;
+}
+
+/* Icon-only variant: thirteen labels will not fit on one line, so each tab shows
+   its icon and reveals the name on hover, on keyboard focus, and while selected. */
+.profile-tabs-icons .profile-tab {
+  gap: 0;
+  /* Tight enough that all thirteen fit a laptop screen without scrolling. */
+  padding: 0 8px;
+}
+
+.profile-tabs-icons .profile-tab svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.profile-tabs-icons .profile-tab > span {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  white-space: nowrap;
+  transition: max-width 0.25s var(--ease), opacity 0.2s ease, margin 0.25s var(--ease);
+}
+
+/* The count is always readable next to the icon, so it stays compact. */
+.profile-tabs-icons .profile-tab > i {
+  min-width: 18px;
+  height: 18px;
+  margin-inline-start: 7px;
+  padding: 0 4px;
+  font-size: 0.6rem;
+}
+
+.profile-tabs-icons .profile-tab:hover > span,
+.profile-tabs-icons .profile-tab:focus-visible > span,
+.profile-tabs-icons .profile-tab.is-active > span {
+  max-width: 140px;
+  margin-inline-start: 8px;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-tabs-icons .profile-tab > span,
+  .profile-tabs-icons .profile-tab > i {
+    transition: none;
+  }
+}
+
+.profile-tab i {
+  display: grid;
+  min-width: 22px;
+  height: 20px;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(34, 63, 107, 0.09);
+  font-size: 0.66rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.profile-tab.is-active i {
+  color: var(--paper);
+  background: rgba(11, 28, 52, 0.35);
+}
+
+.profile-tab:focus-visible {
+  outline: 2px solid var(--navy);
+  outline-offset: 2px;
+}
+
+/* A linked section is now a panel, so it carries the usual data-panel padding. */
 .linked-section {
   border: 1px solid var(--line);
   border-radius: 17px;
   background: var(--paper);
   box-shadow: 0 13px 35px rgba(20, 42, 73, 0.045);
   overflow: hidden;
+}
+
+.linked-section[data-profile-panel] {
+  padding: 22px 24px 24px;
+}
+
+.linked-section[data-profile-panel] .linked-section-body {
+  padding: 0;
 }
 
 .linked-section > summary,
@@ -2950,6 +3272,24 @@ html[dir="rtl"] th:last-child {
   gap: 18px;
   align-items: start;
 }
+/* Warning cards as tiles: the stage panel is full width, so they sit side by side. */
+.warning-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.warning-tiles .warning-card {
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .warning-tiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .warning-column-hint {
   margin: -4px 0 12px;
   color: var(--muted);
@@ -2975,6 +3315,39 @@ html[dir="rtl"] th:last-child {
 .warning-action-form { margin-top: 10px; display: grid; gap: 8px; }
 .warning-type-choice { display: flex; gap: 14px; font-size: 0.8rem; font-weight: 600; color: var(--navy); }
 .warning-type-choice label { display: inline-flex; align-items: center; gap: 5px; }
+/* Running tally on a flag, so the admin sees the student's history before issuing. */
+.warning-history {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 10px 0 4px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(34, 63, 107, 0.04);
+}
+
+.warning-history span {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.warning-history b {
+  color: var(--navy);
+  font-size: 0.82rem;
+}
+
+.warning-history small {
+  flex: 1 0 100%;
+  color: var(--muted);
+  font-size: 0.63rem;
+  line-height: 1.45;
+}
+
 .warning-inline-fields { display: flex; gap: 8px; }
 .warning-action-form input[type="number"],
 .warning-action-form input[type="text"] {
@@ -3050,3 +3423,61 @@ html[dir="rtl"] th:last-child {
 .parent-warning-expiation span { color: var(--muted); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
 .parent-warning-expiation strong { color: var(--navy); }
 .parent-warning-expiation small { color: var(--muted); font-size: 0.76rem; }
+
+/* Pager under a table view. Long tables render one page at a time. */
+.table-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 14px 18px 4px;
+}
+
+.pager-step {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 7px 15px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+  background: var(--paper);
+  transition: border-color 0.16s ease, color 0.16s ease;
+}
+
+.pager-step:hover {
+  border-color: var(--navy);
+  color: var(--navy);
+}
+
+.pager-step.is-disabled {
+  opacity: 0.42;
+  pointer-events: none;
+}
+
+.pager-status {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* The notes field on the new-parent form spans the full row. */
+.new-parent-form .new-parent-notes {
+  grid-column: 1 / -1;
+}
+
+/* Toolbar buttons keep their label on one line; the row can wrap instead. */
+.table-heading-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.table-heading-actions > a,
+.table-heading-actions > button {
+  white-space: nowrap;
+}
+
+.new-parent-button svg {
+  width: 16px;
+  height: 16px;
+}

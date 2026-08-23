@@ -34,12 +34,46 @@ try {
         unset($editableNames[$derivedColumn]);
     }
 
+    // A parent link only says which parent belongs to this student, so the section
+    // shows the account and nothing else -- on the add form and on saved rows alike.
+    $skipColumns = $table === 'parent_students' ? ['status'] : [];
+    $keepColumn = static fn (array $column): bool => !in_array(
+        (string) $column['COLUMN_NAME'],
+        $skipColumns,
+        true
+    );
+
+    $addColumns = array_values(array_filter($editableColumns, $keepColumn));
+    $rowColumns = array_values(array_filter($columns, $keepColumn));
+
     $statement = $pdo->prepare(
         'SELECT * FROM ' . admin_quote_identifier($table)
         . ' WHERE ' . admin_quote_identifier($relationColumn) . ' = ? ORDER BY id DESC'
     );
     $statement->execute([$personId]);
     $rows = $statement->fetchAll();
+
+    // Each saved row is collapsed, so a parent link names the account on its header
+    // instead of the useless "Record 1" -- the name and the email are the whole point.
+    $rowTitles = [];
+    if ($table === 'parent_students' && $rows !== []) {
+        $parentIds = array_values(array_unique(array_map(
+            static fn (array $row): int => (int) $row['parent_user_id'],
+            $rows
+        )));
+        $accounts = $pdo->prepare(
+            "SELECT id, TRIM(CONCAT(first_name, ' ', COALESCE(last_name, ''))) AS name, email
+             FROM users
+             WHERE id IN (" . implode(', ', array_fill(0, count($parentIds), '?')) . ')'
+        );
+        $accounts->execute($parentIds);
+        foreach ($accounts as $account) {
+            $rowTitles[(int) $account['id']] = [
+                'title' => (string) $account['name'],
+                'meta' => (string) $account['email'],
+            ];
+        }
+    }
 } catch (Throwable $exception) {
     http_response_code(500);
     exit('These records could not be loaded. Please try again.');
@@ -58,13 +92,15 @@ try {
     <input type="hidden" name="action" value="add_linked">
     <input type="hidden" name="table" value="<?= e($table) ?>">
     <div class="record-form-grid compact-grid">
-      <?php foreach ($editableColumns as $column): ?>
+      <?php foreach ($addColumns as $column): ?>
         <?php admin_render_field(
             $pdo,
             $table,
             $column,
             admin_default_field_value($column),
-            [$relationColumn => $personId]
+            [$relationColumn => $personId],
+            false,
+            [$relationColumn]
         ); ?>
       <?php endforeach; ?>
     </div>
@@ -80,7 +116,15 @@ try {
 <?php else: ?>
   <?php foreach ($rows as $index => $row): ?>
     <details class="linked-row">
-      <summary>Record #<?= e((string) $row['id']) ?><span><?= e((string) ($index + 1)) ?> of <?= e((string) count($rows)) ?></span></summary>
+      <?php
+      $rowTitle = $rowTitles[(int) ($row['parent_user_id'] ?? 0)] ?? null;
+      ?>
+      <summary>
+        <?= e($rowTitle === null ? 'Record ' . ($index + 1) : $rowTitle['title']) ?>
+        <span><?= e($rowTitle === null
+            ? ($index + 1) . ' of ' . count($rows)
+            : $rowTitle['meta']) ?></span>
+      </summary>
       <form class="linked-record-form" method="post" data-edit-form>
         <input type="hidden" name="csrf" value="<?= e($csrfToken) ?>">
         <input type="hidden" name="action" value="update_linked">
@@ -88,7 +132,7 @@ try {
         <input type="hidden" name="record_id" value="<?= e((string) $row['id']) ?>">
         <fieldset class="record-fieldset" disabled data-edit-fields>
           <div class="record-form-grid compact-grid">
-            <?php foreach ($columns as $column): ?>
+            <?php foreach ($rowColumns as $column): ?>
               <?php
               $columnName = (string) $column['COLUMN_NAME'];
               $locked = [];
@@ -104,7 +148,8 @@ try {
                   $column,
                   $row[$columnName] ?? '',
                   $locked,
-                  true
+                  true,
+                  [$relationColumn]
               );
               ?>
             <?php endforeach; ?>

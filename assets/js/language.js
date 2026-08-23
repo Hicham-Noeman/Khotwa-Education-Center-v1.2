@@ -116,6 +116,30 @@
     "Family voices": "آراء العائلات",
     "Parents": "الأهل",
     "Switch language": "تبديل اللغة",
+    "Inactive": "غير نشط",
+    "Waiting": "قائمة الانتظار",
+    "Left": "منسحب",
+    "Graduated": "متخرّج",
+    "Married": "متزوج",
+    "Divorced": "مطلّق",
+    "Widowed": "أرمل",
+    "Separated": "منفصل",
+    "Single": "أعزب",
+    "French": "الفرنسية",
+    "Unpaid": "غير مدفوع",
+    "Partial": "مدفوع جزئياً",
+    "Pending": "قيد الانتظار",
+    "Approved": "مقبول",
+    "Rejected": "مرفوض",
+    "Flagged": "مُبلّغ عنه",
+    "Issued": "صادر",
+    "Assigned": "مُسند",
+    "Resolved": "مُنجز",
+    "Dismissed": "مُلغى",
+    "Father": "الأب",
+    "Mother": "الأم",
+    "Guardian": "وليّ الأمر",
+    "Relative": "قريب",
     "What families say": "ما تقوله العائلات",
     "about Khotwa.": "عن خطوة.",
     "Reviews shared by parents from their own Khotwa parent portal account, published once the administration approves them.": "آراء يشاركها أولياء الأمور من حساباتهم في بوابة الأهل، وتُنشر بعد موافقة الإدارة.",
@@ -336,6 +360,12 @@
     "records": "سجلات",
     "No records found.": "لا توجد سجلات.",
     "No matching records.": "لا توجد سجلات مطابقة.",
+    "No records match this search.": "لا توجد سجلات مطابقة لهذا البحث.",
+    "Nothing on this page matches. Press Enter to search the whole table.":
+      "لا يوجد تطابق في هذه الصفحة. اضغط Enter للبحث في الجدول بالكامل.",
+    "Table pages": "صفحات الجدول",
+    "Previous": "السابق",
+    "Next": "التالي",
     "No attendance records yet.": "لا توجد سجلات حضور بعد.",
     "A live view of students, educators, attendance, enrollments, and financial activity.": "عرض مباشر للطلاب والمعلمين والحضور والتسجيلات والنشاط المالي.",
     "Student profiles and their current academic placement.": "ملفات الطلاب ومستواهم الأكاديمي الحالي.",
@@ -499,6 +529,39 @@
     ,"Takes Regular Medicine": "يتناول دواءً منتظماً"
     ,"Medicine Details": "تفاصيل الدواء"
     ,"Relationship": "صلة القرابة"
+    ,"First name": "الاسم الأول"
+    ,"Last name": "اسم العائلة"
+    ,"Temporary password": "كلمة مرور مؤقتة"
+    ,"New parent": "وليّ أمر جديد"
+    ,"New parent account": "حساب وليّ أمر جديد"
+    ,"Create a parent account": "إنشاء حساب وليّ أمر"
+    ,"Create parent account": "إنشاء الحساب"
+    ,"Link to a student (optional)": "الربط بطالب (اختياري)"
+    ,"No student yet": "بدون طالب حالياً"
+    ,"Parent": "وليّ الأمر"
+    ,"Actions": "الإجراءات"
+    ,"Updated": "آخر تحديث"
+    ,"Delete": "حذف"
+    ,"Delete selected": "حذف المحدد"
+    ,"Editing": "قيد التعديل"
+    ,"Read only": "للقراءة فقط"
+    ,"The parent account was created.": "تم إنشاء حساب وليّ الأمر."
+    ,"The parent signs in with this email and is asked to choose their own password. Open a student profile to attach them to a child.": "يسجّل وليّ الأمر الدخول بهذا البريد ويُطلب منه اختيار كلمة مرور خاصة به. افتح ملف الطالب لربطه بأحد الأبناء."
+    ,"Parent Links": "روابط أولياء الأمور"
+    ,"Expiations": "الكفّارات"
+    ,"Categories": "الفئات"
+    ,"Age Groups": "الفئات العمرية"
+    ,"Website Content": "محتوى الموقع"
+    ,"Vision Slides": "شرائح الرؤية"
+    ,"Statistics": "الإحصائيات"
+    ,"Team Members": "أعضاء الفريق"
+    ,"Gallery Images": "صور المعرض"
+    ,"Partner Logos": "شعارات الشركاء"
+    ,"Parent Reviews": "تقييمات أولياء الأمور"
+    ,"Contact & Social": "التواصل ووسائل التواصل"
+    ,"Loading records...": "جارٍ تحميل السجلات..."
+    ,"These records could not be loaded. Close and reopen this section to try again.": "تعذّر تحميل هذه السجلات. أغلق هذا القسم ثم افتحه مرة أخرى للمحاولة."
+    ,"Parent User": "حساب وليّ الأمر"
     ,"Person Full Name": "الاسم الكامل"
     ,"Day Of Week": "يوم الأسبوع"
     ,"Start Time": "وقت البدء"
@@ -511,7 +574,7 @@
     ,"Warning Type": "نوع التنبيه"
     ,"Warning Number": "رقم التنبيه"
     ,"Conversation Minutes": "دقائق المحادثة"
-    ,"Action Taken": "الإجراء المتخذ"
+    ,"Message To Parent": "الرسالة إلى الأهل"
     ,"Parent Notified": "تم إبلاغ الأهل"
     ,"Billing Year": "سنة الفوترة"
     ,"Billing Month": "شهر الفوترة"
@@ -548,7 +611,11 @@
     const reviewCountMatch = trimmed.match(/^(\d+)\s+family reviews$/);
     const connectedMatch = trimmed.match(/^(\d+)\s+connected tables$/);
     const idMatch = trimmed.match(/^ID\s+(\d+)$/);
-    const recordNumberMatch = trimmed.match(/^Record\s+#(\d+)$/);
+    const recordNumberMatch = trimmed.match(/^Record\s+#?(\d+)$/);
+    // Pager and record-count lines on a paginated table view.
+    const pageOfMatch = trimmed.match(/^Page\s+(\d+)\s+of\s+(\d+)$/);
+    const rangeMatch = trimmed.match(/^(\d+)\s*[–-]\s*(\d+)\s+of\s+(\d+)\s+records$/);
+    const matchedMatch = trimmed.match(/^(\d+)\s+of\s+(\d+)\s+records$/);
 
     if (digitMatch) return preserveWhitespace(value, `الرقم ${digitMatch[1]}`);
     if (stepMatch) return preserveWhitespace(value, `الخطوة ${stepMatch[1]}`);
@@ -556,7 +623,12 @@
     if (reviewCountMatch) return preserveWhitespace(value, `${reviewCountMatch[1]} تقييماً من العائلات`);
     if (connectedMatch) return preserveWhitespace(value, `${connectedMatch[1]} جداول مرتبطة`);
     if (idMatch) return preserveWhitespace(value, `المعرّف ${idMatch[1]}`);
-    if (recordNumberMatch) return preserveWhitespace(value, `السجل #${recordNumberMatch[1]}`);
+    if (recordNumberMatch) return preserveWhitespace(value, `السجل ${recordNumberMatch[1]}`);
+    if (pageOfMatch) return preserveWhitespace(value, `صفحة ${pageOfMatch[1]} من ${pageOfMatch[2]}`);
+    if (rangeMatch) {
+      return preserveWhitespace(value, `${rangeMatch[1]}–${rangeMatch[2]} من ${rangeMatch[3]} سجل`);
+    }
+    if (matchedMatch) return preserveWhitespace(value, `${matchedMatch[1]} من ${matchedMatch[2]} سجل`);
     if (!arabic[trimmed]) return value;
     return preserveWhitespace(value, arabic[trimmed]);
   };

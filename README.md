@@ -42,7 +42,8 @@ with PHP and MySQL.
 │
 ├── tools/
 │   ├── setup.php               Database setup and demo seeding
-│   └── seed-recent-attendance.php  Refreshes this week's demo attendance
+│   ├── seed-recent-attendance.php  Refreshes this week's demo attendance
+│   └── seed-warnings.php           Ten demo warnings in each workflow state
 └── logs/                   Server logs (deny all)
 ```
 

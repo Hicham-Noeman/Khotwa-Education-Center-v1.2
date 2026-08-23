@@ -344,7 +344,7 @@ function seedDatabase(PDO $pdo): array
                 $address = "Street " . rand(10, 99) . ", Block " . rand(1, 5) . ", " . ['Hamra', 'Achrafieh', 'Badaro', 'Sin El Fil', 'Sidon', 'Tripoli'][rand(0, 5)];
                 $familyStatus = ['Married', 'Married', 'Married', 'Divorced', 'Widowed'][rand(0, 4)];
                 $household = rand(3, 7);
-                $lang = ($grade + $sIndex) % 2 === 0 ? 'Arabic' : 'English';
+                $lang = ($grade + $sIndex) % 2 === 0 ? 'French' : 'English';
                 
                 $phoneF = '+961 70 ' . rand(100, 999) . ' ' . rand(100, 999);
                 $phoneM = '+961 71 ' . rand(100, 999) . ' ' . rand(100, 999);
@@ -561,8 +561,8 @@ function seedDatabase(PDO $pdo): array
                ) VALUES (NULL, ?, ?, ?, ?, 'parent', 'active', 0, ?)"
             );
             $insertParentStudent = $pdo->prepare(
-              "INSERT INTO parent_students (parent_user_id, student_id, relationship, notes, status)
-               VALUES (?, ?, ?, ?, 'active')"
+              "INSERT INTO parent_students (parent_user_id, student_id, status)
+               VALUES (?, ?, 'active')"
             );
             $hashedParentPassword = password_hash('parent123', PASSWORD_DEFAULT);
 
@@ -587,16 +587,16 @@ function seedDatabase(PDO $pdo): array
             $counts['users']++;
 
             if (isset($students[0]['id'], $students[1]['id'], $students[2]['id'], $students[3]['id'], $students[4]['id'])) {
-              $insertParentStudent->execute([$parentOneId, (int) $students[0]['id'], 'father', 'Primary guardian account']);
+              $insertParentStudent->execute([$parentOneId, (int) $students[0]['id']]);
               $counts['parent_students']++;
-              $insertParentStudent->execute([$parentOneId, (int) $students[1]['id'], 'father', 'Sibling account access']);
+              $insertParentStudent->execute([$parentOneId, (int) $students[1]['id']]);
               $counts['parent_students']++;
 
-              $insertParentStudent->execute([$parentTwoId, (int) $students[2]['id'], 'mother', 'Primary guardian account']);
+              $insertParentStudent->execute([$parentTwoId, (int) $students[2]['id']]);
               $counts['parent_students']++;
-              $insertParentStudent->execute([$parentTwoId, (int) $students[3]['id'], 'mother', 'Sibling account access']);
+              $insertParentStudent->execute([$parentTwoId, (int) $students[3]['id']]);
               $counts['parent_students']++;
-              $insertParentStudent->execute([$parentTwoId, (int) $students[4]['id'], 'mother', 'Sibling account access']);
+              $insertParentStudent->execute([$parentTwoId, (int) $students[4]['id']]);
               $counts['parent_students']++;
             }
 
@@ -711,7 +711,7 @@ function seedDatabase(PDO $pdo): array
         $insertWarning = $pdo->prepare(
             "INSERT INTO student_warnings (
                 student_id, teacher_id, warning_date, warning_type, warning_number,
-                conversation_minutes, reason, action_taken, parent_notified, notes
+                conversation_minutes, reason, parent_message, parent_notified, notes
              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
 

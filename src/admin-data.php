@@ -193,9 +193,38 @@ function admin_linked_tables_for_user(string $type, array $user): array
     return $tables;
 }
 
+/**
+ * Icon name for a profile section, so the tab strip can show icons instead of
+ * thirteen text labels that will not fit on one line.
+ */
+function admin_profile_section_icon(string $sectionKey): string
+{
+    return match ($sectionKey) {
+        'main' => 'students',
+        'users' => 'users',
+        'teacher_subjects' => 'subjects',
+        'student_academic_records' => 'academic-record',
+        'student_medical_info' => 'medical',
+        'student_other_phone_numbers' => 'phone',
+        'student_school_schedule' => 'schedule',
+        'parent_students' => 'parent-links',
+        'student_subject_enrollments' => 'enrollments',
+        'student_daily_attendance' => 'attendance',
+        'student_subject_attendance' => 'subjects',
+        'student_warnings' => 'warnings',
+        'student_subscriptions', 'student_subscription_months' => 'subscriptions',
+        'student_subscription_payments' => 'payments',
+        default => 'overview',
+    };
+}
+
 function admin_icon(string $name): string
 {
     $paths = [
+        'academic-record' => '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
+        'medical' => '<path d="M12 21s-7-4.5-7-10a4.5 4.5 0 0 1 7-3.7A4.5 4.5 0 0 1 19 11c0 5.5-7 10-7 10Z"/><path d="M12 9.5v4M10 11.5h4"/>',
+        'phone' => '<path d="M7 3h3l1.6 4-2 1.5a11 11 0 0 0 5.9 5.9l1.5-2L21 14v3a2 2 0 0 1-2.2 2A16 16 0 0 1 5 5.2A2 2 0 0 1 7 3Z"/>',
+        'schedule' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/><path d="M8 15h3M8 18h6"/>',
         'logout' => '<path d="M10 17l5-5-5-5M15 12H3"/><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/>',
         'overview' => '<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
         'students' => '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
@@ -261,6 +290,7 @@ function admin_column_label(string $column): string
         'logo_path' => 'Logo',
         'stat_key' => 'Statistic Key',
         'stat_value' => 'Number',
+        'parent_message' => 'Message To Parent',
         'link_key' => 'Link Key',
         'link_type' => 'Link Type',
         'layout_style' => 'Layout',
@@ -375,11 +405,26 @@ function admin_default_field_value(array $column): string
         return '';
     }
 
-    if ($column['COLUMN_DEFAULT'] !== null) {
-        return (string) $column['COLUMN_DEFAULT'];
+    if ($column['COLUMN_DEFAULT'] === null) {
+        return '';
     }
 
-    return '';
+    $default = (string) $column['COLUMN_DEFAULT'];
+
+    // MariaDB reports "no default" on a nullable column as the four letters NULL,
+    // which would otherwise be pre-filled into the field and saved as that text.
+    if ($default === 'NULL' && $column['IS_NULLABLE'] === 'YES') {
+        return '';
+    }
+
+    // String and enum defaults arrive quoted ('guardian'), and a quoted value never
+    // matches the option it belongs to, so the field fell back to the first choice.
+    if (strlen($default) >= 2 && str_starts_with($default, "'") && str_ends_with($default, "'")) {
+        $default = substr($default, 1, -1);
+        $default = str_replace(["\'", "''"], "'", $default);
+    }
+
+    return $default;
 }
 
 function admin_upload_columns(string $table): array
@@ -470,17 +515,37 @@ function admin_remove_uploaded_files(array $paths): void
     }
 }
 
+/**
+ * Columns the database maintains itself: never editable and never worth showing.
+ */
+function admin_system_columns(): array
+{
+    return ['id', 'created_at', 'updated_at'];
+}
+
 function admin_render_field(
     PDO $pdo,
     string $table,
     array $column,
     mixed $value = '',
     array $locked = [],
-    bool $showHidden = false
+    bool $showHidden = false,
+    array $hiddenOnly = []
 ): void
 {
     $name = (string) $column['COLUMN_NAME'];
     if (!$showHidden && in_array($name, admin_hidden_derived_columns($table), true)) {
+        return;
+    }
+
+    if (in_array($name, admin_system_columns(), true)) {
+        return;
+    }
+
+    // Submitted but not shown: the parent record already establishes this link.
+    if (in_array($name, $hiddenOnly, true)) {
+        $hiddenValue = array_key_exists($name, $locked) ? $locked[$name] : $value;
+        echo '<input type="hidden" name="fields[' . e($name) . ']" value="' . e((string) $hiddenValue) . '">';
         return;
     }
 
@@ -732,6 +797,97 @@ function admin_save_record(PDO $pdo, string $table, array $fields, ?int $id = nu
     return $id;
 }
 
+/**
+ * Creates a parent portal account, optionally linked to a student straight away.
+ *
+ * Registering a family used to mean a detour through the Users table and back.
+ * When a student is named, both rows are written in one transaction: a
+ * half-created parent with no child attached is easy to leave behind.
+ *
+ * @param int $studentId student to link to, or 0 to create the account on its own
+ * @param array<string, mixed> $input first_name, last_name, email, password, status
+ * @return array{user_id: int, link_id: int, name: string}
+ */
+function admin_create_parent_account_link(PDO $pdo, int $studentId, array $input): array
+{
+    $firstName = trim((string) ($input['first_name'] ?? ''));
+    $lastName = trim((string) ($input['last_name'] ?? ''));
+    $email = trim((string) ($input['email'] ?? ''));
+    $password = (string) ($input['password'] ?? '');
+    $status = (string) ($input['status'] ?? 'active');
+
+    if ($firstName === '') {
+        throw new RuntimeException('Enter the parent first name.');
+    }
+    if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+        throw new RuntimeException('Enter a valid email address for the parent account.');
+    }
+    if (mb_strlen($password) < 8) {
+        throw new RuntimeException('The temporary password must be at least 8 characters long.');
+    }
+    if (!in_array($status, ['active', 'inactive'], true)) {
+        $status = 'active';
+    }
+
+    $exists = $pdo->prepare('SELECT id, role FROM users WHERE email = ? LIMIT 1');
+    $exists->execute([$email]);
+    if ($row = $exists->fetch()) {
+        throw new RuntimeException(
+            $row['role'] === 'parent'
+                ? 'That email already belongs to a parent account. Link that account to the student instead.'
+                : 'That email is already used by another portal account.'
+        );
+    }
+
+    if ($studentId > 0) {
+        $student = $pdo->prepare('SELECT COUNT(*) FROM students WHERE id = ?');
+        $student->execute([$studentId]);
+        if ((int) $student->fetchColumn() === 0) {
+            throw new RuntimeException('That student no longer exists.');
+        }
+    }
+
+    $pdo->beginTransaction();
+    try {
+        // The admin picks the first password, so the parent is made to replace it
+        // the first time they sign in.
+        $pdo->prepare(
+            "INSERT INTO users (
+                teacher_id, first_name, last_name, email, password_hash,
+                role, status, must_change_password, notes
+             ) VALUES (NULL, ?, ?, ?, ?, 'parent', ?, 1, ?)"
+        )->execute([
+            $firstName,
+            $lastName === '' ? null : $lastName,
+            $email,
+            password_hash($password, PASSWORD_DEFAULT),
+            $status,
+            'Parent account created from a student profile',
+        ]);
+        $userId = (int) $pdo->lastInsertId();
+
+        $linkId = 0;
+        if ($studentId > 0) {
+            $pdo->prepare(
+                'INSERT INTO parent_students (parent_user_id, student_id, status)
+                 VALUES (?, ?, ?)'
+            )->execute([$userId, $studentId, $status]);
+            $linkId = (int) $pdo->lastInsertId();
+        }
+
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        $pdo->rollBack();
+        throw $exception;
+    }
+
+    return [
+        'user_id' => $userId,
+        'link_id' => $linkId,
+        'name' => trim($firstName . ' ' . $lastName),
+    ];
+}
+
 function admin_delete_records(PDO $pdo, string $table, array $recordIds, int $currentUserId): int
 {
     if (!in_array($table, array_values(admin_view_tables()), true)) {
@@ -806,6 +962,53 @@ function admin_delete_records(PDO $pdo, string $table, array $recordIds, int $cu
 
         throw $exception;
     }
+}
+
+/**
+ * Rows shown on one page of a table view.
+ *
+ * The list views used to print every row, which meant 1.6 MB of HTML for the
+ * attendance table and no upper bound as the centre keeps adding records. The
+ * search runs here, over the whole result set, so narrowing a table still looks
+ * at every row and not only at the page that happens to be loaded.
+ *
+ * @param array<int, array<string, mixed>> $rows every row the view selected
+ * @return array{rows: array<int, array<string, mixed>>, page: int, pages: int, total: int, matched: int, first: int, last: int, query: string, perPage: int}
+ */
+function admin_paginate_rows(array $rows, string $query = '', int $page = 1, int $perPage = 100): array
+{
+    $total = count($rows);
+    $query = trim($query);
+
+    if ($query !== '') {
+        $needle = mb_strtolower($query);
+        $rows = array_values(array_filter($rows, static function (array $row) use ($needle): bool {
+            foreach ($row as $value) {
+                if (is_scalar($value) && mb_strpos(mb_strtolower((string) $value), $needle) !== false) {
+                    return true;
+                }
+            }
+
+            return false;
+        }));
+    }
+
+    $matched = count($rows);
+    $pages = max(1, (int) ceil($matched / $perPage));
+    $page = max(1, min($page, $pages));
+    $offset = ($page - 1) * $perPage;
+
+    return [
+        'rows' => array_slice($rows, $offset, $perPage),
+        'page' => $page,
+        'pages' => $pages,
+        'total' => $total,
+        'matched' => $matched,
+        'first' => $matched === 0 ? 0 : $offset + 1,
+        'last' => min($offset + $perPage, $matched),
+        'query' => $query,
+        'perPage' => $perPage,
+    ];
 }
 
 function admin_csrf_token(): string

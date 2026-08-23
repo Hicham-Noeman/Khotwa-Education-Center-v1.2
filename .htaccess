@@ -25,3 +25,26 @@ DirectoryIndex index.php
     Header set Cache-Control "no-cache"
   </FilesMatch>
 </IfModule>
+
+# ---------------------------------------------------------------------------
+# Security headers
+# ---------------------------------------------------------------------------
+ServerSignature Off
+
+<IfModule mod_headers.c>
+  # Never let a browser guess a response type (blocks sniffing an upload as script).
+  Header always set X-Content-Type-Options "nosniff"
+  # No other site may frame these pages (clickjacking).
+  Header always set X-Frame-Options "SAMEORIGIN"
+  # Do not leak the full admin URL to third parties.
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  # Nothing here needs the camera, microphone or location.
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+  # Hide the exact PHP build.
+  Header always unset X-Powered-By
+
+  # Content Security Policy. 'unsafe-inline' is still required for the few inline
+  # scripts and style attributes in the pages; everything else is locked to this
+  # origin plus the Google Fonts and QR/CDN hosts the app genuinely uses.
+  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; img-src 'self' data: https://api.qrserver.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self'"
+</IfModule>

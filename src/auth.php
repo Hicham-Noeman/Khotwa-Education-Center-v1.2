@@ -2,11 +2,26 @@
 declare(strict_types=1);
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
+    // Harden the session cookie before it is created:
+    //   httponly  - JavaScript cannot read it, so an XSS bug cannot steal the login
+    //   samesite  - the cookie is not sent on cross-site POSTs, blocking CSRF replay
+    //   secure    - only sent over HTTPS, switched on automatically when available
+    //   strict_mode - the server refuses session ids it never issued (fixation)
+    ini_set('session.use_strict_mode', '1');
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'httponly' => true,
+        'samesite' => 'Lax',
+        'secure' => (($_SERVER['HTTPS'] ?? '') !== '' && $_SERVER['HTTPS'] !== 'off')
+            || ($_SERVER['SERVER_PORT'] ?? '') === '443',
+    ]);
     session_start();
 }
 
 define('KHOTWA_SKIP_AUTO_BOOTSTRAP', true);
 require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/ui.php';
 
 function khotwa_db(): PDO
 {

@@ -12,6 +12,11 @@ declare(strict_types=1);
 
 define('KHOTWA_ROOT_PATH', dirname(__DIR__));
 
+// PHP adds this after mod_headers has run, so it has to be dropped from PHP itself.
+if (!headers_sent()) {
+    header_remove('X-Powered-By');
+}
+
 /**
  * Absolute filesystem path inside the project.
  */

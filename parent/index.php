@@ -41,7 +41,6 @@ try {
             students.current_teaching_language,
             students.status,
             COALESCE(current_record.grade_name, 'Not assigned') AS grade_name,
-            parent_students.relationship,
             parent_students.status AS link_status,
             latest_attendance.attendance_date AS latest_attendance_date,
             latest_attendance.status AS latest_attendance_status,
@@ -173,9 +172,6 @@ try {
                 throw new RuntimeException('You already have a review waiting for approval. Please wait until it is reviewed.');
             }
 
-            $relationshipLabel = parent_relationship_label(
-                (string) ($studentOverview['relationship'] ?? 'guardian')
-            );
             $insertReview = $pdo->prepare(
                 "INSERT INTO homepage_reviews
                     (parent_user_id, display_name, display_name_ar, relationship_label, rating, review_text, status)
@@ -185,7 +181,7 @@ try {
                 $parentUserId,
                 mb_substr($displayName, 0, 120),
                 $displayNameAr === '' ? null : mb_substr($displayNameAr, 0, 120),
-                $relationshipLabel,
+                null,
                 $rating,
                 $reviewText,
             ]);
@@ -277,7 +273,7 @@ try {
 
     $warningsStatement = $pdo->prepare(
         "SELECT student_warnings.id, student_warnings.warning_date, student_warnings.warning_type,
-                student_warnings.reason, student_warnings.action_taken, student_warnings.status,
+                student_warnings.parent_message, student_warnings.status,
                 student_warnings.expiation_selected_at,
                 expiations.title_en AS expiation_title, expiations.title_ar AS expiation_title_ar,
                 expiation_categories.name_en AS expiation_category
@@ -285,8 +281,8 @@ try {
          LEFT JOIN expiations ON expiations.id = student_warnings.expiation_id
          LEFT JOIN expiation_categories ON expiation_categories.id = expiations.category_id
          WHERE student_warnings.student_id = ?
-           AND student_warnings.status IN ('issued', 'assigned', 'resolved')
-         ORDER BY FIELD(student_warnings.status, 'issued', 'assigned', 'resolved'),
+           AND student_warnings.status IN ('issued', 'assigned')
+         ORDER BY FIELD(student_warnings.status, 'issued', 'assigned'),
                   student_warnings.warning_date DESC, student_warnings.id DESC"
     );
     $warningsStatement->execute([$selectedStudentId]);
@@ -332,17 +328,6 @@ function parent_status_class(string $value): string
     return 'status-' . trim((string) preg_replace('/[^a-z0-9_-]+/', '-', strtolower($value)), '-');
 }
 
-function parent_relationship_label(string $value): string
-{
-    return match ($value) {
-        'father' => 'Father',
-        'mother' => 'Mother',
-        'guardian' => 'Guardian',
-        'relative' => 'Relative',
-        default => ucfirst($value),
-    };
-}
-
 function parent_icon(string $name): string
 {
   $paths = [
@@ -374,7 +359,6 @@ $familyOpenBalance = (float) array_sum(array_map(
 ));
 $selectedChildName = (string) ($studentOverview['student_name'] ?? '-');
 $selectedChildStatus = (string) ($studentOverview['status'] ?? 'inactive');
-$selectedRelationship = (string) ($studentOverview['relationship'] ?? 'guardian');
 $selectedChildFullNameEn = trim((string) (
   ($studentOverview['first_name_en'] ?? '') . ' '
   . ($studentOverview['father_name_en'] ?? '') . ' '
@@ -428,7 +412,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
             <?php
             $childId = (int) $child['id'];
             $isActiveChild = $childId === $selectedStudentId;
-            $label = (string) $child['student_name'] . ' (' . parent_relationship_label((string) $child['relationship']) . ')';
+            $label = (string) $child['student_name'];
             ?>
             <a class="<?= $isActiveChild ? 'is-active' : '' ?>" href="<?= e(khotwa_url('parent/index.php')) ?>?student_id=<?= e((string) $childId) ?>" title="<?= e($label) ?>">
               <?= parent_icon('children') ?><span><?= e($label) ?></span>
@@ -497,10 +481,6 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
             <span class="live-indicator"><span></span>Student view is live</span>
           </section>
 
-          <?php if ($parentMessage !== ''): ?>
-            <div class="form-notice success-notice"><?= e($parentMessage) ?></div>
-          <?php endif; ?>
-
           <section class="metrics-grid">
             <article class="metric-card metric-orange">
               <span class="metric-dot"></span>
@@ -537,7 +517,6 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                   <div><strong>Full name (AR)</strong><span><?= e($selectedChildFullNameAr) ?></span></div>
                   <div><strong>Grade</strong><span><?= e((string) $studentOverview['grade_name']) ?></span></div>
                   <div><strong>Language</strong><span><?= e((string) $studentOverview['current_teaching_language']) ?></span></div>
-                  <div><strong>Relationship</strong><span><?= e(parent_relationship_label($selectedRelationship)) ?></span></div>
                   <div><strong>Status</strong><span class="status-pill <?= e(parent_status_class($selectedChildStatus)) ?>"><?= e(ucfirst($selectedChildStatus)) ?></span></div>
                   <div><strong>Latest attendance</strong><span><?= e((string) ($studentOverview['latest_attendance_date'] ?? 'No records yet')) ?></span></div>
                 </div>
@@ -699,10 +678,9 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                         </span>
                         <small><?= e((string) $warning['warning_date']) ?></small>
                       </div>
-                      <p class="parent-warning-reason"><?= e((string) $warning['reason']) ?></p>
-                      <?php if ($warning['action_taken']): ?>
-                        <small class="parent-warning-note">Action taken: <?= e((string) $warning['action_taken']) ?></small>
-                      <?php endif; ?>
+                      <?php // Only the administration's message is shown; the teacher's own
+                            // wording of the incident stays internal to the centre. ?>
+                      <p class="parent-warning-reason"><?= nl2br(e((string) $warning['parent_message'])) ?></p>
 
                       <?php if ((string) $warning['status'] === 'issued'): ?>
                         <?php if ($expiationsByCategory === []): ?>
@@ -732,10 +710,8 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                         <div class="parent-warning-expiation">
                           <span>Chosen expiation</span>
                           <strong><?= e((string) $warning['expiation_title']) ?></strong>
-                          <small><?= e((string) $warning['expiation_category']) ?><?= (string) $warning['status'] === 'resolved' ? ' · Completed' : '' ?></small>
+                          <small><?= e((string) $warning['expiation_category']) ?></small>
                         </div>
-                      <?php elseif ((string) $warning['status'] === 'resolved'): ?>
-                        <small class="parent-warning-note">Resolved by the administration.</small>
                       <?php endif; ?>
                     </div>
                   <?php endforeach; ?>
@@ -758,10 +734,6 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                 Share your experience with Khotwa Education Center. The administration reviews every message,
                 and approved reviews are published on the public homepage.
               </p>
-
-              <?php if ($reviewError !== ''): ?>
-                <div class="form-notice error-notice"><?= e($reviewError) ?></div>
-              <?php endif; ?>
 
               <form class="parent-review-form" method="post">
                 <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
@@ -847,6 +819,10 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" defer></script>
+  <?php render_toasts([
+      ['type' => 'success', 'text' => $parentMessage ?? ''],
+      ['type' => 'error', 'text' => $reviewError ?? ''],
+  ]); ?>
   <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/qr-tools.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/admin.js')) ?>" defer></script>

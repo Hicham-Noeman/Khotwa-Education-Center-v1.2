@@ -85,6 +85,13 @@ if (isset($_GET['banner'])) {
 if (isset($_GET['founding'])) {
     $message = 'The founding date was saved. The years of experience counter now uses it.';
 }
+if (isset($_GET['created_parent'])) {
+    $createdParent = trim((string) $_GET['created_parent']);
+    $message = ($createdParent === ''
+        ? 'The parent account was created.'
+        : 'The parent account for ' . $createdParent . ' was created.')
+        . ' Open a student profile to attach them to a child.';
+}
 $isAdding = isset($_GET['new']) && $view !== 'overview';
 $formColumns = [];
 
@@ -102,7 +109,7 @@ try {
 
             $action = isset($_POST['delete_id']) ? 'delete' : (string) ($_POST['action'] ?? '');
 
-            if (in_array($action, ['warning_issue', 'warning_dismiss', 'warning_resolve'], true)) {
+            if (in_array($action, ['warning_issue', 'warning_dismiss', 'warning_complete', 'warning_reopen'], true)) {
                 if ($postedView !== 'warnings') {
                     throw new RuntimeException('Invalid table action.');
                 }
@@ -117,37 +124,72 @@ try {
                     if (!in_array($warningType, ['oral', 'written'], true)) {
                         throw new RuntimeException('Choose an oral or written warning.');
                     }
-                    $warningNumber = ($_POST['warning_number'] ?? '') === '' ? null : max(0, (int) $_POST['warning_number']);
-                    $conversationMinutes = ($_POST['conversation_minutes'] ?? '') === '' ? null : max(0, (int) $_POST['conversation_minutes']);
+
+                    // This paragraph is the only description the family receives, so it is
+                    // required. The teacher's own wording stays internal.
+                    $parentMessage = trim((string) ($_POST['parent_message'] ?? ''));
+                    if ($parentMessage === '') {
+                        throw new RuntimeException('Write the message the parent will read before issuing the warning.');
+                    }
+                    if (mb_strlen($parentMessage) > 4000) {
+                        throw new RuntimeException('Please keep the message to the parent under 4000 characters.');
+                    }
+
+                    // Counted, never typed: how many warnings of this type the student already
+                    // has in the same year that actually reached the parent.
+                    $nextNumber = $pdo->prepare(
+                        "SELECT COUNT(*) + 1
+                         FROM student_warnings AS counted
+                         INNER JOIN student_warnings AS target ON target.id = ?
+                         WHERE counted.student_id = target.student_id
+                           AND counted.warning_type = ?
+                           AND YEAR(counted.warning_date) = YEAR(target.warning_date)
+                           AND counted.status IN ('issued', 'assigned')"
+                    );
+                    $nextNumber->execute([$warningId, $warningType]);
+                    $warningNumber = (int) $nextNumber->fetchColumn();
+
+                    // conversation_minutes is deliberately absent here: the teacher sets it
+                    // on the flag and the administration must not overwrite it.
                     $statement = $pdo->prepare(
                         "UPDATE student_warnings
-                         SET warning_type = ?, warning_number = ?, conversation_minutes = ?,
-                             action_taken = NULLIF(?, ''), parent_notified = 1,
+                         SET warning_type = ?, warning_number = ?,
+                             parent_message = ?, parent_notified = 1,
                              status = 'issued', issued_by_user_id = ?, issued_at = NOW()
                          WHERE id = ? AND status = 'flagged'"
                     );
                     $statement->execute([
                         $warningType,
                         $warningNumber,
-                        $conversationMinutes,
-                        trim((string) ($_POST['action_taken'] ?? '')),
+                        $parentMessage,
                         $adminUserId,
                         $warningId,
                     ]);
                 } elseif ($action === 'warning_dismiss') {
+                    // The flag was not worth a warning, so it is removed outright.
                     $statement = $pdo->prepare(
-                        "UPDATE student_warnings
-                         SET status = 'dismissed', resolved_by_user_id = ?, resolved_at = NOW()
-                         WHERE id = ? AND status = 'flagged'"
+                        "DELETE FROM student_warnings WHERE id = ? AND status = 'flagged'"
                     );
-                    $statement->execute([$adminUserId, $warningId]);
-                } else { // warning_resolve
+                    $statement->execute([$warningId]);
+                } elseif ($action === 'warning_reopen') {
+                    // Expiation not actually done: clear the choice and hand it back to
+                    // the parent, who can then pick again.
                     $statement = $pdo->prepare(
                         "UPDATE student_warnings
-                         SET status = 'resolved', resolved_by_user_id = ?, resolved_at = NOW()
+                         SET status = 'issued',
+                             expiation_id = NULL,
+                             expiation_selected_by_user_id = NULL,
+                             expiation_selected_at = NULL
+                         WHERE id = ? AND status = 'assigned'"
+                    );
+                    $statement->execute([$warningId]);
+                } else { // warning_complete
+                    // The warning is finished with, so the record is removed outright.
+                    $statement = $pdo->prepare(
+                        "DELETE FROM student_warnings
                          WHERE id = ? AND status IN ('issued', 'assigned')"
                     );
-                    $statement->execute([$adminUserId, $warningId]);
+                    $statement->execute([$warningId]);
                 }
 
                 header('Location: ' . admin_workspace_url('warnings', ['updated' => 1]));
@@ -207,6 +249,18 @@ try {
                 ]);
 
                 header('Location: ' . admin_workspace_url('website-reviews', ['updated' => 1]));
+                exit;
+            }
+
+            if ($action === 'create_parent_account' && $postedView === 'parent-links') {
+                $created = admin_create_parent_account_link(
+                    $pdo,
+                    0,
+                    (array) ($_POST['parent'] ?? [])
+                );
+                header('Location: ' . admin_workspace_url('parent-links', [
+                    'created_parent' => $created['name'],
+                ]));
                 exit;
             }
 
@@ -276,7 +330,7 @@ try {
     } elseif ($view === 'students') {
         $pageDescription = 'Student profiles and their current academic placement. Double-click a student to open every linked record.';
         $columns = [
-            'id' => 'ID', 'student_name' => 'Student', 'student_name_ar' => 'Arabic name',
+            'student_name' => 'Student', 'student_name_ar' => 'Arabic name',
             'gender' => 'Gender', 'date_of_birth' => 'Birth date', 'grade_name' => 'Current grade',
             'current_teaching_language' => 'Language', 'status' => 'Status',
         ];
@@ -295,7 +349,7 @@ try {
     } elseif ($view === 'teachers') {
         $pageDescription = 'Educator profiles and assigned subjects. Double-click a teacher to open every linked record.';
         $columns = [
-            'id' => 'ID', 'teacher_name' => 'Teacher', 'email' => 'Email',
+            'teacher_name' => 'Teacher', 'email' => 'Email',
             'phone_number' => 'Phone', 'subjects' => 'Subjects', 'status' => 'Status',
         ];
         $rows = $pdo->query(
@@ -341,7 +395,7 @@ try {
     } elseif ($view === 'subjects') {
         $pageDescription = 'Subjects offered by the center and their teaching coverage.';
         $columns = [
-            'id' => 'ID', 'name_en' => 'Subject', 'name_ar' => 'Arabic name',
+            'name_en' => 'Subject', 'name_ar' => 'Arabic name',
             'teacher_count' => 'Teachers', 'enrollment_count' => 'Enrollments', 'status' => 'Status',
         ];
         $rows = $pdo->query(
@@ -356,7 +410,7 @@ try {
     } elseif ($view === 'enrollments') {
         $pageDescription = 'Connections between students, teachers, subjects, and academic years.';
         $columns = [
-            'id' => 'ID', 'student_name' => 'Student', 'subject_name' => 'Subject',
+            'student_name' => 'Student', 'subject_name' => 'Subject',
             'teacher_name' => 'Teacher', 'academic_year' => 'Academic year',
             'start_date' => 'Start date', 'status' => 'Status',
         ];
@@ -395,7 +449,7 @@ try {
     } elseif ($view === 'payments') {
         $pageDescription = 'Recorded subscription payments and receipt references.';
         $columns = [
-            'id' => 'ID', 'student_name' => 'Student', 'paid_at' => 'Paid at',
+            'student_name' => 'Student', 'paid_at' => 'Paid at',
             'paid_amount' => 'Amount', 'receipt_number' => 'Receipt', 'notes' => 'Notes',
         ];
         $rows = $pdo->query(
@@ -413,29 +467,42 @@ try {
             "SELECT student_warnings.id, student_warnings.warning_date, student_warnings.status,
                     student_warnings.warning_type, student_warnings.warning_number,
                     student_warnings.conversation_minutes, student_warnings.reason,
-                    student_warnings.action_taken, student_warnings.notes,
+                    student_warnings.parent_message, student_warnings.notes,
                     CONCAT(students.first_name_en, ' ', students.last_name_en) student_name,
                     COALESCE(TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))), 'Center team') teacher_name,
                     expiations.title_en AS expiation_title, expiation_categories.name_en AS expiation_category,
                     age_groups.name_en AS expiation_age_group,
-                    student_warnings.expiation_selected_at, student_warnings.issued_at, student_warnings.resolved_at
+                    student_warnings.expiation_selected_at, student_warnings.issued_at, student_warnings.resolved_at,
+                    history.oral_count, history.written_count
              FROM student_warnings
              INNER JOIN students ON students.id = student_warnings.student_id
              LEFT JOIN teachers ON teachers.id = student_warnings.teacher_id
              LEFT JOIN expiations ON expiations.id = student_warnings.expiation_id
              LEFT JOIN expiation_categories ON expiation_categories.id = expiations.category_id
              LEFT JOIN age_groups ON age_groups.id = expiations.age_group_id
-             ORDER BY FIELD(student_warnings.status, 'flagged', 'assigned', 'issued', 'resolved', 'dismissed'),
+             /* What this student already has in the same year that reached the parent. */
+             LEFT JOIN (
+                SELECT student_id, YEAR(warning_date) AS warning_year,
+                       SUM(warning_type = 'oral') AS oral_count,
+                       SUM(warning_type = 'written') AS written_count
+                FROM student_warnings
+                WHERE status IN ('issued', 'assigned')
+                GROUP BY student_id, YEAR(warning_date)
+             ) AS history
+                ON history.student_id = student_warnings.student_id
+               AND history.warning_year = YEAR(student_warnings.warning_date)
+             WHERE student_warnings.status IN ('flagged', 'issued', 'assigned')
+             ORDER BY FIELD(student_warnings.status, 'flagged', 'issued', 'assigned'),
                       student_warnings.warning_date DESC, student_warnings.id DESC"
         )->fetchAll();
-        $warningGroups = ['flagged' => [], 'issued' => [], 'assigned' => [], 'resolved' => [], 'dismissed' => []];
+        $warningGroups = ['flagged' => [], 'issued' => [], 'assigned' => []];
         foreach ($warningRows as $warningRow) {
             $warningGroups[(string) $warningRow['status']][] = $warningRow;
         }
     } elseif ($view === 'users') {
         $pageDescription = 'Portal users, roles, access status, and recent sign-ins.';
         $columns = [
-            'id' => 'ID', 'user_name' => 'User', 'email' => 'Email',
+            'user_name' => 'User', 'email' => 'Email',
             'role' => 'Role', 'status' => 'Status', 'last_login_at' => 'Last login',
         ];
         $rows = $pdo->query(
@@ -446,7 +513,7 @@ try {
     } elseif ($view === 'expiations') {
         $pageDescription = 'Corrective expiations parents can assign, organised by category and age group.';
         $columns = [
-            'id' => 'ID', 'title_en' => 'English title', 'title_ar' => 'Arabic title',
+            'title_en' => 'English title', 'title_ar' => 'Arabic title',
             'category_name' => 'Category', 'age_group_name' => 'Age group',
             'sort_order' => 'Order', 'status' => 'Status',
         ];
@@ -463,7 +530,7 @@ try {
     } elseif ($view === 'expiation-categories') {
         $pageDescription = 'Editable categories (types) of expiations students can choose from.';
         $columns = [
-            'id' => 'ID', 'name_en' => 'English name', 'name_ar' => 'Arabic name',
+            'name_en' => 'English name', 'name_ar' => 'Arabic name',
             'sort_order' => 'Order', 'status' => 'Status',
         ];
         $rows = $pdo->query(
@@ -473,34 +540,33 @@ try {
     } elseif ($view === 'age-groups') {
         $pageDescription = 'Named age groups (with age ranges) used to match expiations to a student automatically.';
         $columns = [
-            'id' => 'ID', 'name_en' => 'English name', 'name_ar' => 'Arabic name',
+            'name_en' => 'English name', 'name_ar' => 'Arabic name',
             'min_age' => 'Min age', 'max_age' => 'Max age', 'sort_order' => 'Order', 'status' => 'Status',
         ];
         $rows = $pdo->query(
             "SELECT id, name_en, name_ar, min_age, max_age, sort_order, status
              FROM age_groups ORDER BY sort_order, min_age, id"
         )->fetchAll();
-    } elseif ($view === 'website-content') {
     } elseif ($view === 'parent-links') {
-      $pageDescription = 'Relationships between parent portal accounts and student records.';
-      $columns = [
-        'id' => 'ID', 'parent_name' => 'Parent', 'parent_email' => 'Email',
-        'student_name' => 'Student', 'relationship' => 'Relationship',
-        'status' => 'Status', 'updated_at' => 'Updated',
-      ];
-      $rows = $pdo->query(
-        "SELECT parent_students.id,
-            CONCAT(users.first_name, ' ', COALESCE(users.last_name, '')) AS parent_name,
-            users.email AS parent_email,
-            CONCAT(students.first_name_en, ' ', students.last_name_en) AS student_name,
-            parent_students.relationship,
-            parent_students.status,
-            parent_students.updated_at
-         FROM parent_students
-         INNER JOIN users ON users.id = parent_students.parent_user_id
-         INNER JOIN students ON students.id = parent_students.student_id
-         ORDER BY parent_name, student_name"
-      )->fetchAll();
+        $pageDescription = 'Relationships between parent portal accounts and student records.';
+        $columns = [
+            'parent_name' => 'Parent', 'parent_email' => 'Email',
+            'student_name' => 'Student',
+            'status' => 'Status', 'updated_at' => 'Updated',
+        ];
+        $rows = $pdo->query(
+            "SELECT parent_students.id,
+                CONCAT(users.first_name, ' ', COALESCE(users.last_name, '')) AS parent_name,
+                users.email AS parent_email,
+                CONCAT(students.first_name_en, ' ', students.last_name_en) AS student_name,
+                parent_students.status,
+                parent_students.updated_at
+             FROM parent_students
+             INNER JOIN users ON users.id = parent_students.parent_user_id
+             INNER JOIN students ON students.id = parent_students.student_id
+             ORDER BY parent_name, student_name"
+        )->fetchAll();
+    } elseif ($view === 'website-content') {
         $pageDescription = 'One creative workspace for homepage writing, slides, statistics, team members, gallery images, and partner logos.';
         $admissionsBannerVisible = homepage_setting($pdo, 'admissions_banner_visible', '1') === '1';
         $foundingDate = homepage_setting($pdo, 'founding_date');
@@ -509,7 +575,7 @@ try {
             "SELECT COUNT(*) FROM homepage_reviews WHERE status = 'pending'"
         )->fetchColumn();
         $columns = [
-            'id' => 'ID', 'content_type' => 'Type', 'content_key' => 'Content key',
+            'content_type' => 'Type', 'content_key' => 'Content key',
             'title_en' => 'English title', 'title_ar' => 'Arabic title',
             'sort_order' => 'Order', 'status' => 'Status',
         ];
@@ -543,7 +609,7 @@ try {
     } elseif ($view === 'website-slides') {
         $pageDescription = 'Images and bilingual captions shown as the vision and mission slideshow.';
         $columns = [
-            'id' => 'ID', 'title_en' => 'English title', 'title_ar' => 'Arabic title',
+            'title_en' => 'English title', 'title_ar' => 'Arabic title',
             'image_path' => 'Image', 'sort_order' => 'Order', 'status' => 'Status',
         ];
         $rows = $pdo->query(
@@ -554,7 +620,7 @@ try {
         $pageDescription = 'Homepage numbers, suffixes, and bilingual labels. Learners, educators, family satisfaction,'
             . ' and years of experience are calculated from live data, so their stored number is only a fallback.';
         $columns = [
-            'id' => 'ID', 'stat_key' => 'Key', 'stat_value' => 'Number',
+            'stat_key' => 'Key', 'stat_value' => 'Number',
             'suffix' => 'Suffix', 'label_en' => 'English label',
             'label_ar' => 'Arabic label', 'sort_order' => 'Order', 'status' => 'Status',
         ];
@@ -565,7 +631,7 @@ try {
     } elseif ($view === 'website-team') {
         $pageDescription = 'Homepage team profiles, roles, specialties, images, contact links, and display order.';
         $columns = [
-            'id' => 'ID', 'name_en' => 'English name', 'name_ar' => 'Arabic name',
+            'name_en' => 'English name', 'name_ar' => 'Arabic name',
             'role_en' => 'Role', 'subjects_en' => 'Specialty', 'image_path' => 'Image',
             'sort_order' => 'Order', 'status' => 'Status',
         ];
@@ -576,7 +642,7 @@ try {
     } elseif ($view === 'website-gallery') {
         $pageDescription = 'Uploaded gallery images, bilingual captions, and display layouts.';
         $columns = [
-            'id' => 'ID', 'caption_en' => 'English caption', 'caption_ar' => 'Arabic caption',
+            'caption_en' => 'English caption', 'caption_ar' => 'Arabic caption',
             'layout_style' => 'Layout', 'image_path' => 'Image',
             'sort_order' => 'Order', 'status' => 'Status',
         ];
@@ -587,7 +653,7 @@ try {
     } elseif ($view === 'website-partners') {
         $pageDescription = 'Partner names, uploaded logos, website links, and display order.';
         $columns = [
-            'id' => 'ID', 'name_en' => 'English name', 'name_ar' => 'Arabic name',
+            'name_en' => 'English name', 'name_ar' => 'Arabic name',
             'logo_path' => 'Logo', 'website_url' => 'Website',
             'sort_order' => 'Order', 'status' => 'Status',
         ];
@@ -598,7 +664,7 @@ try {
     } elseif ($view === 'website-reviews') {
         $pageDescription = 'Reviews submitted by parents from their portal. Approved reviews appear on the public homepage.';
         $columns = [
-            'id' => 'ID', 'display_name' => 'Parent', 'display_name_ar' => 'Arabic name', 'parent_email' => 'Account',
+            'display_name' => 'Parent', 'display_name_ar' => 'Arabic name', 'parent_email' => 'Account',
             'rating' => 'Rating', 'review_text' => 'Review', 'created_at' => 'Submitted',
             'sort_order' => 'Order', 'status' => 'Status',
         ];
@@ -615,7 +681,7 @@ try {
     } elseif ($view === 'website-contacts') {
         $pageDescription = 'Phone, email, WhatsApp, social media, address, hours, and Google Maps links.';
         $columns = [
-            'id' => 'ID', 'link_key' => 'Key', 'link_type' => 'Type',
+            'link_key' => 'Key', 'link_type' => 'Type',
             'value_en' => 'English value', 'value_ar' => 'Arabic value',
             'url' => 'Link', 'sort_order' => 'Order', 'status' => 'Status',
         ];
@@ -691,10 +757,8 @@ try {
             </article>
           </section>
         <?php else: ?>
-          <?php if ($message !== ''): ?><div class="form-notice success-notice"><?= e($message) ?></div><?php endif; ?>
-          <?php if ($formError !== ''): ?><div class="form-notice error-notice"><?= e($formError) ?></div><?php endif; ?>
 
-          <?php if ($isAdding): ?>
+          <?php if ($isAdding && $view !== 'parent-links'): ?>
             <section class="data-panel record-editor">
               <div class="panel-heading">
                 <div><span>New record</span><h2>Add <?= e($pageTitle) ?></h2></div>
@@ -721,20 +785,91 @@ try {
             </section>
           <?php endif; ?>
 
+          <?php if ($view === 'parent-links' && $isAdding): ?>
+            <?php $submitted = (array) ($_POST['parent'] ?? []); ?>
+            <section class="data-panel record-editor">
+              <div class="panel-heading">
+                <div>
+                  <span>New parent</span>
+                  <h2>Create a parent account</h2>
+                </div>
+                <a href="<?= e(admin_workspace_url('parent-links')) ?>">Cancel</a>
+              </div>
+              <form class="new-parent-form" method="post">
+                <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
+                <input type="hidden" name="action" value="create_parent_account">
+                <input type="hidden" name="view" value="parent-links">
+                <p class="admin-field-help">The parent signs in with this email and is asked to choose their own password. Open a student profile to attach them to a child.</p>
+                <div class="record-form-grid">
+                  <label class="admin-field">
+                    <span>First name</span>
+                    <input type="text" name="parent[first_name]" maxlength="100"
+                           value="<?= e((string) ($submitted['first_name'] ?? '')) ?>" required>
+                  </label>
+                  <label class="admin-field">
+                    <span>Last name</span>
+                    <input type="text" name="parent[last_name]" maxlength="100"
+                           value="<?= e((string) ($submitted['last_name'] ?? '')) ?>">
+                  </label>
+                  <label class="admin-field">
+                    <span>Email</span>
+                    <input type="email" name="parent[email]" maxlength="150" autocomplete="off"
+                           value="<?= e((string) ($submitted['email'] ?? '')) ?>" required>
+                  </label>
+                  <label class="admin-field">
+                    <span>Temporary password</span>
+                    <input type="text" name="parent[password]" minlength="8" maxlength="72" autocomplete="off" required>
+                  </label>
+                </div>
+                <div class="record-form-actions">
+                  <button class="primary-action" type="submit">Create parent account</button>
+                  <a class="secondary-action" href="<?= e(admin_workspace_url('parent-links')) ?>">Cancel</a>
+                </div>
+              </form>
+            </section>
+          <?php endif; ?>
+
           <?php if ($view === 'warnings'): ?>
             <?php
             $warningStatusMeta = [
                 'flagged' => ['label' => 'Teacher flags (admin only)', 'hint' => 'Raised by a teacher. Not visible to parents until you issue a warning.'],
-                'assigned' => ['label' => 'Expiation chosen by parent', 'hint' => 'Parent selected an expiation. Confirm once the student completes it.'],
                 'issued' => ['label' => 'Issued — waiting for parent', 'hint' => 'Visible to the parent. Parent can now choose an expiation.'],
-                'resolved' => ['label' => 'Resolved / removed', 'hint' => 'Completed and no longer valid.'],
-                'dismissed' => ['label' => 'Dismissed', 'hint' => 'Flag rejected; never shown to the parent.'],
+                'assigned' => ['label' => 'Expiation chosen by parent', 'hint' => 'Parent selected an expiation. Remove it once the student completes it.'],
             ];
             ?>
-            <section class="warning-board">
+            <?php
+            // One stage at a time, in the same tabbed card as the student profile, so a
+            // stage gets the full width instead of a narrow column.
+            $activeStage = isset($warningStatusMeta[(string) ($_GET['stage'] ?? '')])
+                ? (string) $_GET['stage']
+                : 'flagged';
+            ?>
+            <div class="profile-workspace">
+            <nav class="profile-tabs" role="tablist" aria-label="Warning stages">
+              <?php foreach ($warningStatusMeta as $stageKey => $stageMeta): ?>
+                <button
+                  class="profile-tab<?= $stageKey === $activeStage ? ' is-active' : '' ?>"
+                  type="button"
+                  role="tab"
+                  aria-selected="<?= $stageKey === $activeStage ? 'true' : 'false' ?>"
+                  aria-controls="panel-<?= e($stageKey) ?>"
+                  data-profile-tab="<?= e($stageKey) ?>"
+                >
+                  <span><?= e(ucfirst($stageKey)) ?></span>
+                  <i><?= e((string) count($warningGroups[$stageKey] ?? [])) ?></i>
+                </button>
+              <?php endforeach; ?>
+            </nav>
+            <div class="profile-panels">
               <?php foreach ($warningStatusMeta as $statusKey => $meta): ?>
                 <?php $groupRows = $warningGroups[$statusKey] ?? []; ?>
-                <article class="data-panel warning-column warning-column-<?= e($statusKey) ?>">
+                <article
+                  class="data-panel warning-column warning-column-<?= e($statusKey) ?>"
+                  id="panel-<?= e($statusKey) ?>"
+                  role="tabpanel"
+                  data-profile-panel="<?= e($statusKey) ?>"
+                  <?= $statusKey === $activeStage ? '' : 'hidden' ?>
+                >
                   <div class="panel-heading">
                     <div>
                       <span><?= e($meta['label']) ?> · <?= e((string) count($groupRows)) ?></span>
@@ -745,6 +880,7 @@ try {
                   <?php if ($groupRows === []): ?>
                     <p class="empty-value">Nothing here.</p>
                   <?php else: ?>
+                    <div class="warning-tiles">
                     <?php foreach ($groupRows as $warning): ?>
                       <div class="warning-card">
                         <div class="warning-card-top">
@@ -761,6 +897,15 @@ try {
                         <?php endif; ?>
 
                         <?php if ($statusKey === 'flagged'): ?>
+                          <?php
+                          $oralSoFar = (int) ($warning['oral_count'] ?? 0);
+                          $writtenSoFar = (int) ($warning['written_count'] ?? 0);
+                          ?>
+                          <div class="warning-history">
+                            <span>Oral <b><?= e((string) $oralSoFar) ?></b></span>
+                            <span>Written <b><?= e((string) $writtenSoFar) ?></b></span>
+                            <small>already issued this year &middot; this one becomes oral #<?= e((string) ($oralSoFar + 1)) ?> or written #<?= e((string) ($writtenSoFar + 1)) ?></small>
+                          </div>
                           <form method="post" class="warning-action-form">
                             <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
                             <input type="hidden" name="view" value="warnings">
@@ -769,11 +914,15 @@ try {
                               <label><input type="radio" name="warning_type" value="oral" checked> Oral</label>
                               <label><input type="radio" name="warning_type" value="written"> Written</label>
                             </div>
-                            <div class="warning-inline-fields">
-                              <input type="number" name="warning_number" min="0" placeholder="Warning #">
-                              <input type="number" name="conversation_minutes" min="0" placeholder="Talk (min)">
-                            </div>
-                            <input type="text" name="action_taken" placeholder="Action taken (optional)">
+                            <?php // No warning number field: it is counted on submit. No talk
+                                  // minutes either: the teacher records those on the flag. ?>
+                            <textarea
+                              name="parent_message"
+                              rows="4"
+                              maxlength="4000"
+                              placeholder="Message to the parent — explain what happened and what was agreed. This is the only text the family sees."
+                              required
+                            ></textarea>
                             <div class="warning-card-actions">
                               <button class="primary-action" type="submit" name="action" value="warning_issue">Issue warning</button>
                               <button class="secondary-action" type="submit" name="action" value="warning_dismiss">Dismiss</button>
@@ -785,18 +934,29 @@ try {
                             <input type="hidden" name="view" value="warnings">
                             <input type="hidden" name="warning_id" value="<?= e((string) $warning['id']) ?>">
                             <div class="warning-card-actions">
-                              <button class="primary-action" type="submit" name="action" value="warning_resolve">Mark completed &amp; remove</button>
+                              <?php // Completing deletes the record, so it asks first. ?>
+                              <button
+                                class="primary-action"
+                                type="submit"
+                                name="action"
+                                value="warning_complete"
+                                data-confirm="The student completed this. Remove the warning permanently?"
+                              >Mark completed &amp; remove</button>
+                              <?php if ($statusKey === 'assigned'): ?>
+                                <?php // Not actually done: hand it back so the parent picks again. ?>
+                                <button class="secondary-action" type="submit" name="action" value="warning_reopen">Not done — back to issued</button>
+                              <?php endif; ?>
                             </div>
                           </form>
-                        <?php elseif ($warning['resolved_at']): ?>
-                          <small class="warning-meta"><?= e($statusKey === 'resolved' ? 'Resolved' : 'Dismissed') ?> on <?= e((string) $warning['resolved_at']) ?></small>
                         <?php endif; ?>
                       </div>
                     <?php endforeach; ?>
+                    </div>
                   <?php endif; ?>
                 </article>
               <?php endforeach; ?>
-            </section>
+            </div>
+            </div>
           <?php elseif ($view === 'website-content'): ?>
             <?php
             $workspaceSections = [
@@ -1069,6 +1229,24 @@ try {
               <?php endforeach; ?>
             </section>
           <?php else: ?>
+          <?php
+          // One page of rows only. $rows itself stays whole above this point so the
+          // metric tiles and the record count keep describing the full table.
+          $pager = admin_paginate_rows(
+              $rows,
+              (string) ($_GET['q'] ?? ''),
+              max(1, (int) ($_GET['page'] ?? 1))
+          );
+          $pageRows = $pager['rows'];
+          $pagerLink = static function (int $target) use ($view, $pager): string {
+              $query = ['view' => $view, 'page' => $target];
+              if ($pager['query'] !== '') {
+                  $query['q'] = $pager['query'];
+              }
+
+              return khotwa_url('admin/index.php') . '?' . http_build_query($query);
+          };
+          ?>
           <section class="data-panel">
             <form method="post" data-table-actions>
               <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
@@ -1077,10 +1255,20 @@ try {
                 <div><span>Database table</span><h2><?= e($pageTitle) ?></h2></div>
                 <label class="table-search">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
-                  <input type="search" placeholder="Search this table" data-table-search>
+                  <input type="search" placeholder="Search this table" value="<?= e($pager['query']) ?>"
+                         data-table-search
+                         data-search-url="<?= e(khotwa_url('admin/index.php')) ?>?view=<?= e($view) ?>">
                 </label>
                 <div class="table-heading-actions">
-                  <strong class="record-count"><?= e((string) count($rows)) ?> records</strong>
+                  <strong class="record-count">
+                    <?php if ($pager['query'] !== ''): ?>
+                      <?= e((string) $pager['matched']) ?> of <?= e((string) $pager['total']) ?> records
+                    <?php elseif ($pager['pages'] > 1): ?>
+                      <?= e((string) $pager['first']) ?>&ndash;<?= e((string) $pager['last']) ?> of <?= e((string) $pager['total']) ?> records
+                    <?php else: ?>
+                      <?= e((string) $pager['total']) ?> records
+                    <?php endif; ?>
+                  </strong>
                   <button class="bulk-delete-button" type="submit" name="action" value="bulk_delete" disabled data-bulk-delete>
                     Delete selected
                   </button>
@@ -1091,8 +1279,13 @@ try {
                     </button>
                   <?php endif; ?>
                   <a class="add-record-button" href="<?= e(khotwa_url('admin/index.php')) ?>?view=<?= e($view) ?>&new=1">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-                    Add record
+                    <?php if ($view === 'parent-links'): ?>
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 21v-2a5 5 0 0 1 5-5h2"/><circle cx="10" cy="8" r="3"/><path d="M18 14v6M15 17h6"/></svg>
+                      New parent account
+                    <?php else: ?>
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                      Add record
+                    <?php endif; ?>
                   </a>
                 </div>
               </div>
@@ -1114,10 +1307,10 @@ try {
                     </tr>
                   </thead>
                   <tbody>
-                    <?php if ($rows === []): ?>
-                      <tr><td class="empty-row" colspan="<?= e((string) (count($columns) + 2)) ?>">No records found.</td></tr>
+                    <?php if ($pageRows === []): ?>
+                      <tr><td class="empty-row" colspan="<?= e((string) (count($columns) + 2)) ?>"><?= $pager['query'] === '' ? 'No records found.' : 'No records match this search.' ?></td></tr>
                     <?php else: ?>
-                      <?php foreach ($rows as $row): ?>
+                      <?php foreach ($pageRows as $row): ?>
                         <?php
                         if ($view === 'students') {
                             $detailUrl = khotwa_url('admin/person.php') . '?type=student&id=' . (int) $row['id'];
@@ -1171,6 +1364,21 @@ try {
                   </tbody>
                 </table>
               </div>
+              <?php if ($pager['pages'] > 1): ?>
+                <nav class="table-pager" aria-label="Table pages">
+                  <?php if ($pager['page'] > 1): ?>
+                    <a class="pager-step" href="<?= e($pagerLink($pager['page'] - 1)) ?>" rel="prev">Previous</a>
+                  <?php else: ?>
+                    <span class="pager-step is-disabled">Previous</span>
+                  <?php endif; ?>
+                  <span class="pager-status">Page <?= e((string) $pager['page']) ?> of <?= e((string) $pager['pages']) ?></span>
+                  <?php if ($pager['page'] < $pager['pages']): ?>
+                    <a class="pager-step" href="<?= e($pagerLink($pager['page'] + 1)) ?>" rel="next">Next</a>
+                  <?php else: ?>
+                    <span class="pager-step is-disabled">Next</span>
+                  <?php endif; ?>
+                </nav>
+              <?php endif; ?>
             </form>
           </section>
           <?php endif; ?>
@@ -1209,6 +1417,10 @@ try {
     <script src="https://unpkg.com/html5-qrcode" defer></script>
   <?php endif; ?>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" defer></script>
+  <?php render_toasts([
+      ['type' => 'success', 'text' => $message ?? ''],
+      ['type' => 'error', 'text' => $formError ?? ''],
+  ]); ?>
   <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/qr-tools.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/admin.js')) ?>" defer></script>
