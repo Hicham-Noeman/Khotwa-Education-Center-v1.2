@@ -24,6 +24,21 @@ $dbUser = 'root';
 $dbPass = '';
 $dbCharset = 'utf8mb4';
 
+// A deployed copy keeps its own credentials in src/db-config.php, which is never
+// committed, so a push can never overwrite them and they never reach GitHub. On this
+// machine that file does not exist and the local XAMPP values above are used as-is.
+$khotwaLocalConfig = __DIR__ . '/db-config.php';
+if (is_file($khotwaLocalConfig)) {
+    $khotwaConfig = require $khotwaLocalConfig;
+    if (is_array($khotwaConfig)) {
+        $dbHost = (string) ($khotwaConfig['host'] ?? $dbHost);
+        $dbPort = (int) ($khotwaConfig['port'] ?? $dbPort);
+        $dbName = (string) ($khotwaConfig['name'] ?? $dbName);
+        $dbUser = (string) ($khotwaConfig['user'] ?? $dbUser);
+        $dbPass = (string) ($khotwaConfig['pass'] ?? $dbPass);
+    }
+}
+
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
 const KHOTWA_SCHEMA_VERSION = 16;
 
