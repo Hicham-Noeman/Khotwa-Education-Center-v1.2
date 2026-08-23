@@ -8,7 +8,6 @@ function admin_navigation(): array
         'students' => ['label' => 'Students', 'group' => 'People', 'sidebar_label' => 'Users'],
         'teachers' => ['label' => 'Teachers', 'group' => 'People', 'sidebar' => false],
         'parent-links' => ['label' => 'Parents', 'group' => 'People', 'sidebar' => false],
-        'users' => ['label' => 'Users', 'group' => 'People', 'sidebar' => false],
         'nationalities' => ['label' => 'Nationalities', 'group' => 'People', 'sidebar' => false],
         'attendance' => ['label' => 'Attendance', 'group' => 'Academics'],
         'subjects' => ['label' => 'Subjects', 'group' => 'Academics', 'sidebar' => false],
@@ -287,7 +286,6 @@ function admin_workspace_tab_groups(): array
             'students' => 'Students',
             'teachers' => 'Teachers',
             'parent-links' => 'Parents',
-            'users' => 'Users',
             'nationalities' => 'Nationalities',
         ],
         [

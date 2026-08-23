@@ -813,6 +813,25 @@ svg {
   overflow-x: auto;
 }
 
+/* Only a table that actually overruns its panel invites being dragged. */
+.table-scroll.is-pannable {
+  cursor: grab;
+}
+
+.table-scroll.is-panning {
+  cursor: grabbing;
+  user-select: none;
+}
+
+/* Controls inside the table keep their own pointer. */
+.table-scroll.is-pannable a,
+.table-scroll.is-pannable button,
+.table-scroll.is-pannable input,
+.table-scroll.is-pannable select,
+.table-scroll.is-pannable label {
+  cursor: pointer;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

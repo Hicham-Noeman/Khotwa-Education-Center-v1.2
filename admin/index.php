@@ -529,17 +529,6 @@ try {
         foreach ($warningRows as $warningRow) {
             $warningGroups[(string) $warningRow['status']][] = $warningRow;
         }
-    } elseif ($view === 'users') {
-        $pageDescription = 'Portal users, roles, access status, and recent sign-ins.';
-        $columns = [
-            'user_name' => 'User', 'email' => 'Email',
-            'role' => 'Role', 'status' => 'Status', 'last_login_at' => 'Last login',
-        ];
-        $rows = $pdo->query(
-            "SELECT id, TRIM(CONCAT(first_name, ' ', COALESCE(last_name, ''))) user_name,
-                    email, role, status, last_login_at
-             FROM users ORDER BY role, user_name"
-        )->fetchAll();
     } elseif ($view === 'expiations') {
         $pageDescription = 'Corrective expiations parents can assign, organised by category and age group.';
         $columns = [

@@ -512,3 +512,134 @@ document.addEventListener("khotwa:languagechange", () => {
   mobileSidebarToggle?.setAttribute("aria-label", translateAdmin("Open navigation panel"));
   sidebarScrim?.setAttribute("aria-label", translateAdmin("Close navigation panel"));
 });
+
+// A wide table is easier to read by grabbing it than by hunting for the scrollbar at
+// the bottom of the page, so the pointer drags the table sideways and the page up and
+// down. The arrow keys do the same from the keyboard once a row has focus.
+const setupTableNavigation = () => {
+  const scrollers = [...document.querySelectorAll(".table-scroll")];
+  if (scrollers.length === 0) return;
+
+  const isInteractive = (target) =>
+    target instanceof Element &&
+    target.closest("a, button, input, select, textarea, label") !== null;
+
+  const markPannable = () => {
+    scrollers.forEach((scroller) => {
+      scroller.classList.toggle(
+        "is-pannable",
+        scroller.scrollWidth - scroller.clientWidth > 1
+      );
+    });
+  };
+
+  markPannable();
+  window.addEventListener("resize", markPannable);
+
+  scrollers.forEach((scroller) => {
+    let origin = null;
+
+    scroller.addEventListener("pointerdown", (event) => {
+      // Touch already pans natively, and a drag that starts on a control belongs to
+      // that control, not to the table.
+      if (event.pointerType === "touch" || event.button !== 0) return;
+      if (isInteractive(event.target)) return;
+
+      origin = {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        scrollLeft: scroller.scrollLeft,
+        pageY: window.scrollY,
+        panning: false,
+      };
+    });
+
+    scroller.addEventListener("pointermove", (event) => {
+      if (!origin || event.pointerId !== origin.pointerId) return;
+
+      const dx = event.clientX - origin.x;
+      const dy = event.clientY - origin.y;
+
+      // A few pixels of slack, so a plain click and a text selection still behave.
+      if (!origin.panning) {
+        if (Math.hypot(dx, dy) < 5) return;
+        origin.panning = true;
+        scroller.classList.add("is-panning");
+        try {
+          // A pointer that has already been released cannot be captured.
+          scroller.setPointerCapture(event.pointerId);
+        } catch (error) {
+          /* panning still works without capture */
+        }
+      }
+
+      scroller.scrollLeft = origin.scrollLeft - dx;
+      window.scrollTo({ top: origin.pageY - dy, behavior: "auto" });
+      event.preventDefault();
+    });
+
+    const endPan = (event) => {
+      if (!origin || (event && event.pointerId !== origin.pointerId)) return;
+
+      const wasPanning = origin.panning;
+      if (wasPanning) {
+        scroller.classList.remove("is-panning");
+        if (scroller.hasPointerCapture?.(origin.pointerId)) {
+          scroller.releasePointerCapture(origin.pointerId);
+        }
+        // The click that ends a drag is not a click on the row underneath.
+        scroller.addEventListener("click", (click) => click.stopPropagation(), {
+          capture: true,
+          once: true,
+        });
+      }
+      origin = null;
+    };
+
+    scroller.addEventListener("pointerup", endPan);
+    scroller.addEventListener("pointercancel", endPan);
+  });
+
+  // Rows already take focus for Enter, so the arrows walk the rows from there and pan
+  // the table sideways, keeping the whole grid reachable without the mouse.
+  const rowsOf = (scroller) =>
+    [...scroller.querySelectorAll("[data-record-row]")].filter((row) => !row.hidden);
+
+  document.addEventListener("keydown", (event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+
+    const row = event.target instanceof Element
+      ? event.target.closest("[data-record-row]")
+      : null;
+    if (!row) return;
+    if (event.target !== row && isInteractive(event.target)) return;
+
+    const scroller = row.closest(".table-scroll");
+    if (!scroller) return;
+
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      scroller.scrollLeft += event.key === "ArrowRight" ? 140 : -140;
+      event.preventDefault();
+      return;
+    }
+
+    const rows = rowsOf(scroller);
+    const index = rows.indexOf(row);
+    if (index === -1) return;
+
+    const target = {
+      ArrowDown: rows[index + 1],
+      ArrowUp: rows[index - 1],
+      Home: rows[0],
+      End: rows[rows.length - 1],
+    }[event.key];
+    if (!target) return;
+
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: "nearest" });
+    event.preventDefault();
+  });
+};
+
+setupTableNavigation();
