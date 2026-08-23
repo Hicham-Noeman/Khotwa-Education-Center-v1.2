@@ -1,7 +1,8 @@
 (() => {
   const buildQrImageUrl = (text, format = "png", size = 512) => {
     const safeFormat = format === "jpg" || format === "jpeg" ? "jpg" : "png";
-    const safeSize = Math.max(128, Math.min(1024, Number(size) || 512));
+    // The remote service tops out at 1000x1000, which is still print-usable.
+    const safeSize = Math.max(128, Math.min(1000, Number(size) || 512));
     return `https://api.qrserver.com/v1/create-qr-code/?size=${safeSize}x${safeSize}&format=${safeFormat}&data=${encodeURIComponent(text)}`;
   };
 
@@ -39,6 +40,64 @@
     link.remove();
   };
 
+  // Downloads are meant for printing, so they are re-rendered at a much larger
+  // size than the small on-screen preview instead of being upscaled from it.
+  const PRINT_QR_SIZE = 2048;
+
+  const renderPrintQrCanvas = (text) =>
+    new Promise((resolve) => {
+      if (!window.QRCode || typeof window.QRCode.toCanvas !== "function") {
+        resolve(null);
+        return;
+      }
+      const printCanvas = document.createElement("canvas");
+      window.QRCode.toCanvas(
+        printCanvas,
+        text,
+        {
+          width: PRINT_QR_SIZE,
+          margin: 2,
+          errorCorrectionLevel: "H",
+          color: {
+            dark: "#0b1c34",
+            light: "#ffffff",
+          },
+        },
+        (error) => resolve(error ? null : printCanvas)
+      );
+    });
+
+  // Fallback when the library cannot re-render: scale the preview up with
+  // smoothing off so the modules stay hard-edged rather than blurry.
+  const upscaleCanvas = (source, targetSize) => {
+    const scaled = document.createElement("canvas");
+    const factor = Math.max(1, Math.round(targetSize / source.width));
+    scaled.width = source.width * factor;
+    scaled.height = source.height * factor;
+    const context = scaled.getContext("2d");
+    if (!context) {
+      return source;
+    }
+    context.imageSmoothingEnabled = false;
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, scaled.width, scaled.height);
+    context.drawImage(source, 0, 0, scaled.width, scaled.height);
+    return scaled;
+  };
+
+  const canvasToBlobUrl = (source, mimeType, quality) =>
+    new Promise((resolve) => {
+      if (typeof source.toBlob !== "function") {
+        resolve(source.toDataURL(mimeType, quality));
+        return;
+      }
+      source.toBlob(
+        (blob) => resolve(blob ? URL.createObjectURL(blob) : source.toDataURL(mimeType, quality)),
+        mimeType,
+        quality
+      );
+    });
+
   const downloadUrlAsFile = async (url, fileName) => {
     try {
       const response = await fetch(url, { mode: "cors" });
@@ -50,8 +109,9 @@
       triggerDownload(objectUrl, fileName);
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
     } catch (error) {
-      // Fallback to direct link if blob download is blocked by remote policy.
-      triggerDownload(url, fileName);
+      // A cross-origin URL ignores the download attribute, so a plain link would
+      // navigate away and lose the page the admin was working on. Open a tab instead.
+      window.open(url, "_blank", "noopener");
     }
   };
 
@@ -117,36 +177,85 @@
         qrContainer.replaceChildren(fallbackImage);
       }
 
+      // One button opens the format menu; picking a format downloads and closes it.
+      const menu = card.querySelector("[data-qr-menu]");
+      const menuToggle = card.querySelector("[data-qr-menu-toggle]");
+      const menuList = card.querySelector("[data-qr-menu-list]");
+
+      const closeMenu = () => {
+        if (!menuList) return;
+        menuList.hidden = true;
+        menuToggle?.setAttribute("aria-expanded", "false");
+      };
+
+      if (menuToggle && menuList) {
+        menuToggle.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const isOpen = !menuList.hidden;
+          menuList.hidden = isOpen;
+          menuToggle.setAttribute("aria-expanded", isOpen ? "false" : "true");
+          if (!isOpen) {
+            menuList.querySelector("button")?.focus();
+          }
+        });
+
+        // Clicking elsewhere or pressing Escape puts the menu away again.
+        document.addEventListener("click", (event) => {
+          if (!menuList.hidden && !menu?.contains(event.target)) closeMenu();
+        });
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape" && !menuList.hidden) {
+            closeMenu();
+            menuToggle.focus();
+          }
+        });
+      }
+
       const fileBase = toSafeFileBase(card.getAttribute("data-qr-file-base"));
       card.querySelectorAll("[data-qr-download]").forEach((button) => {
         button.addEventListener("click", async () => {
           const format = String(button.getAttribute("data-qr-download") || "png").toLowerCase();
           const extension = format === "jpg" || format === "jpeg" ? "jpg" : "png";
+          closeMenu();
 
-          if (!(canvas instanceof HTMLCanvasElement)) {
+          let printCanvas = await renderPrintQrCanvas(payloadText);
+          if (!printCanvas && canvas instanceof HTMLCanvasElement) {
+            printCanvas = upscaleCanvas(canvas, PRINT_QR_SIZE);
+          }
+
+          if (!printCanvas) {
             await downloadUrlAsFile(
-              buildQrImageUrl(payloadText, extension, 900),
+              buildQrImageUrl(payloadText, extension, 1000),
               `${fileBase}.${extension}`
             );
             return;
           }
 
-          if (format === "jpg" || format === "jpeg") {
+          if (extension === "jpg") {
+            // JPG has no transparency, so paint the white background first.
             const jpgCanvas = document.createElement("canvas");
-            jpgCanvas.width = canvas.width;
-            jpgCanvas.height = canvas.height;
+            jpgCanvas.width = printCanvas.width;
+            jpgCanvas.height = printCanvas.height;
             const context = jpgCanvas.getContext("2d");
             if (!context) {
               return;
             }
             context.fillStyle = "#ffffff";
             context.fillRect(0, 0, jpgCanvas.width, jpgCanvas.height);
-            context.drawImage(canvas, 0, 0);
-            triggerDownload(jpgCanvas.toDataURL("image/jpeg", 0.95), `${fileBase}.jpg`);
+            context.drawImage(printCanvas, 0, 0);
+            const jpgUrl = await canvasToBlobUrl(jpgCanvas, "image/jpeg", 1);
+            triggerDownload(jpgUrl, `${fileBase}.jpg`);
+            if (jpgUrl.startsWith("blob:")) {
+              window.setTimeout(() => URL.revokeObjectURL(jpgUrl), 4000);
+            }
             return;
           }
 
-          triggerDownload(canvas.toDataURL("image/png"), `${fileBase}.png`);
+          const pngUrl = await canvasToBlobUrl(printCanvas, "image/png");
+          triggerDownload(pngUrl, `${fileBase}.png`);
+          if (pngUrl.startsWith("blob:")) {
+            window.setTimeout(() => URL.revokeObjectURL(pngUrl), 4000);
+          }
         });
       });
     });

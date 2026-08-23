@@ -1414,9 +1414,9 @@ try {
     <button class="sidebar-scrim" type="button" aria-label="Close navigation panel" data-sidebar-scrim></button>
   </div>
   <?php if ($view === 'attendance'): ?>
-    <script src="https://unpkg.com/html5-qrcode" defer></script>
+    <script src="<?= e(khotwa_asset('vendor/html5-qrcode.min.js')) ?>" defer></script>
   <?php endif; ?>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" defer></script>
+  <script src="<?= e(khotwa_asset('vendor/qrcode.min.js')) ?>" defer></script>
   <?php render_toasts([
       ['type' => 'success', 'text' => $message ?? ''],
       ['type' => 'error', 'text' => $formError ?? ''],

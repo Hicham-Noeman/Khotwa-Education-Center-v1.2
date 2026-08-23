@@ -17,11 +17,12 @@ $parentWarnings = [];
 $childAgeGroup = null;
 $expiationsByCategory = [];
 $parentReviews = [];
+$parentReview = null;
 $error = '';
 $reviewError = '';
 $parentMessage = isset($_GET['expiation']) ? 'Expiation saved. The administration will confirm it once completed.' : '';
 if (isset($_GET['review'])) {
-    $parentMessage = 'Thank you. Your review was sent to the administration and appears on the website once approved.';
+    $parentMessage = 'Thank you. Your review was sent to the administration.';
 }
 
 try {
@@ -164,24 +165,27 @@ try {
                 throw new RuntimeException('Please keep the review under 1200 characters.');
             }
 
-            $pendingStatement = $pdo->prepare(
-                "SELECT COUNT(*) FROM homepage_reviews WHERE parent_user_id = ? AND status = 'pending'"
-            );
-            $pendingStatement->execute([$parentUserId]);
-            if ((int) $pendingStatement->fetchColumn() > 0) {
-                throw new RuntimeException('You already have a review waiting for approval. Please wait until it is reviewed.');
-            }
-
-            $insertReview = $pdo->prepare(
+            // A parent account has one review, however many children it covers. Sending
+            // again replaces the words they wrote instead of adding another entry.
+            // Edited text goes back to the administration for a fresh look, which is why
+            // the moderation fields are cleared -- the parent is never shown any of this.
+            $saveReview = $pdo->prepare(
                 "INSERT INTO homepage_reviews
                     (parent_user_id, display_name, display_name_ar, relationship_label, rating, review_text, status)
-                 VALUES (?, ?, ?, ?, ?, ?, 'pending')"
+                 VALUES (?, ?, ?, NULL, ?, ?, 'pending')
+                 ON DUPLICATE KEY UPDATE
+                    display_name = VALUES(display_name),
+                    display_name_ar = VALUES(display_name_ar),
+                    rating = VALUES(rating),
+                    review_text = VALUES(review_text),
+                    status = 'pending',
+                    reviewed_by_user_id = NULL,
+                    reviewed_at = NULL"
             );
-            $insertReview->execute([
+            $saveReview->execute([
                 $parentUserId,
                 mb_substr($displayName, 0, 120),
                 $displayNameAr === '' ? null : mb_substr($displayNameAr, 0, 120),
-                null,
                 $rating,
                 $reviewText,
             ]);
@@ -194,7 +198,7 @@ try {
     }
 
     $parentReviewsStatement = $pdo->prepare(
-        'SELECT id, display_name, rating, review_text, status, created_at
+        'SELECT id, display_name, display_name_ar, rating, review_text, updated_at
          FROM homepage_reviews
          WHERE parent_user_id = ?
          ORDER BY id DESC
@@ -202,6 +206,7 @@ try {
     );
     $parentReviewsStatement->execute([$parentUserId]);
     $parentReviews = $parentReviewsStatement->fetchAll();
+    $parentReview = $parentReviews[0] ?? null;
 
     $subjectsStatement = $pdo->prepare(
         "SELECT
@@ -727,13 +732,11 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                   <span>Your voice</span>
                   <h2>Review the center</h2>
                 </div>
-                <strong class="record-count"><?= e((string) count($parentReviews)) ?> submitted</strong>
               </div>
 
-              <p class="parent-review-intro">
-                Share your experience with Khotwa Education Center. The administration reviews every message,
-                and approved reviews are published on the public homepage.
-              </p>
+              <?php // Kept on one line: the translator matches a whole text node, and an
+                    // embedded newline would stop this sentence from being found. ?>
+              <p class="parent-review-intro">Share your experience with Khotwa Education Center. You have one review, and you can rewrite it whenever you like &mdash; sending it again replaces what you wrote before. The administration reads every message before anything appears on the website.</p>
 
               <form class="parent-review-form" method="post">
                 <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
@@ -745,7 +748,9 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                     type="text"
                     name="display_name"
                     maxlength="120"
-                    value="<?= e(trim((string) $user['first_name'] . ' ' . (string) ($user['last_name'] ?? ''))) ?>"
+                    value="<?= e((string) ($_POST['display_name']
+                        ?? $parentReview['display_name']
+                        ?? trim((string) $user['first_name'] . ' ' . (string) ($user['last_name'] ?? '')))) ?>"
                     required
                   >
                 </label>
@@ -759,7 +764,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                     dir="rtl"
                     lang="ar"
                     placeholder="الاسم كما يظهر في الموقع العربي"
-                    value="<?= e((string) ($_POST['display_name_ar'] ?? '')) ?>"
+                    value="<?= e((string) ($_POST['display_name_ar'] ?? $parentReview['display_name_ar'] ?? '')) ?>"
                   >
                 </label>
 
@@ -768,7 +773,8 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                   <div class="rating-options">
                     <?php for ($star = 5; $star >= 1; $star--): ?>
                       <label>
-                        <input type="radio" name="rating" value="<?= e((string) $star) ?>" <?= $star === 5 ? 'checked' : '' ?> required>
+                        <?php $currentRating = (int) ($_POST['rating'] ?? $parentReview['rating'] ?? 5); ?>
+                        <input type="radio" name="rating" value="<?= e((string) $star) ?>" <?= $star === $currentRating ? 'checked' : '' ?> required>
                         <span aria-hidden="true"><?= str_repeat('★', $star) ?></span>
                         <small><?= e((string) $star) ?></small>
                       </label>
@@ -785,30 +791,20 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                     maxlength="1200"
                     placeholder="Tell other families what your child experienced at Khotwa."
                     required
-                  ><?= e((string) ($_POST['review_text'] ?? '')) ?></textarea>
+                  ><?= e((string) ($_POST['review_text'] ?? $parentReview['review_text'] ?? '')) ?></textarea>
                 </label>
 
-                <button class="primary-action" type="submit">Send review</button>
+                <button class="primary-action" type="submit">
+                  <?= $parentReview === null ? 'Send review' : 'Update my review' ?>
+                </button>
+                <?php if ($parentReview !== null): ?>
+                  <?php // The date sits in its own element so the label can be translated. ?>
+                  <p class="parent-review-note">
+                    Last sent on <time datetime="<?= e((string) $parentReview['updated_at']) ?>"><?= e((string) $parentReview['updated_at']) ?></time>
+                  </p>
+                <?php endif; ?>
               </form>
 
-              <?php if ($parentReviews !== []): ?>
-                <div class="parent-review-list">
-                  <?php foreach ($parentReviews as $review): ?>
-                    <div class="parent-review-card">
-                      <div class="parent-review-top">
-                        <span class="status-pill <?= e(parent_status_class((string) $review['status'])) ?>">
-                          <?= e(ucfirst((string) $review['status'])) ?>
-                        </span>
-                        <small><?= e((string) $review['created_at']) ?></small>
-                      </div>
-                      <strong class="parent-review-stars" aria-label="<?= e((string) $review['rating']) ?> out of 5">
-                        <?= str_repeat('★', max(1, min(5, (int) $review['rating']))) ?>
-                      </strong>
-                      <p><?= e((string) $review['review_text']) ?></p>
-                    </div>
-                  <?php endforeach; ?>
-                </div>
-              <?php endif; ?>
             </article>
           </section>
         <?php endif; ?>
@@ -818,7 +814,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
     <button class="sidebar-scrim" type="button" aria-label="Close navigation panel" data-sidebar-scrim></button>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" defer></script>
+  <script src="<?= e(khotwa_asset('vendor/qrcode.min.js')) ?>" defer></script>
   <?php render_toasts([
       ['type' => 'success', 'text' => $parentMessage ?? ''],
       ['type' => 'error', 'text' => $reviewError ?? ''],

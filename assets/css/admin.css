@@ -3481,3 +3481,76 @@ html[dir="rtl"] th:last-child {
   width: 16px;
   height: 16px;
 }
+
+/* One QR button that opens a small format menu (PNG / JPG). */
+.qr-download {
+  position: relative;
+}
+
+.qr-download-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.qr-download-caret {
+  width: 14px;
+  height: 14px;
+  opacity: 0.7;
+}
+
+.qr-download-toggle[aria-expanded="true"] .qr-download-caret {
+  transform: rotate(180deg);
+}
+
+.qr-download-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  min-width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--paper);
+  box-shadow: 0 16px 34px rgba(11, 28, 52, 0.14);
+}
+
+.qr-download-menu button {
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-family: var(--body);
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.qr-download-menu button:hover,
+.qr-download-menu button:focus-visible {
+  background: var(--soft);
+  color: var(--navy);
+}
+
+html[dir="rtl"] .qr-download-menu {
+  right: auto;
+  left: 0;
+}
+
+html[dir="rtl"] .qr-download-menu button {
+  text-align: right;
+}
+
+/* Note under the parent's review form. */
+.parent-review-note {
+  margin: 10px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}

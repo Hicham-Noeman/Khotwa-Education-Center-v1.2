@@ -25,7 +25,7 @@ $dbPass = '';
 $dbCharset = 'utf8mb4';
 
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
-const KHOTWA_SCHEMA_VERSION = 14;
+const KHOTWA_SCHEMA_VERSION = 15;
 
 function getDatabaseConnection(): PDO
 {
@@ -1472,6 +1472,28 @@ function applyKhotwaMigrations(PDO $pdo): void
             "ALTER TABLE students
              MODIFY family_status
              ENUM('Married', 'Divorced', 'Widowed', 'Separated', 'Single') NOT NULL"
+        );
+    }
+
+    // One review per parent account, editable in place. Any extras a parent already
+    // has are detached rather than deleted: an approved one stays on the homepage and
+    // stays visible to the admin, it just is no longer the parent's editable review.
+    if (!indexExists($pdo, 'homepage_reviews', 'uq_homepage_reviews_parent')) {
+        $pdo->exec(
+            'UPDATE homepage_reviews AS extra
+             JOIN (
+                SELECT parent_user_id, MAX(id) AS keep_id
+                FROM homepage_reviews
+                WHERE parent_user_id IS NOT NULL
+                GROUP BY parent_user_id
+                HAVING COUNT(*) > 1
+             ) AS newest ON newest.parent_user_id = extra.parent_user_id
+             SET extra.parent_user_id = NULL
+             WHERE extra.id <> newest.keep_id'
+        );
+        $pdo->exec(
+            'ALTER TABLE homepage_reviews
+             ADD UNIQUE KEY uq_homepage_reviews_parent (parent_user_id)'
         );
     }
 

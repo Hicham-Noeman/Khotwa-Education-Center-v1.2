@@ -183,14 +183,24 @@ try {
                   <?php // Kept in the layout but clipped out of sight: the export reads
                         // this canvas, so it must render rather than be display:none. ?>
                   <span class="profile-qr-canvas" data-qr-canvas aria-hidden="true"></span>
-                  <button class="secondary-action" type="button" data-qr-download="png">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14"/></svg>
-                    QR PNG
-                  </button>
-                  <button class="secondary-action" type="button" data-qr-download="jpg">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14"/></svg>
-                    QR JPG
-                  </button>
+                  <?php // One button; the file type is picked from the menu it opens. ?>
+                  <div class="qr-download" data-qr-menu>
+                    <button
+                      class="secondary-action qr-download-toggle"
+                      type="button"
+                      data-qr-menu-toggle
+                      aria-haspopup="true"
+                      aria-expanded="false"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14"/></svg>
+                      Download QR code
+                      <svg class="qr-download-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                    </button>
+                    <div class="qr-download-menu" data-qr-menu-list hidden>
+                      <button type="button" data-qr-download="png">PNG image</button>
+                      <button type="button" data-qr-download="jpg">JPG image</button>
+                    </div>
+                  </div>
                 </div>
               <?php endif; ?>
               <span class="profile-id">ID <?= e((string) $personId) ?></span>
@@ -304,7 +314,7 @@ try {
     </div>
     <button class="sidebar-scrim" type="button" aria-label="Close navigation panel" data-sidebar-scrim></button>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" defer></script>
+  <script src="<?= e(khotwa_asset('vendor/qrcode.min.js')) ?>" defer></script>
   <?php render_toasts([
       ['type' => 'success', 'text' => $message ?? ''],
       ['type' => 'error', 'text' => $error ?? ''],
