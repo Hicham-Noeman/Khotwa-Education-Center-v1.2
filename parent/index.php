@@ -523,7 +523,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                   <div><strong>Grade</strong><span><?= e((string) $studentOverview['grade_name']) ?></span></div>
                   <div><strong>Language</strong><span><?= e((string) $studentOverview['current_teaching_language']) ?></span></div>
                   <div><strong>Status</strong><span class="status-pill <?= e(parent_status_class($selectedChildStatus)) ?>"><?= e(ucfirst($selectedChildStatus)) ?></span></div>
-                  <div><strong>Latest attendance</strong><span><?= e((string) ($studentOverview['latest_attendance_date'] ?? 'No records yet')) ?></span></div>
+                  <div><strong>Latest attendance</strong><span><?= e(fmt_date((string) ($studentOverview['latest_attendance_date'] ?? ''), 'No records yet')) ?></span></div>
                 </div>
               <?php endif; ?>
             </article>
@@ -588,7 +588,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                     <?php else: ?>
                       <?php foreach ($attendance as $row): ?>
                         <tr>
-                          <td><?= e((string) $row['attendance_date']) ?></td>
+                          <td><?= e(fmt_date((string) $row['attendance_date'])) ?></td>
                           <td><span class="status-pill <?= e(parent_status_class((string) $row['status'])) ?>"><?= e(ucwords(str_replace('_', ' ', (string) $row['status']))) ?></span></td>
                           <td><?= e((string) ($row['check_in_time'] ?? '-')) ?></td>
                           <td><?= e((string) ($row['check_out_time'] ?? '-')) ?></td>
@@ -615,7 +615,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                     <?php else: ?>
                       <?php foreach ($homeworkItems as $row): ?>
                         <tr>
-                          <td><?= e((string) $row['attendance_date']) ?></td>
+                          <td><?= e(fmt_date((string) $row['attendance_date'])) ?></td>
                           <td>
                             <strong><?= e((string) $row['subject_name']) ?></strong>
                             <small class="table-cell-detail" lang="ar" dir="rtl"><?= e((string) $row['subject_name_ar']) ?></small>
@@ -681,7 +681,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                         <span class="status-pill <?= e(parent_status_class((string) ($warning['warning_type'] ?: 'warning'))) ?>">
                           <?= e($warning['warning_type'] ? ucfirst((string) $warning['warning_type']) . ' warning' : 'Warning') ?>
                         </span>
-                        <small><?= e((string) $warning['warning_date']) ?></small>
+                        <small><?= e(fmt_date((string) $warning['warning_date'])) ?></small>
                       </div>
                       <?php // Only the administration's message is shown; the teacher's own
                             // wording of the incident stays internal to the centre. ?>
@@ -800,7 +800,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                 <?php if ($parentReview !== null): ?>
                   <?php // The date sits in its own element so the label can be translated. ?>
                   <p class="parent-review-note">
-                    Last sent on <time datetime="<?= e((string) $parentReview['updated_at']) ?>"><?= e((string) $parentReview['updated_at']) ?></time>
+                    Last sent on <time datetime="<?= e((string) $parentReview['updated_at']) ?>"><?= e(fmt_datetime((string) $parentReview['updated_at'])) ?></time>
                   </p>
                 <?php endif; ?>
               </form>

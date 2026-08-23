@@ -386,6 +386,12 @@
       return `${y}-${m}-${d}`;
     };
 
+    // Dates are shown day/month/year; the ISO form stays for row matching.
+    const formatDisplayDate = (iso) => {
+      const parts = String(iso).slice(0, 10).split("-");
+      return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : String(iso);
+    };
+
     const checkTodayAttendanceForStudent = (studentId) => {
       const targetDate = todayIso();
       const rows = document.querySelectorAll("[data-record-row][data-student-id][data-attendance-date]");
@@ -456,7 +462,7 @@
           ? `Checked out${checkOutTime ? ` at ${checkOutTime}` : ""}`
           : "Already checked out";
       setScanResult(
-        `Scanned: ${serverName} (ID: ${serverId}) | ${actionText} for ${date} | status: ${status}`
+        `Scanned: ${serverName} (ID: ${serverId}) | ${actionText} for ${formatDisplayDate(date)} | status: ${status}`
       );
 
       openStudentLink.href = `${studentUrl}?type=student&id=${serverId}`;

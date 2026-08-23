@@ -25,7 +25,7 @@ $dbPass = '';
 $dbCharset = 'utf8mb4';
 
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
-const KHOTWA_SCHEMA_VERSION = 15;
+const KHOTWA_SCHEMA_VERSION = 16;
 
 function getDatabaseConnection(): PDO
 {
@@ -79,6 +79,9 @@ function ensureKhotwaSchema(PDO $pdo): void
     }
 
     createKhotwaTables($pdo);
+    // The nationality list has to exist before the migration can map the old
+    // free-text values onto it.
+    seedNationalityDefaults($pdo);
     applyKhotwaMigrations($pdo);
     seedHomepageContentDefaults($pdo);
     seedHomepageCollectionsDefaults($pdo);
@@ -188,6 +191,25 @@ function homepage_setting_save(PDO $pdo, string $key, string $value): void
     $statement->execute([$key, $value]);
 }
 
+function seedNationalityDefaults(PDO $pdo): void
+{
+    if ((int) $pdo->query('SELECT COUNT(*) FROM nationalities')->fetchColumn() > 0) {
+        return;
+    }
+
+    $nationalities = [
+        ['Lebanese', 'لبناني', 1],
+        ['Syrian', 'سوري', 2],
+        ['Palestinian', 'فلسطيني', 3],
+    ];
+    $insertNationality = $pdo->prepare(
+        'INSERT INTO nationalities (name_en, name_ar, sort_order) VALUES (?, ?, ?)'
+    );
+    foreach ($nationalities as $nationality) {
+        $insertNationality->execute($nationality);
+    }
+}
+
 function seedExpiationDefaults(PDO $pdo): void
 {
     if ((int) $pdo->query('SELECT COUNT(*) FROM age_groups')->fetchColumn() === 0) {
@@ -253,6 +275,21 @@ function seedExpiationDefaults(PDO $pdo): void
 function createKhotwaTables(PDO $pdo): void
 {
     $queries = [
+        // The center serves three nationalities, kept as an editable list so the
+        // student form offers them as options instead of free text.
+        "CREATE TABLE IF NOT EXISTS nationalities (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            name_en VARCHAR(120) NOT NULL,
+            name_ar VARCHAR(120) NOT NULL,
+            sort_order SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_nationalities_name_en (name_en),
+            INDEX idx_nationalities_status_order (status, sort_order)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
         "CREATE TABLE IF NOT EXISTS students (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             first_name_en VARCHAR(100) NOT NULL,
@@ -267,7 +304,7 @@ function createKhotwaTables(PDO $pdo): void
             mother_last_name_ar VARCHAR(100) NOT NULL,
             photo_path VARCHAR(255) NULL,
             gender ENUM('male', 'female') NOT NULL,
-            nationality VARCHAR(100) NOT NULL,
+            nationality_id BIGINT UNSIGNED NULL,
             blood_type ENUM('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-') NOT NULL,
             date_of_birth DATE NOT NULL,
             address TEXT NULL,
@@ -285,7 +322,12 @@ function createKhotwaTables(PDO $pdo): void
             INDEX idx_students_en_name (first_name_en, last_name_en),
             INDEX idx_students_ar_name (first_name_ar, last_name_ar),
             INDEX idx_students_whatsapp_group (parents_assigned_to_whatsapp_group),
-            INDEX idx_students_status (status)
+            INDEX idx_students_status (status),
+            INDEX idx_students_nationality (nationality_id),
+            CONSTRAINT fk_students_nationality
+                FOREIGN KEY (nationality_id) REFERENCES nationalities(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
         "CREATE TABLE IF NOT EXISTS student_other_phone_numbers (
@@ -1462,6 +1504,57 @@ function applyKhotwaMigrations(PDO $pdo): void
             "ALTER TABLE students
              MODIFY current_teaching_language ENUM('French', 'English') NOT NULL"
         );
+    }
+
+    // Nationality used to be free text on the student row. It is now a foreign key
+    // into the nationalities list so the form offers it as a fixed set of options.
+    // Only the three nationalities the center serves are kept; anything else (and
+    // anything blank) is left empty for an admin to pick from the list.
+    if (columnExists($pdo, 'students', 'nationality')) {
+        addColumnIfMissing(
+            $pdo,
+            'students',
+            'nationality_id',
+            'nationality_id BIGINT UNSIGNED NULL AFTER gender'
+        );
+
+        $nationalityIds = $pdo->query(
+            'SELECT LOWER(name_en) AS name_en, id FROM nationalities'
+        )->fetchAll(PDO::FETCH_KEY_PAIR);
+
+        // Spellings seen in the old text column, per nationality.
+        $spellings = [
+            'lebanese' => ['lebanese', 'lebanon', 'لبناني', 'لبنانية', 'لبنان'],
+            'syrian' => ['syrian', 'syria', 'سوري', 'سورية', 'سوريا'],
+            'palestinian' => ['palestinian', 'palestine', 'فلسطيني', 'فلسطينية', 'فلسطين'],
+        ];
+        $assign = $pdo->prepare(
+            'UPDATE students SET nationality_id = ?
+             WHERE nationality_id IS NULL AND LOWER(TRIM(nationality)) = ?'
+        );
+        foreach ($spellings as $key => $variants) {
+            if (!isset($nationalityIds[$key])) {
+                continue;
+            }
+            foreach ($variants as $variant) {
+                $assign->execute([(int) $nationalityIds[$key], $variant]);
+            }
+        }
+
+        addIndexIfMissing(
+            $pdo,
+            'students',
+            'idx_students_nationality',
+            'INDEX idx_students_nationality (nationality_id)'
+        );
+        addForeignKeyIfMissing(
+            $pdo,
+            'students',
+            'fk_students_nationality',
+            'FOREIGN KEY (nationality_id) REFERENCES nationalities(id)
+             ON DELETE SET NULL ON UPDATE CASCADE'
+        );
+        $pdo->exec('ALTER TABLE students DROP COLUMN nationality');
     }
 
     // Family status used to be free text; the known values map straight onto the list.

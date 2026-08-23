@@ -211,7 +211,7 @@ try {
             $lateCount = (int) $row['late_count'];
             $recordedAbsentCount = (int) $row['absent_count'];
             $missingCount = max(0, $activeStudents - ($presentCount + $lateCount + $recordedAbsentCount));
-            $attendanceChart['labels'][] = (new DateTimeImmutable((string) $row['attendance_date']))->format('M j');
+            $attendanceChart['labels'][] = (new DateTimeImmutable((string) $row['attendance_date']))->format('d/m');
             $attendanceChart['present'][] = $presentCount;
             $attendanceChart['late'][] = $lateCount;
             $attendanceChart['absent'][] = $recordedAbsentCount + $missingCount;
@@ -613,7 +613,7 @@ $page = $views[$view];
                     <?php else: ?>
                       <?php foreach ($recentAttendance as $attendance): ?>
                         <tr>
-                          <td><?= e((string) $attendance['attendance_date']) ?></td>
+                          <td><?= e(fmt_date((string) $attendance['attendance_date'])) ?></td>
                           <td><strong><?= e((string) $attendance['student_name_en']) ?></strong></td>
                           <td><?= manager_value('daily_status', $attendance['daily_status']) ?></td>
                           <td><?= e((string) $attendance['attended_subject_count']) ?></td>

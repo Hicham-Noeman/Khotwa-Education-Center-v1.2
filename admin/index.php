@@ -67,6 +67,9 @@ $homepageMetrics = [];
 $databaseError = '';
 $formError = '';
 $message = isset($_GET['created']) ? 'Record added successfully.' : '';
+if (isset($_GET['created'], $_GET['with_parent'])) {
+    $message = 'Student added, with a parent account created and linked.';
+}
 $pdo = null;
 if (isset($_GET['deleted'])) {
     $deletedCount = max(0, (int) $_GET['deleted']);
@@ -271,14 +274,37 @@ try {
                     (array) ($_POST['fields'] ?? []),
                     (array) ($_FILES['uploads'] ?? [])
                 );
+
+                // A new student can bring a parent account with it. The block is
+                // optional: left empty, only the student is saved. Both rows share one
+                // transaction so a rejected parent never leaves a half-entered family,
+                // and the typed student values are still on screen to correct.
+                $parentInput = $postedView === 'students' ? (array) ($_POST['parent'] ?? []) : [];
+                $withParent = implode('', array_map(
+                    static fn ($value): string => trim((string) $value),
+                    $parentInput
+                )) !== '';
+
+                if ($withParent) {
+                    $pdo->beginTransaction();
+                }
                 try {
-                    admin_save_record($pdo, $table, $uploadResult['fields']);
+                    $newRecordId = admin_save_record($pdo, $table, $uploadResult['fields']);
+                    if ($withParent) {
+                        admin_create_parent_account_link($pdo, $newRecordId, $parentInput);
+                        $pdo->commit();
+                    }
                     admin_remove_uploaded_files($uploadResult['replaced']);
                 } catch (Throwable $exception) {
+                    if ($pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
                     admin_remove_uploaded_files($uploadResult['created']);
                     throw $exception;
                 }
-                header('Location: ' . admin_workspace_url($postedView, ['created' => 1]));
+                header('Location: ' . admin_workspace_url($postedView, [
+                    'created' => 1,
+                ] + ($withParent ? ['with_parent' => 1] : [])));
                 exit;
             }
 
@@ -331,17 +357,21 @@ try {
         $pageDescription = 'Student profiles and their current academic placement. Double-click a student to open every linked record.';
         $columns = [
             'student_name' => 'Student', 'student_name_ar' => 'Arabic name',
-            'gender' => 'Gender', 'date_of_birth' => 'Birth date', 'grade_name' => 'Current grade',
+            'gender' => 'Gender', 'nationality_name' => 'Nationality',
+            'date_of_birth' => 'Birth date', 'grade_name' => 'Current grade',
             'current_teaching_language' => 'Language', 'status' => 'Status',
         ];
         $rows = $pdo->query(
             "SELECT students.id,
                     CONCAT(students.first_name_en, ' ', students.last_name_en) student_name,
                     CONCAT(students.first_name_ar, ' ', students.last_name_ar) student_name_ar,
-                    students.gender, students.date_of_birth,
+                    students.gender,
+                    COALESCE(nationalities.name_en, 'Not set') nationality_name,
+                    students.date_of_birth,
                     COALESCE(student_academic_records.grade_name, 'Not assigned') grade_name,
                     students.current_teaching_language, students.status
              FROM students
+             LEFT JOIN nationalities ON nationalities.id = students.nationality_id
              LEFT JOIN student_academic_records ON student_academic_records.student_id = students.id
               AND student_academic_records.is_current = 1
              ORDER BY students.last_name_en, students.first_name_en"
@@ -547,6 +577,21 @@ try {
             "SELECT id, name_en, name_ar, min_age, max_age, sort_order, status
              FROM age_groups ORDER BY sort_order, min_age, id"
         )->fetchAll();
+    } elseif ($view === 'nationalities') {
+        $pageDescription = 'The nationalities offered as options on a student record.';
+        $columns = [
+            'name_en' => 'English name', 'name_ar' => 'Arabic name',
+            'student_count' => 'Students', 'sort_order' => 'Order', 'status' => 'Status',
+        ];
+        $rows = $pdo->query(
+            "SELECT nationalities.id, nationalities.name_en, nationalities.name_ar,
+                    COUNT(students.id) student_count,
+                    nationalities.sort_order, nationalities.status
+             FROM nationalities
+             LEFT JOIN students ON students.nationality_id = nationalities.id
+             GROUP BY nationalities.id
+             ORDER BY nationalities.sort_order, nationalities.name_en"
+        )->fetchAll();
     } elseif ($view === 'parent-links') {
         $pageDescription = 'Relationships between parent portal accounts and student records.';
         $columns = [
@@ -690,6 +735,20 @@ try {
              FROM homepage_contact_links ORDER BY sort_order, id"
         )->fetchAll();
     }
+
+    // Views that share a page carry a tab strip, with the row count on each tab.
+    $workspaceTabs = admin_workspace_tabs($view, $user);
+    $workspaceTabCounts = [];
+    foreach ($workspaceTabs as $tabView => $tabLabel) {
+        // The website studio fronts six collections, so a count of the one table
+        // behind it would describe less than the tab opens.
+        if ($tabView === 'website-content') {
+            continue;
+        }
+        $workspaceTabCounts[$tabView] = (int) $pdo->query(
+            'SELECT COUNT(*) FROM ' . admin_quote_identifier($viewTables[$tabView])
+        )->fetchColumn();
+    }
 } catch (Throwable $exception) {
     $databaseError = 'The management panel could not read the database. Please confirm that MySQL is running.';
 }
@@ -748,7 +807,7 @@ try {
                       <tr><td class="empty-row" colspan="5">No attendance records yet.</td></tr>
                     <?php else: ?>
                       <?php foreach ($recentAttendance as $row): ?>
-                        <tr><td><?= e($row['attendance_date']) ?></td><td><strong><?= e($row['student_name_en']) ?></strong></td><td><?= render_value('daily_status', $row['daily_status']) ?></td><td><?= e((string) $row['attended_subject_count']) ?></td><td><?= e((string) $row['missed_subject_count']) ?></td></tr>
+                        <tr><td><?= e(fmt_date((string) $row['attendance_date'])) ?></td><td><strong><?= e($row['student_name_en']) ?></strong></td><td><?= render_value('daily_status', $row['daily_status']) ?></td><td><?= e((string) $row['attended_subject_count']) ?></td><td><?= e((string) $row['missed_subject_count']) ?></td></tr>
                       <?php endforeach; ?>
                     <?php endif; ?>
                   </tbody>
@@ -777,6 +836,32 @@ try {
                     ?>
                   <?php endforeach; ?>
                 </div>
+                <?php if ($view === 'students'): ?>
+                  <?php $newParent = (array) ($_POST['parent'] ?? []); ?>
+                  <fieldset class="new-student-parent">
+                    <legend>Parent account <span>optional</span></legend>
+                    <p class="admin-field-help">Create the parent now and link them to this student, or leave this blank and add a parent later from the student profile.</p>
+                    <div class="record-form-grid">
+                      <label class="admin-field">
+                        <span>Parent first name</span>
+                        <input type="text" name="parent[first_name]" maxlength="100" value="<?= e((string) ($newParent['first_name'] ?? '')) ?>">
+                      </label>
+                      <label class="admin-field">
+                        <span>Parent last name</span>
+                        <input type="text" name="parent[last_name]" maxlength="100" value="<?= e((string) ($newParent['last_name'] ?? '')) ?>">
+                      </label>
+                      <label class="admin-field">
+                        <span>Parent email</span>
+                        <input type="email" name="parent[email]" maxlength="150" autocomplete="off" value="<?= e((string) ($newParent['email'] ?? '')) ?>">
+                      </label>
+                      <label class="admin-field">
+                        <span>Temporary password</span>
+                        <input type="text" name="parent[password]" maxlength="72" autocomplete="off">
+                      </label>
+                    </div>
+                  </fieldset>
+                <?php endif; ?>
+
                 <div class="record-form-actions">
                   <button class="primary-action" type="submit">Save record</button>
                   <a class="secondary-action" href="<?= e(admin_workspace_url($view)) ?>">Cancel</a>
@@ -885,7 +970,7 @@ try {
                       <div class="warning-card">
                         <div class="warning-card-top">
                           <strong><?= e((string) $warning['student_name']) ?></strong>
-                          <small><?= e((string) $warning['warning_date']) ?></small>
+                          <small><?= e(fmt_date((string) $warning['warning_date'])) ?></small>
                         </div>
                         <p class="warning-reason"><?= e((string) $warning['reason']) ?></p>
                         <small class="warning-meta">Flagged by <?= e((string) $warning['teacher_name']) ?></small>
@@ -958,6 +1043,7 @@ try {
             </div>
             </div>
           <?php elseif ($view === 'website-content'): ?>
+            <?php admin_render_workspace_tabs($workspaceTabs ?? [], $view, $workspaceTabCounts ?? [], true); ?>
             <?php
             $workspaceSections = [
                 [
@@ -1246,7 +1332,15 @@ try {
 
               return khotwa_url('admin/index.php') . '?' . http_build_query($query);
           };
+          $workspaceTabs = $workspaceTabs ?? [];
           ?>
+          <?php if ($workspaceTabs !== []): ?>
+            <?php // Sibling tables of one subject, reached the way a profile's sections
+                  // are: a strip joined to the top of the card holding the table. ?>
+            <div class="profile-workspace">
+              <?php admin_render_workspace_tabs($workspaceTabs, $view, $workspaceTabCounts); ?>
+              <div class="profile-panels">
+          <?php endif; ?>
           <section class="data-panel">
             <form method="post" data-table-actions>
               <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
@@ -1381,6 +1475,10 @@ try {
               <?php endif; ?>
             </form>
           </section>
+          <?php if ($workspaceTabs !== []): ?>
+              </div>
+            </div>
+          <?php endif; ?>
           <?php endif; ?>
         <?php endif; ?>
       </main>

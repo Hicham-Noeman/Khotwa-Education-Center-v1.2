@@ -454,7 +454,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                         <td data-sort-value="<?= e((string) $row['academic_year']) ?>"><?= e((string) $row['academic_year']) ?></td>
                         <td data-sort-value="<?= e((string) ($row['latest_attendance_date'] ?? '')) ?>">
                           <span class="status-pill status-<?= e((string) ($row['latest_attendance_status'] ?? 'unmarked')) ?>"><?= e($attendanceLabel) ?></span>
-                          <?php if ($row['latest_attendance_date']): ?><small class="table-cell-detail"><?= e((string) $row['latest_attendance_date']) ?></small><?php endif; ?>
+                          <?php if ($row['latest_attendance_date']): ?><small class="table-cell-detail"><?= e(fmt_date((string) $row['latest_attendance_date'])) ?></small><?php endif; ?>
                         </td>
                       </tr>
                     <?php endforeach; ?>
@@ -474,7 +474,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
             <section class="attendance-session-bar">
               <div class="attendance-today">
                 <span>Today's subject attendance</span>
-                <time datetime="<?= e($attendanceDate) ?>"><?= e(date('l, F j, Y', strtotime($attendanceDate))) ?></time>
+                <time datetime="<?= e($attendanceDate) ?>"><?= e(date('l, d/m/Y', strtotime($attendanceDate))) ?></time>
               </div>
             </section>
             <p class="table-cell-detail">Daily attendance is managed by administration. Teachers submit subject attendance, lesson notes, and homework only.</p>
@@ -620,7 +620,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
           <section class="attendance-session-bar">
             <div class="attendance-today">
               <span>Review date</span>
-              <time datetime="<?= e($attendanceDate) ?>"><?= e(date('l, F j, Y', strtotime($attendanceDate))) ?></time>
+              <time datetime="<?= e($attendanceDate) ?>"><?= e(date('l, d/m/Y', strtotime($attendanceDate))) ?></time>
             </div>
           </section>
           <p class="table-cell-detail">Main daily attendance is not changed in this screen. This submission saves subject attendance entries only.</p>
@@ -741,7 +741,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                     <div class="behaviour-flag-item">
                       <div>
                         <strong><?= e((string) $flag['student_name']) ?></strong>
-                        <small><?= e((string) $flag['warning_date']) ?></small>
+                        <small><?= e(fmt_date((string) $flag['warning_date'])) ?></small>
                       </div>
                       <p><?= e((string) $flag['reason']) ?></p>
                       <span class="status-pill status-<?= e((string) $flag['status']) ?>"><?= e($flagStatusLabels[(string) $flag['status']] ?? ucfirst((string) $flag['status'])) ?><?= $flag['warning_type'] ? ' · ' . e(ucfirst((string) $flag['warning_type'])) : '' ?></span>
@@ -763,8 +763,8 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                 <div><span>Teacher email</span><strong><?= e((string) $teacherProfile['teacher_email']) ?></strong></div>
                 <div><span>Portal account</span><strong><?= e((string) $teacherProfile['account_email']) ?></strong></div>
                 <div><span>Status</span><strong><span class="status-pill status-active">Active</span></strong></div>
-                <div><span>Last login</span><strong><?= e((string) ($teacherProfile['last_login_at'] ?: 'First login')) ?></strong></div>
-                <div><span>Member since</span><strong><?= e((string) $teacherProfile['created_at']) ?></strong></div>
+                <div><span>Last login</span><strong><?= e(fmt_datetime((string) $teacherProfile['last_login_at'], 'First login')) ?></strong></div>
+                <div><span>Member since</span><strong><?= e(fmt_datetime((string) $teacherProfile['created_at'])) ?></strong></div>
               </div>
               <?php if ($teacherProfile['notes']): ?><div class="teacher-profile-note"><span>Profile note</span><p><?= e((string) $teacherProfile['notes']) ?></p></div><?php endif; ?>
             </article>

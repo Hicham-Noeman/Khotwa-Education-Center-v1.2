@@ -39,6 +39,31 @@ function e(?string $value): string
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 }
 
+// Every date shown to a user reads day/month/year; the database keeps ISO strings.
+function fmt_date(?string $value, string $fallback = ''): string
+{
+    $value = trim((string) $value);
+    if ($value === '') {
+        return $fallback;
+    }
+
+    $time = strtotime($value);
+
+    return $time === false ? $value : date('d/m/Y', $time);
+}
+
+function fmt_datetime(?string $value, string $fallback = ''): string
+{
+    $value = trim((string) $value);
+    if ($value === '') {
+        return $fallback;
+    }
+
+    $time = strtotime($value);
+
+    return $time === false ? $value : date('d/m/Y H:i', $time);
+}
+
 function current_user(): ?array
 {
     return $_SESSION['user'] ?? null;

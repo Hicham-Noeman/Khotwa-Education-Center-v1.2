@@ -1799,7 +1799,8 @@ html[dir="rtl"] .toast-stack {
 }
 
 /* Panels sit inside the workspace, so they drop their own card chrome. */
-.profile-panels > [data-profile-panel] {
+.profile-panels > [data-profile-panel],
+.profile-panels > .data-panel {
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -1823,6 +1824,37 @@ html[dir="rtl"] .toast-stack {
   white-space: nowrap;
   cursor: pointer;
   transition: color 0.2s ease, background 0.2s ease;
+}
+
+.workspace-tabs .profile-tab svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+}
+
+/* A strip with no single pane beneath it closes itself off on all four sides
+   instead of running into the card below. */
+.workspace-tabs-standalone {
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 19px;
+  background: var(--paper);
+  box-shadow: 0 13px 35px rgba(20, 42, 73, 0.045);
+}
+
+.workspace-tabs-standalone .profile-tab {
+  border-radius: 11px;
+}
+
+.workspace-tabs-standalone .profile-tab.is-active {
+  background: rgba(34, 63, 107, 0.09);
+}
+
+/* A tab that navigates is a link, so it drops the underline a link would carry. */
+a.profile-tab {
+  text-decoration: none;
 }
 
 .profile-tab:hover {
@@ -1883,10 +1915,14 @@ html[dir="rtl"] .toast-stack {
 
 .profile-tab i {
   display: grid;
+  /* min-width alone pinned the box, so 720 and 10480 were cut off inside it:
+     max-content lets the pill grow with the number and keeps 22px as the floor. */
+  width: max-content;
   min-width: 22px;
   height: 20px;
+  flex: 0 0 auto;
   place-items: center;
-  padding: 0 6px;
+  padding: 0 7px;
   border-radius: 999px;
   background: rgba(34, 63, 107, 0.09);
   font-size: 0.66rem;
@@ -3553,4 +3589,39 @@ html[dir="rtl"] .qr-download-menu button {
   margin: 10px 0 0;
   font-size: 0.8rem;
   color: var(--muted);
+}
+
+/* Optional parent block on the new-student form. */
+.new-student-parent {
+  margin: 26px 0 4px;
+  padding: 6px 18px 18px;
+  border: 1px dashed var(--line);
+  border-radius: 13px;
+}
+
+.new-student-parent legend {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 8px;
+  font-family: var(--display);
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.new-student-parent legend span {
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-family: var(--body);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--soft);
+}
+
+.new-student-parent .admin-field-help {
+  margin: 0 0 14px;
 }

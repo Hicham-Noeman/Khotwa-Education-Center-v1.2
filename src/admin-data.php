@@ -5,27 +5,28 @@ function admin_navigation(): array
 {
     return [
         'overview' => ['label' => 'Overview', 'group' => 'Workspace'],
-        'students' => ['label' => 'Students', 'group' => 'People'],
-        'teachers' => ['label' => 'Teachers', 'group' => 'People'],
+        'students' => ['label' => 'Students', 'group' => 'People', 'sidebar_label' => 'Users'],
+        'teachers' => ['label' => 'Teachers', 'group' => 'People', 'sidebar' => false],
+        'parent-links' => ['label' => 'Parents', 'group' => 'People', 'sidebar' => false],
+        'users' => ['label' => 'Users', 'group' => 'People', 'sidebar' => false],
+        'nationalities' => ['label' => 'Nationalities', 'group' => 'People', 'sidebar' => false],
         'attendance' => ['label' => 'Attendance', 'group' => 'Academics'],
-        'subjects' => ['label' => 'Subjects', 'group' => 'Academics'],
-        'enrollments' => ['label' => 'Enrollments', 'group' => 'Academics'],
+        'subjects' => ['label' => 'Subjects', 'group' => 'Academics', 'sidebar' => false],
         'subscriptions' => ['label' => 'Subscriptions', 'group' => 'Finance'],
-        'payments' => ['label' => 'Payments', 'group' => 'Finance'],
+        'payments' => ['label' => 'Payments', 'group' => 'Finance', 'sidebar' => false],
+        'enrollments' => ['label' => 'Enrollments', 'group' => 'Finance', 'sidebar' => false],
         'warnings' => ['label' => 'Warnings', 'group' => 'Management'],
-        'users' => ['label' => 'Users', 'group' => 'Management'],
-        'parent-links' => ['label' => 'Parent Links', 'group' => 'Management'],
         'expiations' => ['label' => 'Expiations', 'group' => 'Expiations'],
-        'expiation-categories' => ['label' => 'Categories', 'group' => 'Expiations'],
-        'age-groups' => ['label' => 'Age Groups', 'group' => 'Expiations'],
+        'expiation-categories' => ['label' => 'Categories', 'group' => 'Expiations', 'sidebar' => false],
+        'age-groups' => ['label' => 'Age Groups', 'group' => 'Expiations', 'sidebar' => false],
         'website-content' => ['label' => 'Website Content', 'group' => 'Website'],
         'website-slides' => ['label' => 'Vision Slides', 'group' => 'Website', 'sidebar' => false],
         'website-statistics' => ['label' => 'Statistics', 'group' => 'Website', 'sidebar' => false],
         'website-team' => ['label' => 'Team Members', 'group' => 'Website', 'sidebar' => false],
         'website-gallery' => ['label' => 'Gallery Images', 'group' => 'Website', 'sidebar' => false],
         'website-partners' => ['label' => 'Partner Logos', 'group' => 'Website', 'sidebar' => false],
-        'website-reviews' => ['label' => 'Parent Reviews', 'group' => 'Website'],
-        'website-contacts' => ['label' => 'Contact & Social', 'group' => 'Website'],
+        'website-reviews' => ['label' => 'Parent Reviews', 'group' => 'Website', 'sidebar' => false],
+        'website-contacts' => ['label' => 'Contact & Social', 'group' => 'Website', 'sidebar' => false],
     ];
 }
 
@@ -34,6 +35,7 @@ function admin_manager_allowed_views(): array
     return [
         'students',
         'teachers',
+        'nationalities',
         'subjects',
         'enrollments',
         'subscriptions',
@@ -88,6 +90,7 @@ function admin_view_tables(): array
     return [
         'students' => 'students',
         'teachers' => 'teachers',
+        'nationalities' => 'nationalities',
         'attendance' => 'student_daily_attendance',
         'subjects' => 'subjects',
         'enrollments' => 'student_subject_enrollments',
@@ -171,7 +174,7 @@ function admin_linked_tables(string $type): array
         'student_medical_info' => 'Medical information',
         'student_other_phone_numbers' => 'Other phone numbers',
         'student_school_schedule' => 'School schedule',
-        'parent_students' => 'Parent links',
+        'parent_students' => 'Parents',
         'student_subject_enrollments' => 'Subject enrollments',
         'student_daily_attendance' => 'Daily attendance',
         'student_subject_attendance' => 'Subject attendance',
@@ -270,6 +273,125 @@ function admin_website_workspace_views(): array
     ];
 }
 
+/**
+ * Views that belong together on one page, shown as a tab strip above the table
+ * instead of separate sidebar entries. The first view in a group owns the
+ * sidebar entry; the rest are reachable through the tabs.
+ *
+ * @return array<int, array<string, string>>
+ */
+function admin_workspace_tab_groups(): array
+{
+    return [
+        [
+            'students' => 'Students',
+            'teachers' => 'Teachers',
+            'parent-links' => 'Parents',
+            'users' => 'Users',
+            'nationalities' => 'Nationalities',
+        ],
+        [
+            'attendance' => 'Attendance',
+            'subjects' => 'Subjects',
+        ],
+        [
+            'subscriptions' => 'Subscriptions',
+            'payments' => 'Payments',
+            'enrollments' => 'Enrollments',
+        ],
+        [
+            'expiations' => 'Expiations',
+            'expiation-categories' => 'Categories',
+            'age-groups' => 'Age Groups',
+        ],
+        [
+            'website-content' => 'Website Content',
+            'website-reviews' => 'Parent Reviews',
+            'website-contacts' => 'Contact & Social',
+        ],
+    ];
+}
+
+/**
+ * The tab strip this view belongs to, limited to the views the user may open.
+ * Empty when the view stands on its own.
+ *
+ * @return array<string, string>
+ */
+function admin_workspace_tabs(string $view, array $user): array
+{
+    foreach (admin_workspace_tab_groups() as $group) {
+        if (!isset($group[$view])) {
+            continue;
+        }
+
+        $allowed = array_filter(
+            $group,
+            static fn (string $tabView): bool => admin_user_can_access_view($user, $tabView),
+            ARRAY_FILTER_USE_KEY
+        );
+
+        return count($allowed) > 1 ? $allowed : [];
+    }
+
+    return [];
+}
+
+/**
+ * The tab strip for a workspace. Standalone mode is for a page that is not a
+ * single card underneath: the strip closes itself off instead of joining a pane.
+ *
+ * @param array<string, string> $tabs   view => label, from admin_workspace_tabs()
+ * @param array<string, int> $counts    row count per view, where one is worth showing
+ */
+function admin_render_workspace_tabs(
+    array $tabs,
+    string $activeView,
+    array $counts = [],
+    bool $standalone = false
+): void {
+    if ($tabs === []) {
+        return;
+    }
+
+    $stripClass = 'profile-tabs workspace-tabs' . ($standalone ? ' workspace-tabs-standalone' : '');
+    ?>
+    <nav class="<?= e($stripClass) ?>" aria-label="Workspace sections">
+      <?php foreach ($tabs as $tabView => $tabLabel): ?>
+        <a
+          class="profile-tab<?= $tabView === $activeView ? ' is-active' : '' ?>"
+          href="<?= e(khotwa_url('admin/index.php')) ?>?view=<?= e($tabView) ?>"
+          <?= $tabView === $activeView ? 'aria-current="page"' : '' ?>
+          title="<?= e($tabLabel) ?>"
+        >
+          <?= admin_icon($tabView) ?><span><?= e($tabLabel) ?></span>
+          <?php if (isset($counts[$tabView])): ?>
+            <i><?= e((string) $counts[$tabView]) ?></i>
+          <?php endif; ?>
+        </a>
+      <?php endforeach; ?>
+    </nav>
+    <?php
+}
+
+/**
+ * The sidebar entry that owns this view, so browsing a tab keeps its group lit.
+ */
+function admin_sidebar_view(string $view): string
+{
+    if (isset(admin_website_workspace_views()[$view])) {
+        return 'website-content';
+    }
+
+    foreach (admin_workspace_tab_groups() as $group) {
+        if (isset($group[$view])) {
+            return (string) array_key_first($group);
+        }
+    }
+
+    return $view;
+}
+
 function admin_workspace_url(string $view, array $query = []): string
 {
     $workspaceViews = admin_website_workspace_views();
@@ -297,6 +419,7 @@ function admin_column_label(string $column): string
         'contact_url' => 'Contact Link',
         'website_url' => 'Website Link',
         'parent_user_id' => 'Parent User',
+        'nationality_id' => 'Nationality',
     ];
     if (isset($labels[$column])) {
         return $labels[$column];
@@ -379,6 +502,7 @@ function admin_relation_options(PDO $pdo, string $column): array
         'parent_user_id' => "SELECT id, CONCAT(first_name, ' ', COALESCE(last_name, ''), ' / ', email) label FROM users WHERE role = 'parent' ORDER BY first_name, last_name, email",
         'category_id' => "SELECT id, CONCAT(name_en, ' / ', name_ar) label FROM expiation_categories ORDER BY sort_order, name_en",
         'age_group_id' => "SELECT id, CONCAT(name_en, ' (', min_age, '-', max_age, ')') label FROM age_groups ORDER BY sort_order, min_age",
+        'nationality_id' => "SELECT id, CONCAT(name_en, ' / ', name_ar) label FROM nationalities ORDER BY sort_order, name_en",
     ];
 
     if (!isset($queries[$column])) {
@@ -723,6 +847,55 @@ function admin_sync_subscription_month_payment(PDO $pdo, int $subscriptionMonthI
     ]);
 }
 
+/**
+ * English name columns that are capitalised on save, per table.
+ *
+ * Arabic columns are left alone: the script has no letter case.
+ *
+ * @return array<int, string>
+ */
+function admin_name_columns(string $table): array
+{
+    return match ($table) {
+        'students' => [
+            'first_name_en', 'father_name_en', 'last_name_en',
+            'mother_name_en', 'mother_last_name_en',
+        ],
+        'teachers' => ['first_name', 'last_name'],
+        default => [],
+    };
+}
+
+/**
+ * Capitalises a person's name without rewriting what was typed.
+ *
+ * Only the first letter of each part is raised, and only when it is lower case, so
+ * "al-masri" becomes "Al-Masri" while a deliberate "McDonald" or an all-caps
+ * surname survives untouched. mb_* throughout, since a name can carry accents.
+ */
+function admin_capitalize_name(string $value): string
+{
+    $value = trim($value);
+    if ($value === '') {
+        return '';
+    }
+
+    // Split on the separators that begin a new part of a name, keeping them in place.
+    $parts = preg_split("/([ \-'\x{2019}])/u", $value, -1, PREG_SPLIT_DELIM_CAPTURE);
+    if ($parts === false) {
+        return $value;
+    }
+
+    foreach ($parts as $index => $part) {
+        if ($part === '') {
+            continue;
+        }
+        $parts[$index] = mb_strtoupper(mb_substr($part, 0, 1)) . mb_substr($part, 1);
+    }
+
+    return implode('', $parts);
+}
+
 function admin_save_record(PDO $pdo, string $table, array $fields, ?int $id = null): int
 {
     $previousPaymentMonthId = null;
@@ -744,6 +917,9 @@ function admin_save_record(PDO $pdo, string $table, array $fields, ?int $id = nu
         }
 
         $value = is_string($fields[$name]) ? trim($fields[$name]) : $fields[$name];
+        if (is_string($value) && in_array($name, admin_name_columns($table), true)) {
+            $value = admin_capitalize_name($value);
+        }
         if ($name === 'password_hash') {
             if ($id !== null && $value === '') {
                 continue;
@@ -810,8 +986,8 @@ function admin_save_record(PDO $pdo, string $table, array $fields, ?int $id = nu
  */
 function admin_create_parent_account_link(PDO $pdo, int $studentId, array $input): array
 {
-    $firstName = trim((string) ($input['first_name'] ?? ''));
-    $lastName = trim((string) ($input['last_name'] ?? ''));
+    $firstName = admin_capitalize_name((string) ($input['first_name'] ?? ''));
+    $lastName = admin_capitalize_name((string) ($input['last_name'] ?? ''));
     $email = trim((string) ($input['email'] ?? ''));
     $password = (string) ($input['password'] ?? '');
     $status = (string) ($input['status'] ?? 'active');
@@ -847,7 +1023,13 @@ function admin_create_parent_account_link(PDO $pdo, int $studentId, array $input
         }
     }
 
-    $pdo->beginTransaction();
+    // The caller may already have a transaction open (creating a student and its
+    // parent together), and MySQL has no nested transactions, so only the outermost
+    // owner starts and finishes one.
+    $ownsTransaction = !$pdo->inTransaction();
+    if ($ownsTransaction) {
+        $pdo->beginTransaction();
+    }
     try {
         // The admin picks the first password, so the parent is made to replace it
         // the first time they sign in.
@@ -875,9 +1057,13 @@ function admin_create_parent_account_link(PDO $pdo, int $studentId, array $input
             $linkId = (int) $pdo->lastInsertId();
         }
 
-        $pdo->commit();
+        if ($ownsTransaction) {
+            $pdo->commit();
+        }
     } catch (Throwable $exception) {
-        $pdo->rollBack();
+        if ($ownsTransaction && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         throw $exception;
     }
 
@@ -1067,9 +1253,7 @@ function admin_render_sidebar(array $user, string $activeView): void
         }
         $groups[$item['group']][$key] = $item;
     }
-    if (isset(admin_website_workspace_views()[$activeView])) {
-        $activeView = 'website-content';
-    }
+    $activeView = admin_sidebar_view($activeView);
     $brandHref = khotwa_url($isManager ? 'manager/index.php' : 'admin/index.php');
     $brandLabel = $isManager ? 'Khotwa management home' : 'Khotwa administration home';
     $brandSubline = $isManager ? 'Management' : 'Administration';
@@ -1121,9 +1305,12 @@ function admin_render_sidebar(array $user, string $activeView): void
               $isActive = $key === 'manager-dashboard' ? $activeView === 'overview' : $activeView === $key;
               $href = $item['href'] ?? (khotwa_url('admin/index.php') . '?view=' . $key);
               $icon = $item['icon'] ?? $key;
+              // An entry that opens a tabbed workspace can be named for the whole set
+              // of tables rather than for the one table its page happens to show.
+              $sidebarLabel = (string) ($item['sidebar_label'] ?? $item['label']);
               ?>
-              <a class="<?= $isActive ? 'is-active' : '' ?>" href="<?= e($href) ?>" title="<?= e($item['label']) ?>">
-                <?= admin_icon($icon) ?><span><?= e($item['label']) ?></span>
+              <a class="<?= $isActive ? 'is-active' : '' ?>" href="<?= e($href) ?>" title="<?= e($sidebarLabel) ?>">
+                <?= admin_icon($icon) ?><span><?= e($sidebarLabel) ?></span>
                 <?php if ($isActive): ?><i></i><?php endif; ?>
               </a>
             <?php endforeach; ?>

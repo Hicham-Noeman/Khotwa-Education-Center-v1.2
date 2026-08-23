@@ -235,14 +235,21 @@ function seedDatabase(PDO $pdo): array
             ['en' => 'Tahan', 'ar' => 'طحان']
         ];
 
-        $nationalities = ['Syrian', 'Lebanese', 'Palestinian', 'Jordanian', 'Egyptian', 'Iraqi'];
+        // Nationality is a lookup row now, so the demo data cycles through the ids
+        // the nationalities table actually holds.
+        $nationalityIds = $pdo->query(
+            'SELECT id FROM nationalities ORDER BY sort_order, id'
+        )->fetchAll(PDO::FETCH_COLUMN);
+        if ($nationalityIds === []) {
+            throw new RuntimeException('No nationalities are configured; run the app once to seed them.');
+        }
         $bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
         
         $insertStudent = $pdo->prepare(
             "INSERT INTO students (
                 first_name_en, father_name_en, last_name_en, mother_name_en, mother_last_name_en,
                 first_name_ar, father_name_ar, last_name_ar, mother_name_ar, mother_last_name_ar,
-                gender, nationality, blood_type, date_of_birth, address, family_status,
+                gender, nationality_id, blood_type, date_of_birth, address, family_status,
                 number_of_people_in_household, current_teaching_language,
                 father_phone_number, mother_phone_number, home_phone_number,
                 parents_assigned_to_whatsapp_group, status
@@ -332,7 +339,7 @@ function seedDatabase(PDO $pdo): array
                 $motherLast = $motherLastNames[($grade * 4 + $sIndex * 3) % count($motherLastNames)];
 
                 $gender = $isBoy ? 'male' : 'female';
-                $nat = $nationalities[($grade + $sIndex) % count($nationalities)];
+                $nat = (int) $nationalityIds[($grade + $sIndex) % count($nationalityIds)];
                 $blood = $bloodTypes[($grade * 3 + $sIndex) % count($bloodTypes)];
                 
                 // Birth year logic: Grade 1 is ~6 (born 2019), Grade 12 is ~17 (born 2008)
