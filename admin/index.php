@@ -349,7 +349,7 @@ try {
         ];
         $recentAttendance = $pdo->query(
             "SELECT attendance_date, student_name_en, daily_status, attended_subject_count, missed_subject_count
-             FROM student_daily_attendance_summary
+             FROM " . khotwa_daily_attendance_summary_sql() . "
              ORDER BY attendance_date DESC, student_name_en LIMIT 8"
         )->fetchAll();
         $pageDescription = 'A live view of students, educators, attendance, enrollments, and financial activity.';
@@ -420,7 +420,7 @@ try {
                           AND student_subject_attendance.homework_note IS NOT NULL
                           AND TRIM(student_subject_attendance.homework_note) <> ''
                     ), '') AS homework_notes
-             FROM student_daily_attendance_summary ORDER BY attendance_date DESC, student_name_en"
+             FROM " . khotwa_daily_attendance_summary_sql() . " ORDER BY attendance_date DESC, student_name_en"
         )->fetchAll();
     } elseif ($view === 'subjects') {
         $pageDescription = 'Subjects offered by the center and their teaching coverage.';

@@ -287,6 +287,41 @@ function seedExpiationDefaults(PDO $pdo): void
     }
 }
 
+/**
+ * The per-day attendance rollup, as a SELECT rather than a database view.
+ *
+ * It reads as a table named student_daily_attendance_summary wherever it is used, so
+ * the queries around it need no other change - and it requires no CREATE VIEW
+ * privilege, which shared hosting does not grant.
+ */
+function khotwa_daily_attendance_summary_sql(): string
+{
+    return "(SELECT
+                student_daily_attendance.id AS daily_attendance_id,
+                students.id AS student_id,
+                CONCAT(students.first_name_en, ' ', students.last_name_en) AS student_name_en,
+                student_daily_attendance.attendance_date,
+                student_daily_attendance.check_in_time,
+                student_daily_attendance.check_out_time,
+                student_daily_attendance.status AS daily_status,
+                COUNT(student_subject_attendance.id) AS subject_session_count,
+                SUM(CASE WHEN student_subject_attendance.status = 'attended' THEN 1 ELSE 0 END) AS attended_subject_count,
+                SUM(CASE WHEN student_subject_attendance.status = 'missed' THEN 1 ELSE 0 END) AS missed_subject_count
+            FROM student_daily_attendance
+            INNER JOIN students ON students.id = student_daily_attendance.student_id
+            LEFT JOIN student_subject_attendance
+                ON student_subject_attendance.daily_attendance_id = student_daily_attendance.id
+            GROUP BY
+                student_daily_attendance.id,
+                students.id,
+                students.first_name_en,
+                students.last_name_en,
+                student_daily_attendance.attendance_date,
+                student_daily_attendance.check_in_time,
+                student_daily_attendance.check_out_time,
+                student_daily_attendance.status) AS student_daily_attendance_summary";
+}
+
 function createKhotwaTables(PDO $pdo): void
 {
     $queries = [
@@ -980,105 +1015,10 @@ function createKhotwaTables(PDO $pdo): void
                 ON UPDATE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
-        "CREATE OR REPLACE VIEW student_warning_yearly_summary AS
-            SELECT
-                students.id AS student_id,
-                CONCAT(students.first_name_en, ' ', students.last_name_en) AS student_name_en,
-                student_warnings.warning_year,
-                SUM(CASE WHEN student_warnings.warning_type = 'oral' THEN 1 ELSE 0 END) AS oral_warning_count,
-                SUM(CASE WHEN student_warnings.warning_type = 'written' THEN 1 ELSE 0 END) AS written_warning_count,
-                COUNT(student_warnings.id) AS total_warning_count,
-                COALESCE(SUM(student_warnings.conversation_minutes), 0) AS total_conversation_minutes,
-                MAX(student_warnings.warning_date) AS latest_warning_date
-            FROM students
-            INNER JOIN student_warnings ON student_warnings.student_id = students.id
-            GROUP BY
-                students.id,
-                students.first_name_en,
-                students.last_name_en,
-                student_warnings.warning_year",
-
-        "CREATE OR REPLACE VIEW student_current_subjects AS
-            SELECT
-                student_subject_enrollments.id AS enrollment_id,
-                students.id AS student_id,
-                CONCAT(students.first_name_en, ' ', students.last_name_en) AS student_name_en,
-                subjects.id AS subject_id,
-                student_subject_enrollments.teacher_subject_id,
-                subjects.name_en AS subject_name_en,
-                subjects.name_ar AS subject_name_ar,
-                teachers.id AS teacher_id,
-                TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))) AS teacher_name,
-                student_subject_enrollments.academic_year,
-                student_subject_enrollments.start_date,
-                student_subject_enrollments.end_date,
-                student_subject_enrollments.status
-            FROM student_subject_enrollments
-            INNER JOIN students ON students.id = student_subject_enrollments.student_id
-            INNER JOIN subjects ON subjects.id = student_subject_enrollments.subject_id
-            INNER JOIN teachers ON teachers.id = student_subject_enrollments.teacher_id
-            WHERE student_subject_enrollments.status = 'active'",
-
-        "CREATE OR REPLACE VIEW student_daily_attendance_summary AS
-            SELECT
-                student_daily_attendance.id AS daily_attendance_id,
-                students.id AS student_id,
-                CONCAT(students.first_name_en, ' ', students.last_name_en) AS student_name_en,
-                student_daily_attendance.attendance_date,
-                student_daily_attendance.check_in_time,
-                student_daily_attendance.check_out_time,
-                student_daily_attendance.status AS daily_status,
-                COUNT(student_subject_attendance.id) AS subject_session_count,
-                SUM(CASE WHEN student_subject_attendance.status = 'attended' THEN 1 ELSE 0 END) AS attended_subject_count,
-                SUM(CASE WHEN student_subject_attendance.status = 'missed' THEN 1 ELSE 0 END) AS missed_subject_count
-            FROM student_daily_attendance
-            INNER JOIN students ON students.id = student_daily_attendance.student_id
-            LEFT JOIN student_subject_attendance
-                ON student_subject_attendance.daily_attendance_id = student_daily_attendance.id
-            GROUP BY
-                student_daily_attendance.id,
-                students.id,
-                students.first_name_en,
-                students.last_name_en,
-                student_daily_attendance.attendance_date,
-                student_daily_attendance.check_in_time,
-                student_daily_attendance.check_out_time,
-                student_daily_attendance.status",
-
-        "CREATE OR REPLACE VIEW student_subscription_month_balances AS
-            SELECT
-                student_subscription_months.id AS subscription_month_id,
-                student_subscription_months.student_id,
-                student_subscription_months.billing_year,
-                student_subscription_months.billing_month,
-                student_subscription_months.expected_amount,
-                student_subscription_months.paid_amount AS stored_paid_amount,
-                COALESCE(SUM(student_subscription_payments.paid_amount), 0.00) AS payment_history_paid_amount,
-                COUNT(student_subscription_payments.id) AS payment_history_count,
-                CASE
-                    WHEN COUNT(student_subscription_payments.id) > 0
-                        THEN COALESCE(SUM(student_subscription_payments.paid_amount), 0.00)
-                    ELSE student_subscription_months.paid_amount
-                END AS effective_paid_amount,
-                student_subscription_months.expected_amount - CASE
-                    WHEN COUNT(student_subscription_payments.id) > 0
-                        THEN COALESCE(SUM(student_subscription_payments.paid_amount), 0.00)
-                    ELSE student_subscription_months.paid_amount
-                END AS balance_amount,
-                student_subscription_months.payment_status,
-                student_subscription_months.billing_type
-            FROM student_subscription_months
-            LEFT JOIN student_subscription_payments
-                ON student_subscription_payments.subscription_month_id = student_subscription_months.id
-            GROUP BY
-                student_subscription_months.id,
-                student_subscription_months.student_id,
-                student_subscription_months.billing_year,
-                student_subscription_months.billing_month,
-                student_subscription_months.expected_amount,
-                student_subscription_months.paid_amount,
-                student_subscription_months.payment_status,
-                student_subscription_months.billing_type",
+        // Reporting views used to live here. Three of them were never queried by any
+        // page, and shared hosting commonly withholds CREATE VIEW, which stopped the
+        // whole schema from being built. The one that was used is now a derived table
+        // in the queries that need it: see khotwa_daily_attendance_summary_sql().
     ];
 
     foreach ($queries as $query) {
@@ -1801,28 +1741,6 @@ function applyKhotwaMigrations(PDO $pdo): void
     // Existing warnings already carry a type, so treat them as issued (visible to parents).
     $pdo->exec("UPDATE student_warnings SET status = 'issued' WHERE warning_type IS NOT NULL AND status = 'flagged'");
 
-    // Recreate the yearly summary so it only counts real warnings (never flags/dismissals).
-    // Done here (not in createKhotwaTables) so the `status` column is guaranteed to exist first.
-    $pdo->exec(
-        "CREATE OR REPLACE VIEW student_warning_yearly_summary AS
-            SELECT
-                students.id AS student_id,
-                CONCAT(students.first_name_en, ' ', students.last_name_en) AS student_name_en,
-                student_warnings.warning_year,
-                SUM(CASE WHEN student_warnings.warning_type = 'oral' THEN 1 ELSE 0 END) AS oral_warning_count,
-                SUM(CASE WHEN student_warnings.warning_type = 'written' THEN 1 ELSE 0 END) AS written_warning_count,
-                COUNT(student_warnings.id) AS total_warning_count,
-                COALESCE(SUM(student_warnings.conversation_minutes), 0) AS total_conversation_minutes,
-                MAX(student_warnings.warning_date) AS latest_warning_date
-            FROM students
-            INNER JOIN student_warnings ON student_warnings.student_id = students.id
-            WHERE student_warnings.status IN ('issued', 'assigned')
-            GROUP BY
-                students.id,
-                students.first_name_en,
-                students.last_name_en,
-                student_warnings.warning_year"
-    );
 
     // 'action_taken' became the message the parent reads, so it is renamed and widened
     // from VARCHAR(255) to TEXT. Existing text carries over untouched.

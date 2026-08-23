@@ -7,6 +7,13 @@ if (is_logged_in()) {
     redirect_to_role_home((array) current_user());
 }
 
+// Localhost keeps the demo shortcuts; any other hostname is treated as public.
+// Judged by the address the visitor typed, not by where the request came from: on a
+// public host, a request that happens to originate on the server is still public.
+$requestHost = strtolower((string) ($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? ''));
+$requestHost = explode(':', $requestHost)[0];
+$isLocalRequest = in_array($requestHost, ['localhost', '127.0.0.1', '::1', ''], true);
+
 $error = '';
 $email = '';
 
@@ -186,6 +193,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
           <div class="auth-error" role="alert"><?= e($error) ?></div>
         <?php endif; ?>
 
+        <?php // The demo logins and the seeding link are development aids. On a public
+              // host they would hand every visitor an administrator account, so they
+              // are shown only when the site is being served locally. ?>
+        <?php if ($isLocalRequest): ?>
         <div class="demo-credential-list">
           <button class="demo-credentials" type="button" data-fill-login data-email="admin@khotwa.test" data-password="admin123">
             <span>Administrator demo</span>
@@ -213,6 +224,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
           Need to reset or seed the demo data? 
           <a href="<?= e(khotwa_url('tools/setup.php')) ?>" style="color: var(--navy); font-weight: 700; text-decoration: underline; transition: color 0.2s ease;">Initialize & Seed Database</a>
         </div>
+        <?php endif; ?>
 
         <form class="auth-form" id="login-form" method="post" action="<?= e(khotwa_url('login.php')) ?>">
           <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">

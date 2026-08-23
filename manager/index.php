@@ -345,7 +345,7 @@ try {
         $recentAttendance = $pdo->query(
             "SELECT attendance_date, student_name_en, daily_status,
                     attended_subject_count, missed_subject_count
-             FROM student_daily_attendance_summary
+             FROM " . khotwa_daily_attendance_summary_sql() . "
              ORDER BY attendance_date DESC, student_name_en
              LIMIT 8"
         )->fetchAll();
