@@ -28,3 +28,4 @@ jobs:
             tools/**
             logs/**
             src/db-config.php
+            src/mail-config.php

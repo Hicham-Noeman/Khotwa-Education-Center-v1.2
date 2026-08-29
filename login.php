@@ -93,6 +93,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $updateLogin = $pdo->prepare('UPDATE users SET last_login_at = NOW() WHERE id = ?');
             $updateLogin->execute([(int) $user['id']]);
 
+            // "Remember me" keeps this one device signed in past the browser closing;
+            // leaving it unticked clears any token this device was already holding.
+            if (($_POST['remember'] ?? '') !== '') {
+                remember_me_issue($pdo, (int) $user['id']);
+            } else {
+                remember_me_forget($pdo);
+            }
+
             redirect_to_role_home($_SESSION['user']);
         }
     } catch (RuntimeException $exception) {
@@ -250,30 +258,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
           <div class="form-options">
             <label class="check-row">
-              <input type="checkbox" name="remember">
+              <input type="checkbox" name="remember" value="1"<?= ($_POST['remember'] ?? '') !== '' ? ' checked' : '' ?>>
               <span class="custom-check">
                 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8 3 3 7-7"/></svg>
               </span>
               Remember me
             </label>
-            <a href="<?= e(khotwa_url('forgot-password.html')) ?>">Forgot password?</a>
+            <a href="<?= e(khotwa_url('forgot-password.php')) ?>">Forgot password?</a>
           </div>
 
           <button class="primary-auth-button" type="submit">
             Log in
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </button>
-
-          <div class="form-divider"><span>or continue with</span></div>
-
-          <button class="google-button" type="button" data-demo-button>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path fill="#4285F4" d="M21.6 12.2c0-.7-.1-1.5-.2-2.2H12v4.3h5.4a4.7 4.7 0 0 1-2 3v2.8h3.4c2-1.9 2.8-4.6 2.8-7.9Z"/>
-              <path fill="#34A853" d="M12 22c2.8 0 5.1-.9 6.8-2.5l-3.4-2.7c-.9.6-2.1 1-3.4 1-2.6 0-4.9-1.8-5.7-4.2H2.8v2.7A10 10 0 0 0 12 22Z"/>
-              <path fill="#FBBC05" d="M6.3 13.6A6 6 0 0 1 6 12c0-.6.1-1.1.3-1.6V7.7H2.8A10 10 0 0 0 2 12c0 1.6.4 3 1 4.3l3.3-2.7Z"/>
-              <path fill="#EA4335" d="M12 6.2c1.5 0 2.9.5 3.9 1.5l2.9-2.9A9.8 9.8 0 0 0 12 2a10 10 0 0 0-9.2 5.7l3.5 2.7C7.1 8 9.4 6.2 12 6.2Z"/>
-            </svg>
-            Log in with Google
           </button>
         </form>
 
@@ -284,10 +280,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     </main>
   </div>
 
-  <div class="demo-toast" role="status" aria-live="polite">
-    <span></span>
-    <div><strong>Design preview</strong><small>No account data is being submitted.</small></div>
-  </div>
   <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/auth.js')) ?>" defer></script>
 </body>

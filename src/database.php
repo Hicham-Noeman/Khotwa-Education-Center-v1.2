@@ -39,8 +39,23 @@ if (is_file($khotwaLocalConfig)) {
     }
 }
 
+// The center's real contact details. Kept here so the seed for a fresh database and
+// the migration that replaces the old placeholders always agree. Editing them in the
+// admin panel afterwards is what changes the live site; these are only the starting
+// values.
+const KHOTWA_CENTER_PHONE_DISPLAY = '+961 79 427 940';
+const KHOTWA_CENTER_PHONE_E164 = '+96179427940';
+const KHOTWA_CENTER_WHATSAPP_URL = 'https://wa.me/96179427940';
+const KHOTWA_CENTER_INSTAGRAM_URL = 'https://www.instagram.com/khotwa_center.lb/';
+const KHOTWA_CENTER_FACEBOOK_URL = 'https://www.facebook.com/profile.php?id=61551043138729';
+const KHOTWA_CENTER_ADDRESS_EN = 'Tripoli, Lebanon';
+const KHOTWA_CENTER_ADDRESS_AR = 'طرابلس، لبنان';
+const KHOTWA_CENTER_MAP_URL = 'https://maps.google.com/?q=Tripoli%2C+Lebanon';
+const KHOTWA_CENTER_HOURS_EN = 'Mon-Thu & Sat, 3:00-8:00 PM';
+const KHOTWA_CENTER_HOURS_AR = 'الاثنين–الخميس والسبت، 3:00–8:00 مساءً';
+
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
-const KHOTWA_SCHEMA_VERSION = 16;
+const KHOTWA_SCHEMA_VERSION = 18;
 
 function getDatabaseConnection(): PDO
 {
@@ -472,6 +487,7 @@ function createKhotwaTables(PDO $pdo): void
             email VARCHAR(150) NOT NULL,
             password_hash VARCHAR(255) NOT NULL,
             status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+            show_on_website TINYINT(1) NOT NULL DEFAULT 1,
             notes VARCHAR(255) NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -977,6 +993,50 @@ function createKhotwaTables(PDO $pdo): void
             INDEX idx_login_attempts_email (email, attempted_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
+        // Password reset codes. Only the hash of the code is stored, so a leaked copy
+        // of this table cannot be used to reset anyone's password.
+        "CREATE TABLE IF NOT EXISTS password_resets (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            user_id BIGINT UNSIGNED NOT NULL,
+            email VARCHAR(190) NOT NULL,
+            code_hash CHAR(64) NOT NULL,
+            attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            requested_ip VARCHAR(45) NOT NULL DEFAULT '',
+            expires_at DATETIME NOT NULL,
+            used_at DATETIME NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            INDEX idx_password_resets_email (email, created_at),
+            INDEX idx_password_resets_ip (requested_ip, created_at),
+            INDEX idx_password_resets_expiry (expires_at),
+            CONSTRAINT fk_password_resets_user
+                FOREIGN KEY (user_id) REFERENCES users(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        // One row per device kept signed in by "Remember me". The cookie carries a
+        // public selector plus a secret; only the hash of the secret is stored here.
+        "CREATE TABLE IF NOT EXISTS user_remember_tokens (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            user_id BIGINT UNSIGNED NOT NULL,
+            selector CHAR(32) NOT NULL,
+            token_hash CHAR(64) NOT NULL,
+            device_label VARCHAR(190) NOT NULL DEFAULT '',
+            ip_address VARCHAR(45) NOT NULL DEFAULT '',
+            expires_at DATETIME NOT NULL,
+            last_used_at DATETIME NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_remember_selector (selector),
+            INDEX idx_remember_user (user_id),
+            INDEX idx_remember_expiry (expires_at),
+            CONSTRAINT fk_remember_tokens_user
+                FOREIGN KEY (user_id) REFERENCES users(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
         // Small key/value store for homepage switches such as the admissions banner.
         "CREATE TABLE IF NOT EXISTS homepage_settings (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -1214,31 +1274,10 @@ function seedHomepageCollectionsDefaults(PDO $pdo): void
         $statStatement->execute($row);
     }
 
-    $teamMembers = [
-        [
-            'Rana Mansour', 'رنا منصور', 'Academic Director', 'المديرة الأكاديمية',
-            'Learning strategy', 'استراتيجيات التعلّم', 'RM', null, '#contact', 1,
-        ],
-        [
-            'Omar Saad', 'عمر سعد', 'Math & Science Lead', 'مسؤول الرياضيات والعلوم',
-            'Mathematics & Science', 'الرياضيات والعلوم', 'OS', null, '#contact', 2,
-        ],
-        [
-            'Layla Nasser', 'ليلى ناصر', 'Languages Coordinator', 'منسقة اللغات',
-            'Arabic & English Languages', 'اللغتان العربية والإنجليزية', 'LN', null, '#contact', 3,
-        ],
-    ];
-    if ((int) $pdo->query('SELECT COUNT(*) FROM homepage_team_members')->fetchColumn() === 0) {
-        $teamStatement = $pdo->prepare(
-            "INSERT INTO homepage_team_members (
-                name_en, name_ar, role_en, role_ar, subjects_en, subjects_ar,
-                initials, image_path, contact_url, sort_order
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        );
-        foreach ($teamMembers as $row) {
-            $teamStatement->execute($row);
-        }
-    }
+    // No team members are seeded. The homepage team section is built from the real
+    // teachers in the teachers table (see homepage_team_from_teachers), so there is
+    // nothing to invent here. The old homepage_team_members rows are cleared by
+    // khotwa_migrate_retire_demo_team().
 
     $galleryImages = [
         [
@@ -1277,72 +1316,64 @@ function seedHomepageCollectionsDefaults(PDO $pdo): void
         }
     }
 
-    $partners = [
-        ['EduCore', 'إديوكور', null, null, 1],
-        ['BrightLab', 'برايت لاب', null, null, 2],
-        ['Northstar', 'نورث ستار', null, null, 3],
-        ['Skillwise', 'سكيل وايز', null, null, 4],
-        ['LearnHub', 'ليرن هب', null, null, 5],
-    ];
-    if ((int) $pdo->query('SELECT COUNT(*) FROM homepage_partners')->fetchColumn() === 0) {
-        $partnerStatement = $pdo->prepare(
-            "INSERT INTO homepage_partners (
-                name_en, name_ar, logo_path, website_url, sort_order
-            ) VALUES (?, ?, ?, ?, ?)"
-        );
-        foreach ($partners as $row) {
-            $partnerStatement->execute($row);
-        }
-    }
+    // No partners are seeded. The five that used to be here (EduCore, BrightLab and
+    // the rest) were invented for the design, and a real center should not ship a
+    // homepage claiming partnerships it does not have. Real ones are added, with
+    // their logos, from the admin panel: Website workspace > Partner Logos.
 
     $contacts = [
         [
             'primary_email', 'email', 'Email', 'البريد الإلكتروني',
-            'khotwacenter.lb@gmail.com', 'khotwacenter.lb@gmail.com', 'mailto:khotwacenter.lb@gmail.com', 1,
+            'khotwacenter.lb@gmail.com', 'khotwacenter.lb@gmail.com',
+            'mailto:khotwacenter.lb@gmail.com', 1, 'active',
         ],
         [
             'primary_phone', 'phone', 'Phone', 'الهاتف',
-            '+961 1 000 000', '+961 1 000 000', 'tel:+9611000000', 2,
+            KHOTWA_CENTER_PHONE_DISPLAY, KHOTWA_CENTER_PHONE_DISPLAY,
+            'tel:' . KHOTWA_CENTER_PHONE_E164, 2, 'active',
         ],
         [
             'whatsapp', 'whatsapp', 'WhatsApp', 'واتساب',
-            'WhatsApp', 'واتساب', 'https://wa.me/9611000000', 3,
+            'WhatsApp', 'واتساب', KHOTWA_CENTER_WHATSAPP_URL, 3, 'active',
         ],
         [
             'instagram', 'instagram', 'Instagram', 'إنستغرام',
-            'Instagram', 'إنستغرام', '#', 4,
+            'Instagram', 'إنستغرام', KHOTWA_CENTER_INSTAGRAM_URL, 4, 'active',
         ],
         [
             'facebook', 'facebook', 'Facebook', 'فيسبوك',
-            'Facebook', 'فيسبوك', '#', 5,
+            'Facebook', 'فيسبوك', KHOTWA_CENTER_FACEBOOK_URL, 5, 'active',
         ],
         [
             'google_map', 'google_map', 'Google Maps', 'خرائط Google',
-            'Beirut, Lebanon', 'بيروت، لبنان',
-            'https://maps.google.com/?q=Beirut%2C+Lebanon', 6,
+            KHOTWA_CENTER_ADDRESS_EN, KHOTWA_CENTER_ADDRESS_AR,
+            KHOTWA_CENTER_MAP_URL, 6, 'active',
         ],
         [
             'address', 'address', 'Address', 'العنوان',
-            'Beirut, Lebanon', 'بيروت، لبنان', null, 7,
+            KHOTWA_CENTER_ADDRESS_EN, KHOTWA_CENTER_ADDRESS_AR, null, 7, 'active',
         ],
         [
             'opening_hours', 'hours', 'Opening hours', 'ساعات العمل',
-            'Mon–Sat, 9:00–19:00', 'الاثنين–السبت، 9:00–19:00', null, 8,
+            KHOTWA_CENTER_HOURS_EN, KHOTWA_CENTER_HOURS_AR, null, 8, 'active',
         ],
+        // The center has no TikTok or LinkedIn yet. The rows exist so a link can be
+        // filled in later from the admin panel, but they stay inactive and the
+        // homepage leaves them out entirely.
         [
             'tiktok', 'tiktok', 'TikTok', 'تيك توك',
-            'TikTok', 'تيك توك', '#', 9,
+            'TikTok', 'تيك توك', null, 9, 'inactive',
         ],
         [
             'linkedin', 'linkedin', 'LinkedIn', 'لينكدإن',
-            'LinkedIn', 'لينكدإن', '#', 10,
+            'LinkedIn', 'لينكدإن', null, 10, 'inactive',
         ],
     ];
     $contactStatement = $pdo->prepare(
         "INSERT IGNORE INTO homepage_contact_links (
             link_key, link_type, label_en, label_ar,
-            value_en, value_ar, url, sort_order
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+            value_en, value_ar, url, sort_order, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
     );
     foreach ($contacts as $row) {
         $contactStatement->execute($row);
@@ -1434,8 +1465,96 @@ function addIndexIfMissing(PDO $pdo, string $tableName, string $indexName, strin
     }
 }
 
+/**
+ * Replace the placeholder contact details from the original demo data with the
+ * center's real ones.
+ *
+ * Every row is matched on the placeholder it is being replaced, so a detail already
+ * corrected in the admin panel is left exactly as the administrator set it. That
+ * matters because migrations run again on every schema bump.
+ */
+/**
+ * Remove the five invented partner names from the original demo data.
+ *
+ * Matched by name and only when the row still has no logo and no website link, so a
+ * genuine partner that happens to share a name is never deleted.
+ */
+function khotwa_migrate_remove_demo_partners(PDO $pdo): void
+{
+    $statement = $pdo->prepare(
+        "DELETE FROM homepage_partners
+         WHERE name_en = ?
+           AND (logo_path IS NULL OR logo_path = '')
+           AND (website_url IS NULL OR website_url = '')"
+    );
+    foreach (['EduCore', 'BrightLab', 'Northstar', 'Skillwise', 'LearnHub'] as $demoName) {
+        $statement->execute([$demoName]);
+    }
+}
+
+/**
+ * Retire the three invented team members from the original demo data.
+ *
+ * The homepage team section is drawn from the teachers table now. Only the exact demo
+ * rows are removed, so anything an administrator added by hand survives - though it no
+ * longer appears on the homepage.
+ */
+function khotwa_migrate_retire_demo_team(PDO $pdo): void
+{
+    $statement = $pdo->prepare('DELETE FROM homepage_team_members WHERE name_en = ? AND image_path IS NULL');
+    foreach (['Rana Mansour', 'Omar Saad', 'Layla Nasser'] as $demoName) {
+        $statement->execute([$demoName]);
+    }
+}
+
+function khotwa_migrate_contact_placeholders(PDO $pdo): void
+{
+    $replacements = [
+        // link_key, the placeholder to look for, and the values that replace it.
+        ['primary_phone', 'tel:+9611000000', KHOTWA_CENTER_PHONE_DISPLAY, KHOTWA_CENTER_PHONE_DISPLAY, 'tel:' . KHOTWA_CENTER_PHONE_E164],
+        ['whatsapp', 'https://wa.me/9611000000', 'WhatsApp', 'واتساب', KHOTWA_CENTER_WHATSAPP_URL],
+        ['instagram', '#', 'Instagram', 'إنستغرام', KHOTWA_CENTER_INSTAGRAM_URL],
+        ['facebook', '#', 'Facebook', 'فيسبوك', KHOTWA_CENTER_FACEBOOK_URL],
+        ['google_map', 'https://maps.google.com/?q=Beirut%2C+Lebanon', KHOTWA_CENTER_ADDRESS_EN, KHOTWA_CENTER_ADDRESS_AR, KHOTWA_CENTER_MAP_URL],
+    ];
+
+    $update = $pdo->prepare(
+        'UPDATE homepage_contact_links
+         SET value_en = ?, value_ar = ?, url = ?
+         WHERE link_key = ? AND url = ?'
+    );
+    foreach ($replacements as [$key, $placeholder, $valueEn, $valueAr, $url]) {
+        $update->execute([$valueEn, $valueAr, $url, $key, $placeholder]);
+    }
+
+    // The address and opening hours carry no URL, so they are matched on their text.
+    $pdo->prepare(
+        "UPDATE homepage_contact_links
+         SET value_en = ?, value_ar = ?
+         WHERE link_key = 'address' AND value_en = 'Beirut, Lebanon'"
+    )->execute([KHOTWA_CENTER_ADDRESS_EN, KHOTWA_CENTER_ADDRESS_AR]);
+
+    $pdo->prepare(
+        "UPDATE homepage_contact_links
+         SET value_en = ?, value_ar = ?
+         WHERE link_key = 'opening_hours' AND value_en = 'Mon–Sat, 9:00–19:00'"
+    )->execute([KHOTWA_CENTER_HOURS_EN, KHOTWA_CENTER_HOURS_AR]);
+
+    // No TikTok or LinkedIn account exists yet. Only rows still holding the '#'
+    // placeholder are switched off, so a real link added later survives.
+    $pdo->exec(
+        "UPDATE homepage_contact_links
+         SET url = NULL, status = 'inactive'
+         WHERE link_key IN ('tiktok', 'linkedin') AND (url = '#' OR url IS NULL OR url = '')"
+    );
+}
+
 function applyKhotwaMigrations(PDO $pdo): void
 {
+    khotwa_migrate_contact_placeholders($pdo);
+    khotwa_migrate_remove_demo_partners($pdo);
+    khotwa_migrate_retire_demo_team($pdo);
+
     // The teaching language is the foreign-language stream the student follows, so the
     // options are French and English. Rows recorded as 'Arabic' predate that and are
     // moved to French, which keeps the two original groups distinct.
@@ -1591,6 +1710,13 @@ function applyKhotwaMigrations(PDO $pdo): void
     addColumnIfMissing($pdo, 'teachers', 'email', 'email VARCHAR(150) NULL AFTER phone_number');
     addColumnIfMissing($pdo, 'teachers', 'photo_path', 'photo_path VARCHAR(255) NULL AFTER phone_number');
     addColumnIfMissing($pdo, 'teachers', 'password_hash', 'password_hash VARCHAR(255) NULL AFTER email');
+    // Every teacher is on the public homepage unless this is switched off for them.
+    addColumnIfMissing(
+        $pdo,
+        'teachers',
+        'show_on_website',
+        'show_on_website TINYINT(1) NOT NULL DEFAULT 1 AFTER status'
+    );
     addIndexIfMissing($pdo, 'teachers', 'uq_teachers_email', 'UNIQUE KEY uq_teachers_email (email)');
 
     addColumnIfMissing($pdo, 'users', 'teacher_id', 'teacher_id BIGINT UNSIGNED NULL AFTER id');

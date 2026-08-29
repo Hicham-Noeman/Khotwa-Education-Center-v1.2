@@ -1,3 +1,9 @@
 
 # Live database credentials, per-server only.
 src/db-config.php
+
+# Live mail credentials, per-server only.
+src/mail-config.php
+
+# Reset codes land here whenever SMTP is not configured.
+logs/mail.log

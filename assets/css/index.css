@@ -828,13 +828,6 @@ html[dir="rtl"] .future-line-break {
   background: var(--green);
 }
 
-.hero-rating strong > span {
-  display: inline;
-  color: var(--orange);
-  font-size: 0.65rem;
-  letter-spacing: -0.08em;
-}
-
 .hero-orbit {
   position: absolute;
   z-index: 2;
@@ -1787,16 +1780,69 @@ html[dir="rtl"] .review-nav svg {
   transform: translateY(-6px);
 }
 
-.review-stars {
-  display: flex;
-  gap: 4px;
+/* Five stars with the filled part clipped to the exact score: the two rows sit on top
+   of each other, and the coloured one is cut to a percentage width. Used for the hero
+   card, the reviews heading, and each review card, so one score looks the same
+   everywhere it appears. */
+.star-meter {
+  position: relative;
+  display: inline-block;
   color: rgba(34, 63, 107, 0.2);
   font-size: 1.05rem;
   letter-spacing: 0.06em;
+  line-height: 1;
+  white-space: nowrap;
 }
 
-.review-stars .is-filled {
+.star-meter-base,
+.star-meter-fill {
+  display: block;
+}
+
+.star-meter-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
   color: var(--orange);
+}
+
+html[dir="rtl"] .star-meter-fill {
+  right: 0;
+  left: auto;
+}
+
+.review-stars {
+  font-size: 1.05rem;
+}
+
+/* The hero card keeps its small stars beside the number. */
+.star-meter-inline {
+  font-size: 0.65rem;
+  letter-spacing: -0.08em;
+  vertical-align: 0.15em;
+}
+
+.reviews-score {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.reviews-score strong {
+  font-family: var(--display);
+  font-size: 1.35rem;
+  color: var(--navy);
+}
+
+/* Scoped to the caption only: a bare ".reviews-score span" would also catch the two
+   spans the star meter is built from and repaint them. */
+.reviews-score-note {
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .review-card blockquote {
@@ -1838,8 +1884,8 @@ html[dir="rtl"] .review-nav svg {
 
 .team-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 18px;
 }
 
 .team-card {
@@ -1859,7 +1905,7 @@ html[dir="rtl"] .review-nav svg {
 .team-portrait {
   position: relative;
   display: grid;
-  height: 290px;
+  height: 250px;
   place-items: center;
   border-radius: 20px;
   overflow: hidden;
@@ -1918,14 +1964,23 @@ html[dir="rtl"] .review-nav svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   padding: 20px 4px 12px;
+}
+
+/* min-width on a flex item defaults to auto, which refuses to shrink below the
+   longest word. Without this a name like "Ghaida Geography" pushes into the link. */
+.team-info > div {
+  min-width: 0;
 }
 
 .team-info h3 {
   margin: 0;
   color: var(--navy);
   font-family: var(--display);
-  font-size: 1.06rem;
+  font-size: 1.02rem;
+  line-height: 1.25;
+  overflow-wrap: break-word;
 }
 
 .team-info p {
@@ -1936,12 +1991,15 @@ html[dir="rtl"] .review-nav svg {
 
 .team-info > a {
   display: grid;
-  width: 37px;
+  min-width: 37px;
   height: 37px;
+  flex: 0 0 auto;
+  padding: 0 13px;
   place-items: center;
   border: 1px solid var(--line);
-  border-radius: 50%;
+  border-radius: 999px;
   color: var(--navy);
+  font-size: 0.78rem;
   font-weight: 800;
   transition: color 0.25s ease, background 0.25s ease;
 }
@@ -2684,6 +2742,11 @@ html[dir="rtl"] .review-nav svg {
 
   .team-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .team-portrait {
+    height: 290px;
   }
 
   .gallery-grid {

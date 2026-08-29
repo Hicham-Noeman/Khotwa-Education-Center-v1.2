@@ -10,7 +10,7 @@ with PHP and MySQL.
 ├── index.php               Public homepage
 ├── login.php  logout.php   Session entry and exit
 ├── terms.html              Terms and conditions
-├── forgot-password.html    Password recovery screen
+├── forgot-password.php     Password reset by emailed code
 ├── .htaccess               Directory index, compression, cache headers
 │
 ├── admin/                  Administrator workspace
@@ -29,10 +29,16 @@ with PHP and MySQL.
 ├── src/                    Shared PHP, never served over the web
 │   ├── paths.php               Project paths and URL helpers
 │   ├── database.php            Connection, schema, migrations, seeds
-│   ├── auth.php                Sessions, roles, CSRF
+│   ├── auth.php                Sessions, roles, CSRF, "Remember me" tokens
+│   ├── password-reset.php      Reset codes: issue, verify, apply
+│   ├── mailer.php              Outgoing mail (SMTP via lib/PHPMailer)
+│   ├── email-template.php      Branded frame shared by outgoing email
+│   ├── mail-config.sample.php  Template for the SMTP credentials
 │   ├── admin-data.php          Admin tables, forms, uploads, sidebar
 │   ├── homepage-data.php       Homepage queries and live counters
 │   └── .htaccess               Deny all
+│
+├── lib/PHPMailer/          Vendored mailer (no Composer on the host)
 │
 ├── assets/
 │   ├── css/                index, admin, auth, manager, parent, teacher
@@ -43,7 +49,9 @@ with PHP and MySQL.
 ├── tools/
 │   ├── setup.php               Database setup and demo seeding
 │   ├── seed-recent-attendance.php  Refreshes this week's demo attendance
-│   └── seed-warnings.php           Ten demo warnings in each workflow state
+│   ├── seed-warnings.php           Ten demo warnings in each workflow state
+│   ├── test-mail.php               Sends one test message, prints the SMTP result
+│   └── preview-email.php           Writes the reset email to HTML to look at
 └── logs/                   Server logs (deny all)
 ```
 
@@ -84,6 +92,35 @@ that includes either one already has the helpers available.
 MySQL connection settings live at the top of `src/database.php`. The port is set to
 **3307** because a separately installed Windows "MySQL80" service holds the default
 3306; change `$dbPort` back to 3306 once MariaDB owns that port again.
+
+## Sending email
+
+Password reset codes are the only mail the site sends. Delivery is configured by
+copying `src/mail-config.sample.php` to `src/mail-config.php` and filling in the SMTP
+details; that copy is gitignored, so the mailbox password never reaches GitHub and a
+deploy cannot overwrite the one already on the server.
+
+Messages use the site's own colors and logo, built as email HTML (tables and inline
+styles - Gmail and Outlook drop stylesheets, flexbox and SVG). The logo is attached to
+each message as `assets/images/logo-email.png` and referenced as `cid:khotwa-logo`, so
+it appears even where remote images are blocked; it is a raster copy of
+`logo-white.svg`, since email clients will not render SVG.
+
+Two command-line helpers:
+
+```
+php tools/preview-email.php      # writes the reset email to logs/email-preview.html
+php tools/test-mail.php you@example.com    # sends one test message
+```
+
+For the center's Gmail account, `pass` is an **App Password**
+(<https://myaccount.google.com/apppasswords>), not the account password, and 2-Step
+Verification has to be on before that page will offer one.
+
+With no `src/mail-config.php` present - which is the normal state on this machine -
+nothing is sent: every message is appended to `logs/mail.log` instead, so the reset
+code can still be read while developing. `logs/` is denied to the web by its own
+`.htaccess`.
 
 ## Demo accounts
 

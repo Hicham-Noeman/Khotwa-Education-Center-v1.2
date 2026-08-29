@@ -30,17 +30,80 @@ function homepage_e(?string $value): string
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 }
 
+/**
+ * One stored contact row by its key, or null when the database is unreachable or the
+ * row has been switched off.
+ *
+ * index.js refreshes these from the API on load; reading them here as well means the
+ * correct phone number and address are in the HTML as delivered, which is what a
+ * search engine indexes and what a visitor without JavaScript sees.
+ */
+/**
+ * Five stars with the filled part clipped to the exact score, so 4.3 reads as 4.3
+ * rather than being rounded up to five full stars.
+ */
+function homepage_star_meter(float $rating, string $extraClass = ''): string
+{
+    $rating = max(0.0, min(5.0, $rating));
+    $percent = round(($rating / 5) * 100, 1);
+    $label = rtrim(rtrim(number_format($rating, 1), '0'), '.') . ' out of 5';
+    $class = 'star-meter' . ($extraClass === '' ? '' : ' ' . $extraClass);
+
+    return '<span class="' . homepage_e($class) . '" role="img" aria-label="' . homepage_e($label) . '">'
+        . '<span class="star-meter-base" aria-hidden="true">★★★★★</span>'
+        . '<span class="star-meter-fill" style="width: ' . homepage_e((string) $percent) . '%" aria-hidden="true">'
+        . '★★★★★</span>'
+        . '</span>';
+}
+
+function homepage_contact(array $contacts, string $key): ?array
+{
+    foreach ($contacts as $row) {
+        if (($row['link_key'] ?? '') === $key) {
+            return $row;
+        }
+    }
+
+    return null;
+}
+
+function homepage_contact_value(array $contacts, string $key, string $fallback): string
+{
+    $row = homepage_contact($contacts, $key);
+
+    return $row === null ? $fallback : (string) $row['value_en'];
+}
+
+function homepage_contact_url(array $contacts, string $key, string $fallback): string
+{
+    $row = homepage_contact($contacts, $key);
+    $url = $row === null ? '' : (string) ($row['url'] ?? '');
+
+    return $url === '' ? $fallback : $url;
+}
+
 // The admissions banner is switched on and off from the admin website workspace.
 // When the database is unreachable the banner stays visible, like the rest of the fallback markup.
 $admissionsBannerVisible = !$homepageDataLoaded
     || (string) ($homepageData['settings']['admissions_banner_visible'] ?? '1') === '1';
 $homepageReviews = $homepageData['reviews'] ?? [];
+$homepageContacts = $homepageData['contacts'] ?? [];
 
-// The hero rating card and the "family satisfaction" counter share one aggregate score.
+// Falling back to the center's real details rather than a placeholder, so a database
+// outage cannot put a wrong phone number in front of a visitor.
+$contactPhone = homepage_contact_value($homepageContacts, 'primary_phone', '+961 79 427 940');
+$contactPhoneUrl = homepage_contact_url($homepageContacts, 'primary_phone', 'tel:+96179427940');
+$contactAddress = homepage_contact_value($homepageContacts, 'address', 'Tripoli, Lebanon');
+$contactHours = homepage_contact_value($homepageContacts, 'opening_hours', 'Mon-Thu & Sat, 3:00-8:00 PM');
+$contactMapUrl = homepage_contact_url($homepageContacts, 'google_map', 'https://maps.google.com/?q=Tripoli%2C+Lebanon');
+
+// The hero rating card and the "family satisfaction" counter share one aggregate
+// score, taken from the approved parent reviews. With no approved reviews there is no
+// score, and the card is left out rather than showing an invented one.
 $homepageRatingCount = (int) ($homepageData['metrics']['rating_count'] ?? 0);
 $homepageRating = $homepageRatingCount > 0
     ? (float) $homepageData['metrics']['rating_average']
-    : 4.9;
+    : null;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -180,19 +243,17 @@ $homepageRating = $homepageRatingCount > 0
         </div>
       </div>
 
+      <?php if ($homepageRating !== null): ?>
       <div class="hero-rating glass-card" data-float>
         <div class="rating-avatars">
           <span>SA</span><span>MK</span><span>JL</span>
         </div>
         <div>
-          <strong data-i18n-skip><?= homepage_e(number_format($homepageRating, 1)) ?> <span>★★★★★</span></strong>
-          <?php if ($homepageRatingCount > 0): ?>
-            <small><?= homepage_e((string) $homepageRatingCount) ?> family reviews</small>
-          <?php else: ?>
-            <small>Trusted by families</small>
-          <?php endif; ?>
+          <strong data-i18n-skip><?= homepage_e(number_format($homepageRating, 1)) ?> <?= homepage_star_meter($homepageRating, 'star-meter-inline') ?></strong>
+          <small><?= homepage_e((string) $homepageRatingCount) ?> family <?= $homepageRatingCount === 1 ? 'review' : 'reviews' ?></small>
         </div>
       </div>
+      <?php endif; ?>
 
       <a class="scroll-cue" href="#about" aria-label="Scroll to about section">
         <span>Scroll to discover</span>
@@ -474,6 +535,13 @@ $homepageRating = $homepageRatingCount > 0
             <span class="eyebrow dark">Family voices</span>
             <h2>What families say<br><span>about Khotwa.</span></h2>
             <p>Reviews shared by parents from their own Khotwa parent portal account, published once the administration approves them.</p>
+            <?php if ($homepageRating !== null): ?>
+              <div class="reviews-score" data-i18n-skip>
+                <?= homepage_star_meter($homepageRating) ?>
+                <strong><?= homepage_e(number_format($homepageRating, 1)) ?></strong>
+                <span class="reviews-score-note">out of 5 &middot; <?= homepage_e((string) $homepageRatingCount) ?> <?= $homepageRatingCount === 1 ? 'review' : 'reviews' ?></span>
+              </div>
+            <?php endif; ?>
           </div>
 
           <?php // data-reveal sits on the slider, not the cards: a card scrolled out of
@@ -489,11 +557,7 @@ $homepageRating = $homepageRatingCount > 0
               <?php foreach ($homepageReviews as $review): ?>
                 <?php $rating = max(1, min(5, (int) $review['rating'])); ?>
                 <article class="review-card">
-                  <div class="review-stars" role="img" aria-label="<?= homepage_e((string) $rating) ?> out of 5">
-                    <?php for ($star = 1; $star <= 5; $star++): ?>
-                      <span class="<?= $star <= $rating ? 'is-filled' : '' ?>" aria-hidden="true">★</span>
-                    <?php endfor; ?>
-                  </div>
+                  <?= homepage_star_meter((float) $rating, 'review-stars') ?>
                   <blockquote data-i18n-skip><?= homepage_e((string) $review['review_text']) ?></blockquote>
                   <footer>
                     <?php // The reviewer's own name, then a generic role label. Whether they are
@@ -540,34 +604,9 @@ $homepageRating = $homepageRatingCount > 0
         </div>
 
         <div class="team-grid" data-homepage-team>
-          <?php
-          $teamMembers = $homepageData['team'] ?: [
-              [
-                  'name_en' => 'Rana Mansour',
-                  'role_en' => 'Academic Director',
-                  'subjects_en' => 'Learning strategy',
-                  'initials' => 'RM',
-                  'image_path' => null,
-                  'contact_url' => '#contact',
-              ],
-              [
-                  'name_en' => 'Omar Saad',
-                  'role_en' => 'Math & Science Lead',
-                  'subjects_en' => 'STEM education',
-                  'initials' => 'OS',
-                  'image_path' => null,
-                  'contact_url' => '#contact',
-              ],
-              [
-                  'name_en' => 'Layla Nasser',
-                  'role_en' => 'Languages Coordinator',
-                  'subjects_en' => 'Language confidence',
-                  'initials' => 'LN',
-                  'image_path' => null,
-                  'contact_url' => '#contact',
-              ],
-          ];
-          ?>
+          <?php // Every active teacher, straight from the teacher records. Nothing is
+                // invented here: with no teachers yet, only the "join us" card shows. ?>
+          <?php $teamMembers = $homepageData['team'] ?? []; ?>
           <?php foreach ($teamMembers as $index => $member): ?>
             <?php $portrait = ['one', 'two', 'three'][$index % 3]; ?>
             <article class="team-card" data-reveal tabindex="0">
@@ -649,18 +688,39 @@ $homepageRating = $homepageRatingCount > 0
       </div>
     </section>
 
+    <?php // Partners come from the admin panel. With none added the whole strip is
+          // left out, rather than showing placeholder names. ?>
+    <?php $homepagePartners = $homepageData['partners'] ?? []; ?>
+    <?php if ($homepagePartners !== []): ?>
     <section class="partners-section" aria-label="Our partners">
       <div class="section-shell">
         <p>Growing through trusted partnerships</p>
         <div class="partner-logos" data-homepage-partners>
-          <span><i class="partner-mark mark-one"></i>EduCore</span>
-          <span><i class="partner-mark mark-two"></i>BrightLab</span>
-          <span><i class="partner-mark mark-three"></i>Northstar</span>
-          <span><i class="partner-mark mark-four"></i>Skillwise</span>
-          <span><i class="partner-mark mark-five"></i>LearnHub</span>
+          <?php foreach ($homepagePartners as $index => $partner): ?>
+            <?php
+            $partnerUrl = (string) ($partner['website_url'] ?? '');
+            $partnerName = (string) $partner['name_en'];
+            $partnerTag = $partnerUrl === '' ? 'span' : 'a';
+            $markName = ['one', 'two', 'three', 'four', 'five'][$index % 5];
+            ?>
+            <<?= $partnerTag ?>
+              <?php if ($partnerUrl !== ''): ?>
+                href="<?= homepage_e($partnerUrl) ?>"
+                <?= preg_match('/^https?:/i', $partnerUrl) ? 'target="_blank" rel="noopener noreferrer"' : '' ?>
+              <?php endif; ?>
+            >
+              <?php if (!empty($partner['logo_path'])): ?>
+                <img src="<?= homepage_e(khotwa_url((string) $partner['logo_path'])) ?>" alt="<?= homepage_e($partnerName) ?>" loading="lazy" decoding="async">
+              <?php else: ?>
+                <i class="partner-mark mark-<?= homepage_e($markName) ?>"></i>
+              <?php endif; ?>
+              <span><?= homepage_e($partnerName) ?></span>
+            </<?= $partnerTag ?>>
+          <?php endforeach; ?>
         </div>
       </div>
     </section>
+    <?php endif; ?>
 
     <section class="faq-section section" id="faq">
       <div class="section-shell faq-layout">
@@ -735,7 +795,7 @@ $homepageRating = $homepageRatingCount > 0
             Contact us now
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </a>
-          <a href="tel:+9611000000" data-contact-link="primary_phone">+961 1 000 000</a>
+          <a href="<?= homepage_e($contactPhoneUrl) ?>" data-contact-link="primary_phone"><?= homepage_e($contactPhone) ?></a>
         </div>
       </div>
     </section>
@@ -792,11 +852,11 @@ $homepageRating = $homepageRatingCount > 0
           </div>
           <div>
             <h3>Visit</h3>
-            <p data-contact-value="address">Beirut, Lebanon</p>
+            <p data-contact-value="address"><?= homepage_e($contactAddress) ?></p>
             <a href="mailto:khotwacenter.lb@gmail.com" data-contact-link="primary_email">khotwacenter.lb@gmail.com</a>
-            <a href="tel:+9611000000" data-contact-link="primary_phone">+961 1 000 000</a>
-            <a href="https://maps.google.com/?q=Beirut%2C+Lebanon" data-contact-link="google_map">Google Maps</a>
-            <p data-contact-value="opening_hours">Mon–Sat, 9:00–19:00</p>
+            <a href="<?= homepage_e($contactPhoneUrl) ?>" data-contact-link="primary_phone"><?= homepage_e($contactPhone) ?></a>
+            <a href="<?= homepage_e($contactMapUrl) ?>" data-contact-link="google_map">Google Maps</a>
+            <p data-contact-value="opening_hours"><?= homepage_e($contactHours) ?></p>
           </div>
         </div>
       </div>

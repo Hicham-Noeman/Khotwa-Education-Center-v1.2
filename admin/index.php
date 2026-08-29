@@ -629,8 +629,16 @@ try {
              FROM homepage_statistics ORDER BY sort_order, id"
         )->fetchAll();
         $websiteCollections['team'] = $pdo->query(
-            "SELECT id, name_en, name_ar, role_en, role_ar, subjects_en, image_path, sort_order, status
-             FROM homepage_team_members ORDER BY sort_order, id"
+            "SELECT
+                id,
+                TRIM(CONCAT(first_name, ' ', COALESCE(last_name, ''))) AS name_en,
+                'Teacher' AS role_en,
+                photo_path AS image_path,
+                show_on_website,
+                status
+             FROM teachers
+             WHERE status = 'active'
+             ORDER BY first_name, last_name"
         )->fetchAll();
         $websiteCollections['gallery'] = $pdo->query(
             "SELECT id, caption_en, caption_ar, layout_style, image_path, sort_order, status
@@ -661,17 +669,6 @@ try {
         $rows = $pdo->query(
             "SELECT id, stat_key, stat_value, suffix, label_en, label_ar, sort_order, status
              FROM homepage_statistics ORDER BY sort_order, id"
-        )->fetchAll();
-    } elseif ($view === 'website-team') {
-        $pageDescription = 'Homepage team profiles, roles, specialties, images, contact links, and display order.';
-        $columns = [
-            'name_en' => 'English name', 'name_ar' => 'Arabic name',
-            'role_en' => 'Role', 'subjects_en' => 'Specialty', 'image_path' => 'Image',
-            'sort_order' => 'Order', 'status' => 'Status',
-        ];
-        $rows = $pdo->query(
-            "SELECT id, name_en, name_ar, role_en, subjects_en, image_path, sort_order, status
-             FROM homepage_team_members ORDER BY sort_order, id"
         )->fetchAll();
     } elseif ($view === 'website-gallery') {
         $pageDescription = 'Uploaded gallery images, bilingual captions, and display layouts.';
@@ -1071,7 +1068,7 @@ try {
                     'number' => '04',
                     'eyebrow' => 'People',
                     'title' => 'Team members',
-                    'description' => 'The educators and leaders introduced on the public homepage.',
+                    'description' => 'Every active teacher appears on the homepage automatically. Open a teacher to change their photo or take them off the website.',
                     'items' => $websiteCollections['team'],
                     'tone' => 'violet',
                 ],
@@ -1262,14 +1259,14 @@ try {
                   <?php elseif ($section['view'] === 'website-team'): ?>
                     <div class="partner-preview-grid">
                       <?php foreach ($section['items'] as $item): ?>
-                        <a class="partner-preview-card" href="<?= e(khotwa_url('admin/record.php')) ?>?view=website-team&id=<?= e((string) $item['id']) ?>">
+                        <a class="partner-preview-card" href="<?= e(khotwa_url('admin/record.php')) ?>?view=teachers&id=<?= e((string) $item['id']) ?>">
                           <?php if ($item['image_path']): ?>
                             <img src="<?= e(khotwa_url((string) $item['image_path'])) ?>" alt="">
                           <?php else: ?>
                             <span><?= e(strtoupper(substr((string) $item['name_en'], 0, 2))) ?></span>
                           <?php endif; ?>
                           <strong><?= e((string) $item['name_en']) ?></strong>
-                          <small><?= e((string) $item['role_en']) ?></small>
+                          <small><?= (int) $item['show_on_website'] === 1 ? 'On the website' : 'Hidden from website' ?></small>
                         </a>
                       <?php endforeach; ?>
                     </div>

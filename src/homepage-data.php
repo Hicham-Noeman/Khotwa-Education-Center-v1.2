@@ -112,6 +112,58 @@ function homepage_social_icon(string $linkType): string
         . '</svg>';
 }
 
+/**
+ * The homepage team section, built from the real teacher records.
+ *
+ * Every active teacher appears automatically, so a teacher added in the admin panel is
+ * on the website without a second step. Clearing "Show On Website" on a teacher takes
+ * them off it again. Their subjects come from the subjects they are assigned to.
+ *
+ * The columns are named the way the old homepage_team_members table named them, so the
+ * homepage markup and index.js render these rows unchanged.
+ */
+function homepage_team_from_teachers(PDO $pdo): array
+{
+    $statement = $pdo->query(
+        "SELECT
+            teachers.id,
+            TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))) AS name_en,
+            TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))) AS name_ar,
+            'Teacher' AS role_en,
+            'معلّم' AS role_ar,
+            COALESCE(GROUP_CONCAT(DISTINCT subjects.name_en ORDER BY subjects.name_en SEPARATOR ', '), '') AS subjects_en,
+            COALESCE(GROUP_CONCAT(DISTINCT COALESCE(subjects.name_ar, subjects.name_en) ORDER BY subjects.name_en SEPARATOR '، '), '') AS subjects_ar,
+            UPPER(CONCAT(LEFT(teachers.first_name, 1), COALESCE(LEFT(teachers.last_name, 1), ''))) AS initials,
+            teachers.photo_path AS image_path,
+            NULL AS contact_url,
+            teachers.id AS sort_order
+         FROM teachers
+         LEFT JOIN teacher_subjects
+                ON teacher_subjects.teacher_id = teachers.id
+               AND teacher_subjects.status = 'active'
+         LEFT JOIN subjects
+                ON subjects.id = teacher_subjects.subject_id
+               AND subjects.status = 'active'
+         WHERE teachers.status = 'active'
+           AND teachers.show_on_website = 1
+         GROUP BY teachers.id
+         ORDER BY teachers.first_name, teachers.last_name"
+    );
+
+    $team = $statement->fetchAll();
+
+    // A teacher with no subjects assigned yet still belongs on the page; the card just
+    // carries a neutral line instead of an empty one.
+    foreach ($team as $index => $row) {
+        if (trim((string) $row['subjects_en']) === '') {
+            $team[$index]['subjects_en'] = 'Khotwa Education Center';
+            $team[$index]['subjects_ar'] = 'مركز خطوة التعليمي';
+        }
+    }
+
+    return $team;
+}
+
 function load_homepage_data(PDO $pdo): array
 {
     $content = $pdo->query(
@@ -142,13 +194,7 @@ function load_homepage_data(PDO $pdo): array
          ORDER BY sort_order, id"
     )->fetchAll();
 
-    $team = $pdo->query(
-        "SELECT id, name_en, name_ar, role_en, role_ar, subjects_en, subjects_ar,
-                initials, image_path, contact_url, sort_order
-         FROM homepage_team_members
-         WHERE status = 'active'
-         ORDER BY sort_order, id"
-    )->fetchAll();
+    $team = homepage_team_from_teachers($pdo);
 
     $gallery = $pdo->query(
         "SELECT id, image_path, alt_en, alt_ar, caption_en, caption_ar,
