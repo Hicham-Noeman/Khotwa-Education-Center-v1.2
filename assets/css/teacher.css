@@ -779,6 +779,36 @@
   overflow-wrap: anywhere;
 }
 
+/* Each teaching stage is its own chip so it can be translated on its own. */
+.teacher-stage-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.teacher-stage-list i {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(34, 63, 107, 0.08);
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 700;
+}
+
+/* The date behind a derived figure, e.g. "12 years" / "since 03/09/2013". */
+.teacher-profile-since {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.teacher-profile-fields a {
+  color: var(--navy);
+  text-decoration: underline;
+}
+
 .teacher-profile-note {
   margin-top: 12px;
   padding: 14px;

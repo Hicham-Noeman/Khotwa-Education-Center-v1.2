@@ -17,7 +17,7 @@
     "Education Center": "المركز التعليمي",
     "About": "من نحن",
     "Approach": "منهجنا",
-    "Programs": "البرامج",
+    "Programs": "برامجنا",
     "Team": "فريقنا",
     "Gallery": "المعرض",
     "FAQ": "الأسئلة الشائعة",
@@ -49,6 +49,8 @@
     "Confident learners. Limitless futures.": "متعلّمون واثقون. وآفاق بلا حدود.",
     "To shape a generation of curious, capable students who understand how they learn and trust how far they can go.": "أن نصنع جيلاً من الطلاب الفضوليين والقادرين، يفهمون كيف يتعلّمون ويثقون بقدرتهم على التقدّم.",
     "Our mission": "رسالتنا",
+    "Previous slide": "الشريحة السابقة",
+    "Next slide": "الشريحة التالية",
     "Make every learning step count.": "نجعل لكل خطوة تعليمية قيمة.",
     "We combine careful assessment, personalized instruction, purposeful practice, and consistent feedback to turn effort into progress.": "نجمع بين التقييم الدقيق والتعليم المخصص والتدريب الهادف والتغذية الراجعة المستمرة لتحويل الجهد إلى تقدّم.",
     "Human guidance": "توجيه إنساني",
@@ -104,8 +106,18 @@
     "Grow with us": "تطوّر معنا",
     "Great educators are always welcome.": "نرحّب دائماً بالمعلّمين المميزين.",
     "Join our team": "انضم إلى فريقنا",
+    "Teacher profile": "ملف المعلّم",
+    "Close teacher profile": "إغلاق ملف المعلّم",
+    "Subjects taught": "المواد التي يدرّسها",
+    "Years of experience": "سنوات الخبرة",
+    "Levels taught": "المراحل التعليمية التي يدرّسها",
+    "Certifications": "الشهادات",
+    "At the center for": "في المركز منذ",
+    "Watch the introduction": "شاهد التعريف",
+    "year": "سنة",
+    "years": "سنوات",
     "out of 5": "من 5",
-    "Family voices": "آراء العائلات",
+    "Parents’ Voices": "آراء أولياء الأمور",
     "Parents": "الأهل",
     "Switch language": "تبديل اللغة",
     "Inactive": "غير نشط",
@@ -132,9 +144,8 @@
     "Mother": "الأم",
     "Guardian": "وليّ الأمر",
     "Relative": "قريب",
-    "What families say": "ما تقوله العائلات",
+    "What parents say": "ما يقوله أولياء الأمور",
     "about Khotwa.": "عن خطوة.",
-    "Reviews shared by parents from their own Khotwa parent portal account, published once the administration approves them.": "آراء يشاركها أولياء الأمور من حساباتهم في بوابة الأهل، وتُنشر بعد موافقة الإدارة.",
     "Inside Khotwa": "داخل خطوة",
     "Learning looks": "هكذا يبدو التعلّم",
     "good in action.": "حين يتحوّل إلى تجربة.",
@@ -171,10 +182,29 @@
     "Explore": "استكشف",
     "About us": "من نحن",
     "Our team": "فريقنا",
-    "Primary years": "المرحلة الابتدائية",
-    "Middle school": "المرحلة المتوسطة",
-    "Grades 10–12": "الصفوف 10–12",
-    "Training & activities": "التدريب والأنشطة",
+    "Teaches Primary (Ibtidai)": "يُدرّس المرحلة الابتدائية",
+    "Teaches Intermediate (Mutawassit)": "يُدرّس المرحلة المتوسطة",
+    "Teaches Secondary (Sanawi)": "يُدرّس المرحلة الثانوية",
+    "Teaching Since (Start Date)": "يُدرّس منذ (تاريخ البدء)",
+    "At The Center Since": "في المركز منذ",
+    "Certifications EN": "الشهادات (إنجليزي)",
+    "Certifications AR": "الشهادات (عربي)",
+    "Teacher Of The Month": "معلّم الشهر",
+    "YouTube Video Link": "رابط فيديو يوتيوب",
+    "Educational levels": "المراحل التعليمية",
+    "Teacher of the month": "معلّم الشهر",
+    "Video": "فيديو",
+    "Watch on YouTube": "شاهد على يوتيوب",
+    "Not set": "غير محدد",
+    "Primary (Ibtidai)": "الابتدائي",
+    "Intermediate (Mutawassit)": "المتوسط",
+    "Secondary (Sanawi)": "الثانوي",
+    "since": "منذ",
+    "Member since": "عضو منذ",
+    "Open": "افتح",
+    "Core Program": "البرنامج الأساسي",
+    "Skills Program": "برنامج المهارات",
+    "Enrichment Program": "برنامج الإثراء",
     "Visit": "تفضل بزيارتنا",
     "Tripoli, Lebanon": "طرابلس، لبنان",
     "Mon-Thu & Sat, 3:00-8:00 PM": "الاثنين–الخميس والسبت، 3:00–8:00 مساءً",
@@ -599,7 +629,7 @@
 
   const explicit = {
     heroLineOne: { en: "Every step builds", ar: "كلّ خطوة تبني" },
-    heroArticle: { en: "a", ar: "مستقبلاً" },
+    heroArticle: { en: "a", ar: "مستقبلاً أكثر" },
     heroFuture: { en: "future.", ar: "" }
   };
 
@@ -715,7 +745,7 @@
     if (!word) return;
 
     word.dataset.words = language === "ar"
-      ? "أكثر إشراقًا,أكثر قوة,أكثر معرفة"
+      ? "إشراقًا,قوة,معرفة"
       : "brighter,stronger,wiser";
     word.textContent = word.dataset.words.split(",")[0];
   };

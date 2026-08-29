@@ -43,7 +43,7 @@ if (is_file($khotwaLocalConfig)) {
 // the migration that replaces the old placeholders always agree. Editing them in the
 // admin panel afterwards is what changes the live site; these are only the starting
 // values.
-const KHOTWA_CENTER_PHONE_DISPLAY = '+961 79 427 940';
+const KHOTWA_CENTER_PHONE_DISPLAY = '+961 79 42 79 40';
 const KHOTWA_CENTER_PHONE_E164 = '+96179427940';
 const KHOTWA_CENTER_WHATSAPP_URL = 'https://wa.me/96179427940';
 const KHOTWA_CENTER_INSTAGRAM_URL = 'https://www.instagram.com/khotwa_center.lb/';
@@ -55,7 +55,7 @@ const KHOTWA_CENTER_HOURS_EN = 'Mon-Thu & Sat, 3:00-8:00 PM';
 const KHOTWA_CENTER_HOURS_AR = 'الاثنين–الخميس والسبت، 3:00–8:00 مساءً';
 
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
-const KHOTWA_SCHEMA_VERSION = 18;
+const KHOTWA_SCHEMA_VERSION = 22;
 
 function getDatabaseConnection(): PDO
 {
@@ -210,6 +210,26 @@ function homepage_setting(PDO $pdo, string $key, string $default = ''): string
     $value = $statement->fetchColumn();
 
     return $value === false ? $default : (string) $value;
+}
+
+/**
+ * One contact link's URL, straight from the admin-managed list.
+ *
+ * Pages outside the homepage need the odd link - the WhatsApp number on the login
+ * page, for one - without loading the whole homepage payload. The fallback covers
+ * a row that was deleted or switched off, so a link never renders empty.
+ */
+function homepage_contact_link_url(PDO $pdo, string $key, string $fallback = ''): string
+{
+    $statement = $pdo->prepare(
+        "SELECT url FROM homepage_contact_links
+         WHERE link_key = ? AND status = 'active'
+         LIMIT 1"
+    );
+    $statement->execute([$key]);
+    $url = trim((string) $statement->fetchColumn());
+
+    return $url === '' ? $fallback : $url;
 }
 
 function homepage_setting_save(PDO $pdo, string $key, string $value): void
@@ -482,12 +502,31 @@ function createKhotwaTables(PDO $pdo): void
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             first_name VARCHAR(100) NOT NULL,
             last_name VARCHAR(100) NULL,
+            first_name_ar VARCHAR(100) NULL,
+            last_name_ar VARCHAR(100) NULL,
             phone_number VARCHAR(30) NULL,
             photo_path VARCHAR(255) NULL,
             email VARCHAR(150) NOT NULL,
             password_hash VARCHAR(255) NOT NULL,
             status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
             show_on_website TINYINT(1) NOT NULL DEFAULT 1,
+
+            -- The Lebanese school stages the teacher covers. Most teachers cover
+            -- more than one, so these are three flags rather than a single choice.
+            teaches_primary TINYINT(1) NOT NULL DEFAULT 0,
+            teaches_intermediate TINYINT(1) NOT NULL DEFAULT 0,
+            teaches_secondary TINYINT(1) NOT NULL DEFAULT 0,
+
+            -- Experience is stored as the date teaching began rather than a count of
+            -- years, so the figure on the profile keeps itself up to date.
+            teaching_since DATE NULL,
+            joined_center_on DATE NULL,
+
+            certifications_en VARCHAR(255) NULL,
+            certifications_ar VARCHAR(255) NULL,
+            is_teacher_of_the_month TINYINT(1) NOT NULL DEFAULT 0,
+            video_url VARCHAR(255) NULL,
+
             notes VARCHAR(255) NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -1451,6 +1490,13 @@ function addForeignKeyIfMissing(PDO $pdo, string $tableName, string $constraintN
     }
 }
 
+function dropColumnIfExists(PDO $pdo, string $tableName, string $columnName): void
+{
+    if (columnExists($pdo, $tableName, $columnName)) {
+        $pdo->exec("ALTER TABLE `{$tableName}` DROP COLUMN `{$columnName}`");
+    }
+}
+
 function dropIndexIfExists(PDO $pdo, string $tableName, string $indexName): void
 {
     if (indexExists($pdo, $tableName, $indexName)) {
@@ -1525,6 +1571,17 @@ function khotwa_migrate_contact_placeholders(PDO $pdo): void
     );
     foreach ($replacements as [$key, $placeholder, $valueEn, $valueAr, $url]) {
         $update->execute([$valueEn, $valueAr, $url, $key, $placeholder]);
+    }
+
+    // The phone is grouped in pairs now. Only the previous spellings of the same
+    // number are rewritten, so a number edited in the admin panel is left alone.
+    $phoneUpdate = $pdo->prepare(
+        "UPDATE homepage_contact_links
+         SET value_en = ?, value_ar = ?
+         WHERE link_key = 'primary_phone' AND value_en = ?"
+    );
+    foreach (['+961 79 427 940', '+961 1 000 000'] as $previousDisplay) {
+        $phoneUpdate->execute([KHOTWA_CENTER_PHONE_DISPLAY, KHOTWA_CENTER_PHONE_DISPLAY, $previousDisplay]);
     }
 
     // The address and opening hours carry no URL, so they are matched on their text.
@@ -1717,6 +1774,134 @@ function applyKhotwaMigrations(PDO $pdo): void
         'show_on_website',
         'show_on_website TINYINT(1) NOT NULL DEFAULT 1 AFTER status'
     );
+    // The teacher's own name in Arabic. Students already carry both spellings; the
+    // website showed teachers in Latin script even on the Arabic side without these.
+    addColumnIfMissing(
+        $pdo,
+        'teachers',
+        'first_name_ar',
+        'first_name_ar VARCHAR(100) NULL AFTER last_name'
+    );
+    addColumnIfMissing(
+        $pdo,
+        'teachers',
+        'last_name_ar',
+        'last_name_ar VARCHAR(100) NULL AFTER first_name_ar'
+    );
+
+    // What the public teacher profile shows beyond the name and the subjects.
+    // The three Lebanese school stages the teacher covers: ibtidai (primary),
+    // mutawassit (intermediate) and sanawi (secondary). Flags rather than one
+    // choice, because a teacher usually covers more than one stage.
+    addColumnIfMissing(
+        $pdo,
+        'teachers',
+        'teaches_primary',
+        'teaches_primary TINYINT(1) NOT NULL DEFAULT 0 AFTER show_on_website'
+    );
+    addColumnIfMissing(
+        $pdo,
+        'teachers',
+        'teaches_intermediate',
+        'teaches_intermediate TINYINT(1) NOT NULL DEFAULT 0 AFTER teaches_primary'
+    );
+    addColumnIfMissing(
+        $pdo,
+        'teachers',
+        'teaches_secondary',
+        'teaches_secondary TINYINT(1) NOT NULL DEFAULT 0 AFTER teaches_intermediate'
+    );
+    addColumnIfMissing(
+        $pdo,
+        'teachers',
+        'teaching_since',
+        'teaching_since DATE NULL AFTER teaches_secondary'
+    );
+    addColumnIfMissing(
+        $pdo,
+        'teachers',
+        'joined_center_on',
+        'joined_center_on DATE NULL AFTER teaching_since'
+    );
+    addColumnIfMissing(
+        $pdo,
+        'teachers',
+        'certifications_en',
+        'certifications_en VARCHAR(255) NULL AFTER joined_center_on'
+    );
+    addColumnIfMissing(
+        $pdo,
+        'teachers',
+        'certifications_ar',
+        'certifications_ar VARCHAR(255) NULL AFTER certifications_en'
+    );
+    addColumnIfMissing(
+        $pdo,
+        'teachers',
+        'is_teacher_of_the_month',
+        'is_teacher_of_the_month TINYINT(1) NOT NULL DEFAULT 0 AFTER certifications_ar'
+    );
+    addColumnIfMissing(
+        $pdo,
+        'teachers',
+        'video_url',
+        'video_url VARCHAR(255) NULL AFTER is_teacher_of_the_month'
+    );
+
+    // Experience used to be a typed-in number of years, which goes stale the moment
+    // it is saved. Any figure already recorded is converted to the matching start
+    // date before the old column is dropped.
+    if (columnExists($pdo, 'teachers', 'years_experience')) {
+        $pdo->exec(
+            'UPDATE teachers
+             SET teaching_since = DATE_SUB(CURDATE(), INTERVAL years_experience YEAR)
+             WHERE teaching_since IS NULL AND years_experience IS NOT NULL'
+        );
+        dropColumnIfExists($pdo, 'teachers', 'years_experience');
+    }
+
+    // The stages used to be free text in two languages. Anything recognisable in
+    // what was typed is mapped onto the three flags, then the columns are dropped.
+    if (columnExists($pdo, 'teachers', 'education_levels_en')) {
+        $stageMatches = [
+            'teaches_primary' => ['primary', 'ibtida', 'elementary', 'ابتدائ'],
+            'teaches_intermediate' => ['intermediate', 'mutawas', 'middle', 'متوسط', 'اعدادي', 'إعدادي'],
+            'teaches_secondary' => ['secondary', 'sanaw', 'high school', 'ثانو'],
+        ];
+        $rows = $pdo->query(
+            'SELECT id, education_levels_en, education_levels_ar FROM teachers'
+        )->fetchAll();
+        $flag = $pdo->prepare(
+            'UPDATE teachers
+             SET teaches_primary = ?, teaches_intermediate = ?, teaches_secondary = ?
+             WHERE id = ?'
+        );
+        foreach ($rows as $row) {
+            $written = mb_strtolower(
+                trim((string) $row['education_levels_en'] . ' ' . (string) $row['education_levels_ar'])
+            );
+            if ($written === '') {
+                continue;
+            }
+            $values = [];
+            foreach ($stageMatches as $needles) {
+                $hit = false;
+                foreach ($needles as $needle) {
+                    if (str_contains($written, $needle)) {
+                        $hit = true;
+                        break;
+                    }
+                }
+                $values[] = $hit ? 1 : 0;
+            }
+            $values[] = (int) $row['id'];
+            $flag->execute($values);
+        }
+
+        dropColumnIfExists($pdo, 'teachers', 'education_levels_en');
+        dropColumnIfExists($pdo, 'teachers', 'education_levels_ar');
+    }
+
     addIndexIfMissing($pdo, 'teachers', 'uq_teachers_email', 'UNIQUE KEY uq_teachers_email (email)');
 
     addColumnIfMissing($pdo, 'users', 'teacher_id', 'teacher_id BIGINT UNSIGNED NULL AFTER id');

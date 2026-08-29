@@ -12,6 +12,26 @@ $views = [
     'warnings' => ['label' => 'Behaviour', 'description' => 'Raise a behaviour flag to the administration. Only the administration can see your flags.'],
     'profile' => ['label' => 'My Profile', 'description' => 'Your teacher information, account details, and assigned subjects.'],
 ];
+/**
+ * Whole years between a start date and today. Experience and time at the center
+ * are stored as dates, so the number shown never needs updating by hand.
+ */
+function teacher_years_since(?string $startDate): ?int
+{
+    $startDate = trim((string) $startDate);
+    if ($startDate === '') {
+        return null;
+    }
+
+    try {
+        $start = new DateTimeImmutable($startDate);
+    } catch (Throwable) {
+        return null;
+    }
+
+    return max(0, (int) $start->diff(new DateTimeImmutable('today'))->y);
+}
+
 $view = (string) ($_GET['view'] ?? 'attendance');
 if (!isset($views[$view])) {
     $view = 'attendance';
@@ -100,7 +120,11 @@ try {
     $profileStatement = $pdo->prepare(
         "SELECT teachers.id, teachers.first_name, teachers.last_name, teachers.phone_number,
                 teachers.email AS teacher_email, teachers.status, teachers.notes,
-                teachers.created_at, users.email AS account_email, users.last_login_at
+                teachers.created_at, users.email AS account_email, users.last_login_at,
+                teachers.teaches_primary, teachers.teaches_intermediate, teachers.teaches_secondary,
+                teachers.teaching_since, teachers.joined_center_on,
+                teachers.certifications_en, teachers.certifications_ar,
+                teachers.is_teacher_of_the_month, teachers.video_url
          FROM teachers
          INNER JOIN users ON users.teacher_id = teachers.id
          WHERE teachers.id = ? AND users.id = ? AND teachers.status = 'active'
@@ -762,7 +786,92 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                 <div><span>Status</span><strong><span class="status-pill status-active">Active</span></strong></div>
                 <div><span>Last login</span><strong><?= e(fmt_datetime((string) $teacherProfile['last_login_at'], 'First login')) ?></strong></div>
                 <div><span>Member since</span><strong><?= e(fmt_datetime((string) $teacherProfile['created_at'])) ?></strong></div>
+                <?php
+                $teachingSince = (string) ($teacherProfile['teaching_since'] ?? '');
+                $teachingYears = teacher_years_since($teachingSince);
+                $atCenterSince = (string) ($teacherProfile['joined_center_on'] ?? '');
+                $atCenterYears = teacher_years_since($atCenterSince);
+                $stages = array_keys(array_filter([
+                    'Primary (Ibtidai)' => (int) ($teacherProfile['teaches_primary'] ?? 0) === 1,
+                    'Intermediate (Mutawassit)' => (int) ($teacherProfile['teaches_intermediate'] ?? 0) === 1,
+                    'Secondary (Sanawi)' => (int) ($teacherProfile['teaches_secondary'] ?? 0) === 1,
+                ]));
+                ?>
+                <div>
+                  <span>Educational levels</span>
+                  <strong>
+                    <?php if ($stages === []): ?>
+                      Not set
+                    <?php else: ?>
+                      <span class="teacher-stage-list">
+                        <?php foreach ($stages as $stage): ?><i><?= e($stage) ?></i><?php endforeach; ?>
+                      </span>
+                    <?php endif; ?>
+                  </strong>
+                </div>
+                <div>
+                  <span>Years of experience</span>
+                  <strong>
+                    <?php if ($teachingYears === null): ?>
+                      Not set
+                    <?php else: ?>
+                      <span data-i18n-skip><?= e((string) $teachingYears) ?></span>
+                      <span><?= $teachingYears === 1 ? 'year' : 'years' ?></span>
+                      <small class="teacher-profile-since">
+                        <span>since</span> <span data-i18n-skip><?= e(fmt_date($teachingSince)) ?></span>
+                      </small>
+                    <?php endif; ?>
+                  </strong>
+                </div>
+                <div>
+                  <span>At the center since</span>
+                  <strong>
+                    <?php if ($atCenterSince === ''): ?>
+                      Not set
+                    <?php else: ?>
+                      <span data-i18n-skip><?= e(fmt_date($atCenterSince)) ?></span>
+                      <?php if ($atCenterYears !== null): ?>
+                        <small class="teacher-profile-since">
+                          <span data-i18n-skip><?= e((string) $atCenterYears) ?></span>
+                          <span><?= $atCenterYears === 1 ? 'year' : 'years' ?></span>
+                        </small>
+                      <?php endif; ?>
+                    <?php endif; ?>
+                  </strong>
+                </div>
+                <div>
+                  <span>Teacher of the month</span>
+                  <strong>
+                    <?php if ((int) ($teacherProfile['is_teacher_of_the_month'] ?? 0) === 1): ?>
+                      <span class="status-pill status-active">Yes</span>
+                    <?php else: ?>
+                      No
+                    <?php endif; ?>
+                  </strong>
+                </div>
+                <?php $videoUrl = trim((string) ($teacherProfile['video_url'] ?? '')); ?>
+                <div>
+                  <span>Video</span>
+                  <strong>
+                    <?php if ($videoUrl === ''): ?>
+                      Not set
+                    <?php else: ?>
+                      <a href="<?= e($videoUrl) ?>" target="_blank" rel="noopener noreferrer">Watch on YouTube</a>
+                    <?php endif; ?>
+                  </strong>
+                </div>
               </div>
+              <?php
+              $certifications = trim((string) ($teacherProfile['certifications_en'] ?? ''));
+              $certificationsAr = trim((string) ($teacherProfile['certifications_ar'] ?? ''));
+              ?>
+              <?php if ($certifications !== '' || $certificationsAr !== ''): ?>
+                <div class="teacher-profile-note">
+                  <span>Certifications</span>
+                  <?php if ($certifications !== ''): ?><p><?= e($certifications) ?></p><?php endif; ?>
+                  <?php if ($certificationsAr !== ''): ?><p lang="ar" dir="rtl" data-i18n-skip><?= e($certificationsAr) ?></p><?php endif; ?>
+                </div>
+              <?php endif; ?>
               <?php if ($teacherProfile['notes']): ?><div class="teacher-profile-note"><span>Profile note</span><p><?= e((string) $teacherProfile['notes']) ?></p></div><?php endif; ?>
             </article>
 

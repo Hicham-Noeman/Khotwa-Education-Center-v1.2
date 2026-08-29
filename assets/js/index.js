@@ -206,7 +206,9 @@ const renderTeam = (language) => {
     } else {
       const initials = document.createElement("span");
       initials.className = "portrait-initials";
-      initials.textContent = row.initials || row.name_en.split(/\s+/).map((part) => part[0]).join("").slice(0, 3);
+      initials.textContent = row[`initials_${language}`]
+        || row.initials
+        || (row[`name_${language}`] || row.name_en).split(/\s+/).map((part) => part[0]).join("").slice(0, 3);
       const shape = document.createElement("div");
       shape.className = "portrait-shape";
       portrait.append(initials, shape);
@@ -221,16 +223,30 @@ const renderTeam = (language) => {
     role.textContent = row[`role_${language}`] || row.role_en;
     copy.append(name, role);
 
-    const link = document.createElement("a");
-    link.href = row.contact_url || "#contact";
-    link.textContent = "Open";
-    link.setAttribute("aria-label", `${translate("Contact")} ${name.textContent}`);
-    info.append(copy, link);
+    // Decorative arrow: the card itself is the button, so nothing here needs words.
+    const open = document.createElement("span");
+    open.className = "team-open";
+    open.setAttribute("aria-hidden", "true");
+    open.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+    info.append(copy, open);
 
     const subjects = document.createElement("span");
     subjects.className = "team-specialty";
     subjects.textContent = row[`subjects_${language}`] || row.subjects_en;
     card.setAttribute("tabindex", "0");
+    card.setAttribute("role", "button");
+
+    // The profile panel reads these off the card, so they have to survive a re-render.
+    card.dataset.teacherExperience = row.years_experience === null || row.years_experience === undefined
+      ? ""
+      : String(row.years_experience);
+    card.dataset.teacherLevels = row[`education_levels_${language}`] || row.education_levels_en || "";
+    card.dataset.teacherCertifications = row[`certifications_${language}`] || row.certifications_en || "";
+    card.dataset.teacherSince = row.years_at_center === null || row.years_at_center === undefined
+      ? ""
+      : String(row.years_at_center);
+    card.dataset.teacherVideo = row.video_url || "";
+
     card.append(portrait, info, subjects);
     grid.append(card);
   });
@@ -749,27 +765,65 @@ document.querySelector("#year").textContent = new Date().getFullYear();
   const modal           = document.querySelector(".teacher-modal");
   const modalInitials   = modal?.querySelector(".teacher-modal-initials");
   const modalPhoto      = modal?.querySelector(".teacher-modal-photo");
-  const modalSpecialty  = modal?.querySelector(".teacher-modal-specialty");
+  const modalSubjects   = modal?.querySelector(".teacher-modal-subjects");
   const modalName       = modal?.querySelector(".teacher-modal-name");
-  const modalRole       = modal?.querySelector(".teacher-modal-role");
-  const modalContact    = modal?.querySelector(".teacher-modal-contact");
+  const modalVideo      = modal?.querySelector(".teacher-modal-video");
   const modalClose      = modal?.querySelector(".teacher-modal-close");
 
   if (!modal) return;
 
+  /*
+   * A span of years, worded for the language on screen. English needs one plural;
+   * Arabic needs four, because the noun changes with the count: one is سنة, two is
+   * the dual سنتان, three to ten take the plural سنوات, and eleven and up go back
+   * to the singular. Anything under a year is said in words rather than as "0".
+   */
+  const yearsLabel = (count) => {
+    const years = Number.parseInt(count, 10);
+    if (!Number.isFinite(years) || years < 0) return "";
+
+    if (window.KhotwaI18n?.current() !== "ar") {
+      if (years === 0) return "Less than a year";
+      return `${years} ${years === 1 ? "year" : "years"}`;
+    }
+
+    if (years === 0) return "أقل من سنة";
+    if (years === 1) return "سنة واحدة";
+    if (years === 2) return "سنتان";
+    if (years <= 10) return `${years} سنوات`;
+    return `${years} سنة`;
+  };
+
+  // A fact with nothing behind it is hidden rather than shown with an empty value.
+  const setTeacherFact = (key, value) => {
+    const row = modal.querySelector(`[data-teacher-fact="${key}"]`);
+    if (!row) return;
+    const text = (value || "").trim();
+    row.querySelector("dd").textContent = text;
+    row.hidden = text === "";
+  };
+
   const openTeacherModal = (card) => {
     const name      = card.querySelector("h3")?.textContent?.trim() || "";
-    const role      = card.querySelector(".team-info p")?.textContent?.trim() || "";
     const specialty = card.querySelector(".team-specialty")?.textContent?.trim() || "";
     const initials  = card.querySelector(".portrait-initials")?.textContent?.trim() || name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2);
     const photoSrc  = card.querySelector(".team-portrait-image")?.src || "";
-    const contact   = card.querySelector(".team-info a")?.href || "#contact";
+    const facts     = card.dataset;
 
     if (modalInitials)  modalInitials.textContent  = initials;
-    if (modalSpecialty) modalSpecialty.textContent  = specialty;
+    if (modalSubjects)  modalSubjects.textContent   = specialty;
     if (modalName)      modalName.textContent       = name;
-    if (modalRole)      modalRole.textContent       = role;
-    if (modalContact)   modalContact.href           = contact;
+
+    setTeacherFact("levels", facts.teacherLevels);
+    setTeacherFact("experience", yearsLabel(facts.teacherExperience));
+    setTeacherFact("certifications", facts.teacherCertifications);
+    setTeacherFact("since", yearsLabel(facts.teacherSince));
+
+    if (modalVideo) {
+      const video = (facts.teacherVideo || "").trim();
+      modalVideo.href = video || "#";
+      modalVideo.hidden = video === "";
+    }
 
     if (modalPhoto) {
       if (photoSrc && !photoSrc.endsWith("#")) {
@@ -798,8 +852,8 @@ document.querySelector("#year").textContent = new Date().getFullYear();
   document.querySelector(".team-grid")?.addEventListener("click", (event) => {
     const card = event.target.closest(".team-card:not(.team-join)");
     if (!card) return;
-    // Avoid triggering when the user clicks the ↗ contact link itself
-    if (event.target.closest(".team-info > a")) return;
+    // The arrow is decorative, so there is no special case here: a click anywhere
+    // on the card opens the teacher.
     openTeacherModal(card);
   });
 
@@ -834,6 +888,7 @@ document.querySelector("#year").textContent = new Date().getFullYear();
     window.setTimeout(() => {
       document.querySelectorAll(".team-card:not(.team-join)").forEach((card) => {
         if (!card.getAttribute("tabindex")) card.setAttribute("tabindex", "0");
+        if (!card.getAttribute("role")) card.setAttribute("role", "button");
       });
     }, 100);
   });

@@ -91,11 +91,12 @@ $homepageContacts = $homepageData['contacts'] ?? [];
 
 // Falling back to the center's real details rather than a placeholder, so a database
 // outage cannot put a wrong phone number in front of a visitor.
-$contactPhone = homepage_contact_value($homepageContacts, 'primary_phone', '+961 79 427 940');
+$contactPhone = homepage_contact_value($homepageContacts, 'primary_phone', '+961 79 42 79 40');
 $contactPhoneUrl = homepage_contact_url($homepageContacts, 'primary_phone', 'tel:+96179427940');
 $contactAddress = homepage_contact_value($homepageContacts, 'address', 'Tripoli, Lebanon');
 $contactHours = homepage_contact_value($homepageContacts, 'opening_hours', 'Mon-Thu & Sat, 3:00-8:00 PM');
 $contactMapUrl = homepage_contact_url($homepageContacts, 'google_map', 'https://maps.google.com/?q=Tripoli%2C+Lebanon');
+$contactWhatsappUrl = homepage_contact_url($homepageContacts, 'whatsapp', 'https://wa.me/96179427940');
 
 // The hero rating card and the "family satisfaction" counter share one aggregate
 // score, taken from the approved parent reviews. With no approved reviews there is no
@@ -207,22 +208,22 @@ $homepageRating = $homepageRatingCount > 0
           </div>
         <?php endif; ?>
         <h1>
-          <span class="hero-line-lead" data-i18n="heroLineOne">Every step builds</span><br>
-          <span data-i18n="heroArticle">a</span> <span class="changing-word" data-i18n-skip data-words="brighter,stronger,wiser">brighter</span><br class="future-line-break"> <span data-i18n="heroFuture">future.</span>
+          <span class="hero-line" data-i18n="heroLineOne">Every step builds</span><br>
+          <span class="hero-line"><span data-i18n="heroArticle">a</span> <span class="changing-word" data-i18n-skip data-words="brighter,stronger,wiser">brighter</span> <span data-i18n="heroFuture">future.</span></span>
         </h1>
         <p>Personalized learning, expert guidance, and purposeful practice for students from Grade 1 till 12.</p>
         <div class="hero-actions">
+          <a class="button button-primary magnetic" href="#approach">
+            See how we teach
+            <span class="play-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z"/></svg>
+            </span>
+          </a>
           <a class="button button-primary magnetic" href="#programs">
             Explore our programs
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M5 12h14M13 6l6 6-6 6"/>
             </svg>
-          </a>
-          <a class="button button-ghost" href="#approach">
-            <span class="play-icon">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z"/></svg>
-            </span>
-            See how we teach
           </a>
         </div>
       </div>
@@ -277,12 +278,11 @@ $homepageRating = $homepageRatingCount > 0
 
     <section class="vision-section section" id="about">
       <div class="section-shell">
-        <div class="section-intro split-intro" data-reveal>
+        <div class="section-intro" data-reveal>
           <div>
             <span class="eyebrow dark">Who we are</span>
             <h2>Learning that moves<br><span>people forward.</span></h2>
           </div>
-          <p>“Khotwa” signifies the beginning of every achievement. We believe that sustainable success is built with confidence and clarity, step by step, through a carefully designed educational journey tailored to each learner’s aspirations.</p>
         </div>
 
         <div class="vision-grid">
@@ -305,9 +305,8 @@ $homepageRating = $homepageRatingCount > 0
             <span class="card-number">02</span>
             <div class="story-icon">
               <svg viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="12" r="8.5"/>
-                <circle cx="12" cy="12" r="4.5"/>
-                <path d="m15 9 6-6M17 3h4v4"/>
+                <path d="M21.4 2.6 2.9 9.8l7.9 3.4 3.4 7.9 7.2-18.5Z"/>
+                <path d="M21.4 2.6 10.8 13.2"/>
               </svg>
             </div>
             <div>
@@ -322,13 +321,20 @@ $homepageRating = $homepageRatingCount > 0
               <img class="vision-slide is-active" src="<?= homepage_e(khotwa_url('assets/images/khotwa-classroom-gallery.webp')) ?>" alt="Teacher guiding students through a collaborative classroom activity" width="1400" height="933" loading="lazy" decoding="async">
             </div>
             <figcaption data-vision-caption>
-              <strong>Human guidance</strong>
-              <span>at the center of every lesson</span>
+              <div class="vision-caption-lead">
+                <strong>Human guidance</strong>
+                <span>at the center of every lesson</span>
+              </div>
+              <p class="vision-caption-note">“Khotwa” signifies the beginning of every achievement. We believe that sustainable success is built with confidence and clarity, step by step, through a carefully designed educational journey tailored to each learner’s aspirations.</p>
             </figcaption>
             <div class="vision-slider-controls" data-vision-controls hidden>
-              <button type="button" aria-label="Previous slide" data-vision-previous>←</button>
+              <button type="button" aria-label="Previous slide" data-vision-previous>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+              </button>
               <div class="vision-slider-dots" data-vision-dots></div>
-              <button type="button" aria-label="Next slide" data-vision-next>→</button>
+              <button type="button" aria-label="Next slide" data-vision-next>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </button>
             </div>
           </figure>
         </div>
@@ -413,14 +419,9 @@ $homepageRating = $homepageRatingCount > 0
           <article class="program-card program-teaching" data-homepage-content="program_teaching" data-reveal data-tilt>
             <div class="program-top">
               <span class="program-label" data-homepage-field="eyebrow">Core program</span>
-              <span class="program-arrow">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 19 5M9 5h10v10"/></svg>
-              </span>
             </div>
             <div class="program-visual">
-              <div class="book-stack" aria-hidden="true">
-                <span></span><span></span><span></span>
-              </div>
+              <img src="<?= homepage_e(khotwa_url('assets/images/khotwa-classroom-gallery.webp')) ?>" alt="Students working through school subjects with a teacher" width="1400" height="933" loading="lazy" decoding="async">
               <span class="visual-grade">1–12</span>
             </div>
             <div class="program-copy">
@@ -438,17 +439,9 @@ $homepageRating = $homepageRatingCount > 0
           <article class="program-card program-training" data-homepage-content="program_training" data-reveal data-tilt>
             <div class="program-top">
               <span class="program-label" data-homepage-field="eyebrow">Skills program</span>
-              <span class="program-arrow">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 19 5M9 5h10v10"/></svg>
-              </span>
             </div>
             <div class="program-visual">
-              <svg class="training-rings" viewBox="0 0 220 150" aria-hidden="true">
-                <circle cx="110" cy="75" r="58"/>
-                <circle cx="110" cy="75" r="39"/>
-                <circle cx="110" cy="75" r="20"/>
-                <path d="M110 17V4M168 75h13M110 133v13M52 75H39"/>
-              </svg>
+              <img src="<?= homepage_e(khotwa_url('assets/images/khotwa-hero.webp')) ?>" alt="A practical skills workshop in progress" width="1600" height="854" loading="lazy" decoding="async">
               <span class="visual-symbol">↗</span>
             </div>
             <div class="program-copy">
@@ -466,14 +459,9 @@ $homepageRating = $homepageRatingCount > 0
           <article class="program-card program-activities" data-homepage-content="program_activities" data-reveal data-tilt>
             <div class="program-top">
               <span class="program-label" data-homepage-field="eyebrow">Enrichment program</span>
-              <span class="program-arrow">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 19 5M9 5h10v10"/></svg>
-              </span>
             </div>
             <div class="program-visual">
-              <div class="activity-shapes" aria-hidden="true">
-                <span></span><span></span><span></span><span></span>
-              </div>
+              <img src="<?= homepage_e(khotwa_url('assets/images/khotwa-stem-gallery.webp')) ?>" alt="Learners taking part in a hands-on STEM activity" width="1400" height="933" loading="lazy" decoding="async">
               <span class="visual-symbol">✦</span>
             </div>
             <div class="program-copy">
@@ -529,9 +517,8 @@ $homepageRating = $homepageRatingCount > 0
       <section class="reviews-section section" id="reviews">
         <div class="section-shell">
           <div class="section-intro centered" data-reveal>
-            <span class="eyebrow dark">Family voices</span>
-            <h2>What families say<br><span>about Khotwa.</span></h2>
-            <p>Reviews shared by parents from their own Khotwa parent portal account, published once the administration approves them.</p>
+            <span class="eyebrow dark">Parents’ Voices</span>
+            <h2>What parents say<br><span>about Khotwa.</span></h2>
             <?php if ($homepageRating !== null): ?>
               <div class="reviews-score" data-i18n-skip>
                 <?= homepage_star_meter($homepageRating) ?>
@@ -606,7 +593,20 @@ $homepageRating = $homepageRatingCount > 0
           <?php $teamMembers = $homepageData['team'] ?? []; ?>
           <?php foreach ($teamMembers as $index => $member): ?>
             <?php $portrait = ['one', 'two', 'three'][$index % 3]; ?>
-            <article class="team-card" data-reveal tabindex="0">
+            <?php // The profile panel reads a teacher's details off their own card, so the
+                  // markup rendered here and the one index.js rebuilds on a language
+                  // switch carry exactly the same set of attributes. ?>
+            <article
+              class="team-card"
+              data-reveal
+              tabindex="0"
+              role="button"
+              data-teacher-experience="<?= homepage_e($member['years_experience'] === null ? '' : (string) (int) $member['years_experience']) ?>"
+              data-teacher-levels="<?= homepage_e((string) ($member['education_levels_en'] ?? '')) ?>"
+              data-teacher-certifications="<?= homepage_e((string) ($member['certifications_en'] ?? '')) ?>"
+              data-teacher-since="<?= homepage_e($member['years_at_center'] === null ? '' : (string) (int) $member['years_at_center']) ?>"
+              data-teacher-video="<?= homepage_e((string) ($member['video_url'] ?? '')) ?>"
+            >
               <div class="team-portrait portrait-<?= homepage_e($portrait) ?>">
                 <?php if (!empty($member['image_path'])): ?>
                   <img
@@ -626,10 +626,11 @@ $homepageRating = $homepageRatingCount > 0
                   <h3><?= homepage_e((string) $member['name_en']) ?></h3>
                   <p><?= homepage_e((string) $member['role_en']) ?></p>
                 </div>
-                <a
-                  href="<?= homepage_e((string) ($member['contact_url'] ?: '#contact')) ?>"
-                  aria-label="Contact <?= homepage_e((string) $member['name_en']) ?>"
-                >Open</a>
+                <?php // Decorative: the card itself is the button, so the arrow says
+                      // "clickable" without a word that would need translating. ?>
+                <span class="team-open" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                </span>
               </div>
               <span class="team-specialty"><?= homepage_e((string) $member['subjects_en']) ?></span>
             </article>
@@ -788,11 +789,10 @@ $homepageRating = $homepageRatingCount > 0
           <h2>Let’s build a learning plan<br>that fits.</h2>
         </div>
         <div class="contact-actions">
-          <a class="button button-light magnetic" href="mailto:khotwacenter.lb@gmail.com" data-contact-link="primary_email">
+          <a class="button button-light magnetic" href="<?= homepage_e($contactWhatsappUrl) ?>" data-contact-link="whatsapp" target="_blank" rel="noopener noreferrer">
             Contact us now
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </a>
-          <a href="<?= homepage_e($contactPhoneUrl) ?>" data-contact-link="primary_phone"><?= homepage_e($contactPhone) ?></a>
         </div>
       </div>
     </section>
@@ -842,17 +842,15 @@ $homepageRating = $homepageRatingCount > 0
           </div>
           <div>
             <h3>Programs</h3>
-            <a href="#programs">Primary years</a>
-            <a href="#programs">Middle school</a>
-            <a href="#programs">Grades 10–12</a>
-            <a href="#programs">Training &amp; activities</a>
+            <a href="#programs">Core Program</a>
+            <a href="#programs">Skills Program</a>
+            <a href="#programs">Enrichment Program</a>
           </div>
           <div>
             <h3>Visit</h3>
-            <p data-contact-value="address"><?= homepage_e($contactAddress) ?></p>
             <a href="mailto:khotwacenter.lb@gmail.com" data-contact-link="primary_email">khotwacenter.lb@gmail.com</a>
             <a href="<?= homepage_e($contactPhoneUrl) ?>" data-contact-link="primary_phone"><?= homepage_e($contactPhone) ?></a>
-            <a href="<?= homepage_e($contactMapUrl) ?>" data-contact-link="google_map">Google Maps</a>
+            <a href="<?= homepage_e($contactMapUrl) ?>" data-contact-link="google_map" target="_blank" rel="noopener noreferrer"><?= homepage_e($contactAddress) ?></a>
             <p data-contact-value="opening_hours"><?= homepage_e($contactHours) ?></p>
           </div>
         </div>
@@ -876,18 +874,51 @@ $homepageRating = $homepageRatingCount > 0
   <div class="teacher-modal" role="dialog" aria-modal="true" aria-label="Teacher profile" aria-hidden="true">
     <div class="teacher-modal-inner">
       <button class="teacher-modal-close" type="button" aria-label="Close teacher profile">×</button>
-      <div class="teacher-modal-portrait">
-        <span class="teacher-modal-initials"></span>
-        <img class="teacher-modal-photo" src="" alt="" loading="lazy">
+      <?php // Who this is, read as one unit: the portrait, then the name with the
+            // subjects they teach directly under it. ?>
+      <div class="teacher-modal-header">
+        <div class="teacher-modal-portrait">
+          <span class="teacher-modal-initials"></span>
+          <img class="teacher-modal-photo" src="" alt="" loading="lazy">
+        </div>
+        <div class="teacher-modal-heading">
+          <h2 class="teacher-modal-name"></h2>
+          <p class="teacher-modal-subjects"></p>
+        </div>
       </div>
       <div class="teacher-modal-body">
-        <span class="teacher-modal-specialty"></span>
-        <h2 class="teacher-modal-name"></h2>
-        <p class="teacher-modal-role"></p>
-        <a class="teacher-modal-contact button button-primary" href="#contact">
-          Start a conversation
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </a>
+        <?php // Filled in from the card that was opened. Every row whose value is blank
+              // is dropped, so a half-filled teacher record still reads as a finished
+              // profile instead of a list of empty labels. ?>
+        <dl class="teacher-modal-facts">
+          <div data-teacher-fact="levels">
+            <dt>Levels taught</dt>
+            <dd></dd>
+          </div>
+          <div data-teacher-fact="experience">
+            <dt>Years of experience</dt>
+            <dd></dd>
+          </div>
+          <div data-teacher-fact="certifications">
+            <dt>Certifications</dt>
+            <dd></dd>
+          </div>
+          <div data-teacher-fact="since">
+            <dt>At the center for</dt>
+            <dd></dd>
+          </div>
+        </dl>
+        <div class="teacher-modal-actions">
+          <a
+            class="teacher-modal-video button"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Watch the introduction
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z"/></svg>
+          </a>
+        </div>
       </div>
     </div>
   </div>

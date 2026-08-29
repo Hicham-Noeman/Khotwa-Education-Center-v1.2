@@ -80,36 +80,107 @@ function homepage_social_link_types(): array
 }
 
 /**
- * White brand mark for a social link, drawn in the same stroke style as the rest
- * of the site so the footer row stays visually consistent.
+ * White brand mark for a social link, inlined from assets/icons so the footer can
+ * colour it with currentColor the way the rest of the icons on the page are coloured.
+ *
+ * The files there are the official brand glyphs, normalised on the way in: a 512
+ * viewBox added (the downloads had none, so they could not scale), the hardcoded
+ * black fill dropped, and no width or height, so CSS alone decides how big they are.
  */
 function homepage_social_icon(string $linkType): string
 {
-    $icons = [
-        'whatsapp' =>
-            '<path d="M3.5 20.5l1.2-4.1a8 8 0 1 1 3 3l-4.2 1.1Z"/>'
-            . '<path d="M9.2 8.6h.9l1 2.2-.9 1a6.3 6.3 0 0 0 2.9 2.6l1-.9 2.2 1v.9c0 .8-.7 1.3-1.6 1.3-3 0-6.8-3.8-6.8-6.8 0-.9.5-1.6 1.3-1.6Z"/>',
-        'instagram' =>
-            '<rect x="3" y="3" width="18" height="18" rx="5"/>'
-            . '<circle cx="12" cy="12" r="4"/>'
-            . '<path d="M17.5 6.5h.01"/>',
-        'facebook' =>
-            '<path d="M14 8.5V7a1.5 1.5 0 0 1 1.5-1.5H17V2.8h-2.4A4.1 4.1 0 0 0 10.5 7v1.5H8V12h2.5v9.2H14V12h2.6l.5-3.5H14Z"/>',
-        'google_map' =>
-            '<path d="M12 21.5s6.5-6.1 6.5-11a6.5 6.5 0 1 0-13 0c0 4.9 6.5 11 6.5 11Z"/>'
-            . '<circle cx="12" cy="10.2" r="2.6"/>',
-        'tiktok' =>
-            '<path d="M14.4 2.8v11.6a3.6 3.6 0 1 1-3.6-3.6c.3 0 .6 0 .9.1"/>'
-            . '<path d="M14.4 2.8a5 5 0 0 0 5 5"/>',
-        'linkedin' =>
-            '<path d="M15.5 9.2a5 5 0 0 1 5 5v6.6h-3.4v-6.6a1.6 1.6 0 0 0-3.2 0v6.6h-3.4V9.6h3.4v1a5 5 0 0 1 1.6-1.4Z"/>'
-            . '<rect x="3.2" y="9.6" width="3.4" height="11.2" rx="0.4"/>'
-            . '<circle cx="4.9" cy="5.2" r="1.9"/>',
+    static $cache = [];
+
+    $files = [
+        'whatsapp' => 'whatsapp.svg',
+        'instagram' => 'instagram.svg',
+        'facebook' => 'facebook.svg',
+        'google_map' => 'google-map.svg',
+        'tiktok' => 'tiktok.svg',
+        'linkedin' => 'linkedin.svg',
     ];
 
-    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
-        . ($icons[$linkType] ?? '<circle cx="12" cy="12" r="9"/>')
-        . '</svg>';
+    if (!isset($files[$linkType])) {
+        return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+            . '<circle cx="12" cy="12" r="9"/></svg>';
+    }
+
+    if (!array_key_exists($linkType, $cache)) {
+        $file = dirname(__DIR__) . '/assets/icons/' . $files[$linkType];
+        $markup = is_file($file) ? (string) file_get_contents($file) : '';
+        $cache[$linkType] = trim($markup);
+    }
+
+    // A missing icon file leaves a plain dot rather than an empty gap in the row.
+    return $cache[$linkType] !== ''
+        ? $cache[$linkType]
+        : '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+            . '<circle cx="12" cy="12" r="9"/></svg>';
+}
+
+/**
+ * Whole years between a start date and today, so "years of experience" never goes
+ * stale. A date nobody filled in, or one in the future, counts as nothing to show.
+ */
+function homepage_years_since(string $date): ?int
+{
+    $date = trim($date);
+    if ($date === '' || $date === '0000-00-00') {
+        return null;
+    }
+
+    try {
+        $start = new DateTimeImmutable($date);
+    } catch (Exception $exception) {
+        return null;
+    }
+
+    $years = (int) $start->diff(new DateTimeImmutable('today'))->format('%r%y');
+
+    return $years < 0 ? null : $years;
+}
+
+/**
+ * The three Lebanese school stages a teacher covers, as one readable line per
+ * language. A teacher usually covers more than one, so they are joined in order.
+ */
+function homepage_teaching_levels(array $row): array
+{
+    $stages = [
+        'teaches_primary' => ['Primary', 'الابتدائي'],
+        'teaches_intermediate' => ['Intermediate', 'المتوسط'],
+        'teaches_secondary' => ['Secondary', 'الثانوي'],
+    ];
+
+    $english = [];
+    $arabic = [];
+    foreach ($stages as $column => [$labelEn, $labelAr]) {
+        if ((int) ($row[$column] ?? 0) === 1) {
+            $english[] = $labelEn;
+            $arabic[] = $labelAr;
+        }
+    }
+
+    return [
+        'en' => implode(', ', $english),
+        'ar' => implode('، ', $arabic),
+    ];
+}
+
+/**
+ * Only a plain http(s) address reaches the page. Anything else - a javascript: URL
+ * pasted into the admin panel, a half-typed link - is dropped rather than rendered.
+ */
+function homepage_watch_url(string $url): string
+{
+    $url = trim($url);
+    if ($url === '') {
+        return '';
+    }
+
+    $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+
+    return ($scheme === 'http' || $scheme === 'https') ? $url : '';
 }
 
 /**
@@ -128,13 +199,30 @@ function homepage_team_from_teachers(PDO $pdo): array
         "SELECT
             teachers.id,
             TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))) AS name_en,
-            TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))) AS name_ar,
+            -- The Arabic spelling when the record carries one, otherwise the Latin
+            -- name, so a teacher never disappears from the Arabic page for want of it.
+            COALESCE(
+                NULLIF(TRIM(CONCAT(COALESCE(teachers.first_name_ar, ''), ' ', COALESCE(teachers.last_name_ar, ''))), ''),
+                TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, '')))
+            ) AS name_ar,
             'Teacher' AS role_en,
             'معلّم' AS role_ar,
             COALESCE(GROUP_CONCAT(DISTINCT subjects.name_en ORDER BY subjects.name_en SEPARATOR ', '), '') AS subjects_en,
             COALESCE(GROUP_CONCAT(DISTINCT COALESCE(subjects.name_ar, subjects.name_en) ORDER BY subjects.name_en SEPARATOR '، '), '') AS subjects_ar,
-            UPPER(CONCAT(LEFT(teachers.first_name, 1), COALESCE(LEFT(teachers.last_name, 1), ''))) AS initials,
+            UPPER(CONCAT(LEFT(teachers.first_name, 1), COALESCE(LEFT(teachers.last_name, 1), ''))) AS initials_en,
+            COALESCE(
+                NULLIF(CONCAT(LEFT(COALESCE(teachers.first_name_ar, ''), 1), LEFT(COALESCE(teachers.last_name_ar, ''), 1)), ''),
+                UPPER(CONCAT(LEFT(teachers.first_name, 1), COALESCE(LEFT(teachers.last_name, 1), '')))
+            ) AS initials_ar,
             teachers.photo_path AS image_path,
+            teachers.teaching_since,
+            teachers.teaches_primary,
+            teachers.teaches_intermediate,
+            teachers.teaches_secondary,
+            COALESCE(teachers.certifications_en, '') AS certifications_en,
+            COALESCE(NULLIF(teachers.certifications_ar, ''), teachers.certifications_en, '') AS certifications_ar,
+            teachers.joined_center_on,
+            COALESCE(teachers.video_url, '') AS video_url,
             NULL AS contact_url,
             teachers.id AS sort_order
          FROM teachers
@@ -159,6 +247,18 @@ function homepage_team_from_teachers(PDO $pdo): array
             $team[$index]['subjects_en'] = 'Khotwa Education Center';
             $team[$index]['subjects_ar'] = 'مركز خطوة التعليمي';
         }
+
+        $team[$index]['initials'] = $row['initials_en'];
+
+        // Both spans are stored as the date they started and counted into years here,
+        // so they stay right every year without anyone editing a number. The panel
+        // does the wording, because "years" is not one word in Arabic.
+        $team[$index]['years_experience'] = homepage_years_since((string) ($row['teaching_since'] ?? ''));
+        $team[$index]['years_at_center'] = homepage_years_since((string) ($row['joined_center_on'] ?? ''));
+        $levels = homepage_teaching_levels($row);
+        $team[$index]['education_levels_en'] = $levels['en'];
+        $team[$index]['education_levels_ar'] = $levels['ar'];
+        $team[$index]['video_url'] = homepage_watch_url((string) $row['video_url']);
     }
 
     return $team;

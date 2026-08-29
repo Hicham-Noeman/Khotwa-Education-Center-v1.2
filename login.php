@@ -30,6 +30,18 @@ $isLocalRequest = in_array($requestHost, ['localhost', '127.0.0.1', '::1', ''], 
 $error = '';
 $email = '';
 
+// "Need help?" goes to WhatsApp. The number comes from the same admin-managed
+// contact list the homepage uses, so changing it there changes it here too.
+try {
+    $supportWhatsappUrl = homepage_contact_link_url(
+        khotwa_db(),
+        'whatsapp',
+        KHOTWA_CENTER_WHATSAPP_URL
+    );
+} catch (Throwable) {
+    $supportWhatsappUrl = KHOTWA_CENTER_WHATSAPP_URL;
+}
+
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     try {
         $pdo = khotwa_db();
@@ -286,7 +298,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         <p class="legal-copy">By continuing, you agree to Khotwa's <a href="<?= e(khotwa_url('terms.html')) ?>">Terms and Conditions</a>.</p>
       </div>
 
-      <p class="auth-support">Need help? <a href="mailto:khotwacenter.lb@gmail.com">Contact our support team</a></p>
+      <p class="auth-support">Need help? <a href="<?= e($supportWhatsappUrl) ?>" target="_blank" rel="noopener noreferrer">Contact our support team</a></p>
     </main>
   </div>
 

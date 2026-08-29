@@ -411,9 +411,24 @@ function admin_column_label(string $column): string
         'link_type' => 'Link Type',
         'layout_style' => 'Layout',
         'contact_url' => 'Contact Link',
+        'joined_center_on' => 'At The Center Since',
+        'video_url' => 'Video Link',
         'website_url' => 'Website Link',
         'parent_user_id' => 'Parent User',
         'nationality_id' => 'Nationality',
+        // The teacher's own name in Arabic, shown on the Arabic side of the website.
+        'first_name_ar' => 'First Name AR',
+        'last_name_ar' => 'Last Name AR',
+        // The three Lebanese school stages, named the way the center refers to them.
+        'teaches_primary' => 'Teaches Primary (Ibtidai)',
+        'teaches_intermediate' => 'Teaches Intermediate (Mutawassit)',
+        'teaches_secondary' => 'Teaches Secondary (Sanawi)',
+        'teaching_since' => 'Teaching Since (Start Date)',
+        'joined_center_on' => 'At The Center Since',
+        'certifications_en' => 'Certifications EN',
+        'certifications_ar' => 'Certifications AR',
+        'is_teacher_of_the_month' => 'Teacher Of The Month',
+        'video_url' => 'YouTube Video Link',
     ];
     if (isset($labels[$column])) {
         return $labels[$column];

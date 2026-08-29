@@ -13,6 +13,19 @@
   --display: "RB", "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif;
   --body: "RB", "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif;
   --shadow: 0 24px 70px rgba(20, 42, 73, 0.16);
+  /*
+   * Every photo carries this: a blue base along the bottom that thins out on
+   * the way up. The ramp is long and multi-stop so the caption stays readable
+   * over a bright picture without the hard band a two-stop gradient leaves.
+   */
+  --photo-scrim: linear-gradient(
+    0deg,
+    rgba(11, 30, 56, 0.86) 0%,
+    rgba(11, 30, 56, 0.64) 16%,
+    rgba(11, 30, 56, 0.32) 38%,
+    rgba(11, 30, 56, 0.1) 56%,
+    rgba(11, 30, 56, 0) 74%
+  );
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -202,14 +215,14 @@ svg {
   gap: 9px;
   color: var(--orange);
   font-family: var(--display);
-  font-size: 0.72rem;
+  font-size: 1rem;
   font-weight: 800;
   letter-spacing: 0.15em;
   text-transform: uppercase;
 }
 
 .eyebrow::before {
-  width: 22px;
+  width: 30px;
   height: 2px;
   border-radius: 9px;
   background: currentColor;
@@ -231,8 +244,9 @@ svg {
   font-family: var(--display);
   font-size: clamp(2.35rem, 5vw, 4.7rem);
   font-weight: 800;
-  letter-spacing: -0.055em;
-  line-height: 1.04;
+  letter-spacing: 0.015em;
+  line-height: 1.16;
+  word-spacing: 0.05em;
 }
 
 .section-intro h2 span,
@@ -619,26 +633,39 @@ svg {
 
 .hero h1 {
   max-width: 760px;
-  margin: 24px 0;
+  margin: 30px 0 34px;
   font-family: var(--display);
-  font-size: clamp(3.15rem, 6.8vw, 7.2rem);
+  /*
+   * The headline is capped so both of its lines fit their own row at every
+   * width: "a stronger future." is the longest thing it ever has to hold, and
+   * the sentence is meant to read as two lines, never three.
+   */
+  font-size: clamp(2.6rem, 6.5vw, 5.4rem);
   font-weight: 800;
-  letter-spacing: -0.065em;
-  line-height: 0.95;
+  letter-spacing: 0.012em;
+  /* The lines used to almost touch. This leaves the headline room to breathe. */
+  line-height: 1.15;
+  /* A light nudge only: the display face already carries generous side bearings. */
+  word-spacing: 0.03em;
   animation: heroEnter 0.9s 1.62s var(--ease) both;
 }
 
-/* The opening headline line is set wider than the rest of the h1 so it reads slower. */
-.hero-line-lead {
-  display: inline-block;
-  letter-spacing: 0.012em;
-  word-spacing: 0.18em;
+/* Arabic sits taller than Latin once diacritics are drawn, so it needs more. */
+html[dir="rtl"] .hero h1 {
+  /*
+   * Arabic glyphs must stay joined, so letter tracking is left alone. The word gap
+   * is only nudged: Arabic words already read as separate blocks, and the wide
+   * setting the Latin headline wants pulls this one apart.
+   */
+  letter-spacing: normal;
+  line-height: 1.5;
+  word-spacing: 0.06em;
 }
 
-html[dir="rtl"] .hero-line-lead {
-  /* Arabic glyphs must stay joined, so only the gap between words grows. */
-  letter-spacing: normal;
-  word-spacing: 0.3em;
+/* Each half of the sentence keeps its own row; neither may break in two. */
+.hero-line {
+  display: inline-block;
+  white-space: nowrap;
 }
 
 .changing-word {
@@ -666,14 +693,6 @@ html[dir="rtl"] .hero-line-lead {
 .changing-word.is-changing {
   opacity: 0;
   transform: translateY(10px);
-}
-
-.future-line-break {
-  display: block;
-}
-
-html[dir="rtl"] .future-line-break {
-  display: none;
 }
 
 .hero-content > p {
@@ -738,6 +757,13 @@ html[dir="rtl"] .future-line-break {
   border-radius: 50%;
   color: var(--orange);
   background: rgba(255, 255, 255, 0.12);
+}
+
+/* On the orange primary button a translucent white disc disappears, so the
+   play mark gets a solid navy disc instead. */
+.button-primary .play-icon {
+  color: var(--orange);
+  background: var(--navy-deep);
 }
 
 .play-icon svg {
@@ -1051,6 +1077,27 @@ html[dir="rtl"] .future-line-break {
   color: rgba(255, 255, 255, 0.3);
 }
 
+/* Pinned with a physical offset, so it needs mirroring by hand for Arabic. */
+html[dir="rtl"] .card-number {
+  right: auto;
+  left: 34px;
+}
+
+html[dir="rtl"] .vision-slider-controls {
+  right: auto;
+  left: 34px;
+}
+
+/*
+ * A phone number is Latin digits and reads left to right in Arabic too.
+ * Without this the RTL run turns "+961 79 42 79 40" into "40 79 42 79 961+".
+ */
+[data-contact-link="primary_phone"] {
+  display: inline-block;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
 .story-icon {
   display: grid;
   width: 62px;
@@ -1084,8 +1131,9 @@ html[dir="rtl"] .future-line-break {
   color: var(--navy);
   font-family: var(--display);
   font-size: clamp(1.6rem, 2.6vw, 2.4rem);
-  letter-spacing: -0.04em;
+  letter-spacing: 0.018em;
   line-height: 1.16;
+  word-spacing: 0.04em;
 }
 
 .story-mission h3 {
@@ -1116,7 +1164,7 @@ html[dir="rtl"] .future-line-break {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: linear-gradient(0deg, rgba(10, 28, 52, 0.75), transparent 50%);
+  background: var(--photo-scrim);
   content: "";
 }
 
@@ -1153,25 +1201,43 @@ html[dir="rtl"] .future-line-break {
   bottom: 30px;
   left: 34px;
   z-index: 2;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: 34px;
+  align-items: end;
+  /* Room kept clear on the right for the slider controls on the same row. */
+  padding-inline-end: 190px;
   color: var(--paper);
+}
+
+.vision-caption-lead {
+  display: grid;
+  gap: 2px;
 }
 
 .vision-photo figcaption strong {
   font-family: var(--display);
   font-size: clamp(1.6rem, 3vw, 2.5rem);
+  line-height: 1.1;
 }
 
 .vision-photo figcaption span {
   color: rgba(255, 255, 255, 0.65);
 }
 
+/* The "Who we are" sentence, moved off the intro row and onto the photo. */
+.vision-caption-note {
+  max-width: 62ch;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.95rem;
+  line-height: 1.95;
+}
+
 .vision-slider-controls {
   position: absolute;
-  right: 30px;
-  bottom: 82px;
+  right: 34px;
+  bottom: 30px;
   z-index: 3;
   display: flex;
   align-items: center;
@@ -1188,6 +1254,16 @@ html[dir="rtl"] .future-line-break {
   color: var(--paper);
   background: rgba(11, 28, 52, 0.36);
   backdrop-filter: blur(10px);
+}
+
+.vision-slider-controls > button svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* Previous and next point the way the language runs, not the way Latin does. */
+html[dir="rtl"] .vision-slider-controls > button svg {
+  transform: scaleX(-1);
 }
 
 .vision-slider-dots {
@@ -1391,7 +1467,6 @@ html[dir="rtl"] .future-line-break {
 .program-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
 }
 
 .program-label {
@@ -1405,27 +1480,6 @@ html[dir="rtl"] .future-line-break {
   text-transform: uppercase;
 }
 
-.program-arrow {
-  display: grid;
-  width: 41px;
-  height: 41px;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  color: var(--navy);
-  transition: color 0.3s ease, background 0.3s ease, transform 0.3s ease;
-}
-
-.program-card:hover .program-arrow {
-  color: var(--paper);
-  background: var(--navy);
-  transform: rotate(45deg);
-}
-
-.program-arrow svg {
-  width: 18px;
-}
-
 .program-visual {
   position: relative;
   display: grid;
@@ -1434,122 +1488,71 @@ html[dir="rtl"] .future-line-break {
   place-items: center;
   border-radius: 23px;
   overflow: hidden;
+  background: var(--navy);
 }
 
-.program-teaching .program-visual {
-  background:
-    radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.4) 0 2px, transparent 3px),
-    var(--orange);
-  background-size: 25px 25px;
+.program-visual img {
+  width: 100%;
+  height: 100%;
+  grid-area: 1 / 1;
+  object-fit: cover;
 }
 
-.book-stack {
-  position: relative;
-  width: 145px;
-  height: 100px;
-}
-
-.book-stack span {
+/* A soft floor under the photo so the badge stays readable on any image. */
+.program-visual::after {
   position: absolute;
-  right: 0;
-  left: 0;
-  height: 29px;
-  border: 3px solid var(--navy-deep);
-  border-radius: 7px 14px 14px 7px;
-  background: var(--paper);
-  box-shadow: 8px 8px 0 rgba(20, 42, 73, 0.14);
+  inset: 0;
+  background: var(--photo-scrim);
+  content: "";
 }
-
-.book-stack span:nth-child(1) { top: 4px; transform: rotate(-4deg); }
-.book-stack span:nth-child(2) { top: 37px; right: -8px; left: 8px; background: var(--pink); }
-.book-stack span:nth-child(3) { top: 71px; right: 5px; left: -4px; background: var(--green); transform: rotate(3deg); }
 
 .visual-grade {
   position: absolute;
-  right: 16px;
-  bottom: 13px;
-  color: rgba(20, 42, 73, 0.35);
+  z-index: 2;
+  right: 18px;
+  bottom: 12px;
+  /* A grade range is a number, so it keeps reading 1-12 in Arabic too. */
+  direction: ltr;
+  color: var(--paper);
   font-family: var(--display);
   font-size: 2.3rem;
   font-weight: 800;
   letter-spacing: -0.08em;
+  text-shadow: 0 4px 18px rgba(7, 19, 36, 0.45);
 }
 
-.program-training .program-visual {
-  color: rgba(255, 255, 255, 0.4);
-  background: var(--navy);
+html[dir="rtl"] .visual-grade {
+  right: auto;
+  left: 18px;
 }
 
-.training-rings {
-  width: 210px;
-  animation: orbitSpin 18s linear infinite;
-}
-
+/* Anchored to the same corner as the grade badge, so all three cards agree. */
 .visual-symbol {
   position: absolute;
+  z-index: 2;
+  right: 16px;
+  bottom: 16px;
   display: grid;
-  width: 62px;
-  height: 62px;
+  width: 54px;
+  height: 54px;
   place-items: center;
-  border-radius: 20px;
+  border-radius: 18px;
   color: var(--paper);
   background: var(--pink);
   font-family: var(--display);
-  font-size: 2rem;
+  font-size: 1.7rem;
   font-weight: 800;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 15px 35px rgba(7, 19, 36, 0.3);
 }
 
-.program-activities .program-visual {
-  background: #dff2da;
+html[dir="rtl"] .visual-symbol {
+  right: auto;
+  left: 16px;
 }
 
 .program-activities .visual-symbol {
   color: var(--navy);
   background: var(--orange);
-}
-
-.activity-shapes span {
-  position: absolute;
-}
-
-.activity-shapes span:nth-child(1) {
-  top: 28px;
-  left: 40px;
-  width: 70px;
-  height: 70px;
-  border: 14px solid var(--green);
-  border-radius: 50%;
-}
-
-.activity-shapes span:nth-child(2) {
-  right: 45px;
-  bottom: 27px;
-  width: 70px;
-  height: 70px;
-  border-radius: 18px;
-  background: var(--pink);
-  transform: rotate(14deg);
-}
-
-.activity-shapes span:nth-child(3) {
-  top: 25px;
-  right: 58px;
-  width: 0;
-  height: 0;
-  border-right: 31px solid transparent;
-  border-bottom: 54px solid var(--orange);
-  border-left: 31px solid transparent;
-  transform: rotate(18deg);
-}
-
-.activity-shapes span:nth-child(4) {
-  bottom: 27px;
-  left: 50px;
-  width: 46px;
-  height: 46px;
-  border: 9px solid var(--navy);
-  transform: rotate(28deg);
 }
 
 .program-copy > span {
@@ -1565,8 +1568,9 @@ html[dir="rtl"] .future-line-break {
   color: var(--navy);
   font-family: var(--display);
   font-size: clamp(1.35rem, 2.2vw, 1.8rem);
-  letter-spacing: -0.035em;
-  line-height: 1.2;
+  letter-spacing: 0.018em;
+  line-height: 1.32;
+  word-spacing: 0.04em;
 }
 
 .program-copy p {
@@ -1635,27 +1639,49 @@ html[dir="rtl"] .future-line-break {
   font-family: var(--display);
   font-size: clamp(2rem, 3.5vw, 3.25rem);
   letter-spacing: -0.05em;
-  line-height: 1.08;
+  line-height: 1.18;
 }
 
 .stat-item {
   padding: 10px 24px;
-  border-left: 1px solid rgba(255, 255, 255, 0.26);
+  /* Logical, so the divider moves to the other side of the cell in Arabic. */
+  border-inline-start: 1px solid rgba(255, 255, 255, 0.26);
 }
 
+/*
+ * A number and its sign are one unit and always read left to right, in Arabic
+ * as well - otherwise RTL flips "92%" into "%92". The sign is sized in em so it
+ * tracks the number instead of staying at a fixed 1.1rem while the digits scale.
+ */
 .stat-item strong {
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
+  direction: ltr;
   font-family: var(--display);
   font-size: clamp(2.4rem, 4.2vw, 4.2rem);
   letter-spacing: -0.07em;
   line-height: 1;
 }
 
+html[dir="rtl"] .stat-item strong {
+  justify-content: flex-end;
+}
+
 .stat-item sup {
-  margin: 4px 0 0 3px;
+  margin: 0;
+  /*
+   * The number carries a tight negative tracking, which pulled the sign right
+   * against the last digit. This gap is measured from the digits themselves so
+   * "12 +" and "92 %" keep the same air at every screen size.
+   */
+  margin-inline-start: 0.5em;
+  align-self: flex-start;
   color: var(--orange);
-  font-size: 1.1rem;
+  font-size: 0.33em;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: normal;
+  transform: translateY(0.35em);
 }
 
 .stat-item p {
@@ -1989,24 +2015,43 @@ html[dir="rtl"] .star-meter-fill {
   font-size: 0.78rem;
 }
 
-.team-info > a {
+/*
+ * The affordance that says "this card opens". An arrow rather than a word, so it
+ * reads the same in both languages, and it is filled in at rest rather than only
+ * on hover, because a touch screen never hovers.
+ */
+.team-open {
   display: grid;
-  min-width: 37px;
+  width: 37px;
   height: 37px;
   flex: 0 0 auto;
-  padding: 0 13px;
   place-items: center;
-  border: 1px solid var(--line);
   border-radius: 999px;
-  color: var(--navy);
-  font-size: 0.78rem;
-  font-weight: 800;
-  transition: color 0.25s ease, background 0.25s ease;
-}
-
-.team-info > a:hover {
   color: var(--paper);
   background: var(--navy);
+  transition: color 0.25s ease, background 0.25s ease, transform 0.25s var(--ease);
+}
+
+.team-open svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* The arrow points the way the language runs. */
+html[dir="rtl"] .team-open svg {
+  transform: scaleX(-1);
+}
+
+.team-card:hover .team-open,
+.team-card:focus-visible .team-open {
+  color: var(--navy);
+  background: var(--orange);
+  transform: translateX(3px);
+}
+
+html[dir="rtl"] .team-card:hover .team-open,
+html[dir="rtl"] .team-card:focus-visible .team-open {
+  transform: translateX(-3px);
 }
 
 .team-specialty {
@@ -2066,7 +2111,7 @@ html[dir="rtl"] .star-meter-fill {
   margin: 10px 0 22px;
   font-family: var(--display);
   font-size: 1.55rem;
-  line-height: 1.25;
+  line-height: 1.35;
 }
 
 .team-join a {
@@ -2105,7 +2150,7 @@ html[dir="rtl"] .star-meter-fill {
 .gallery-item::after {
   position: absolute;
   inset: 0;
-  background: linear-gradient(0deg, rgba(8, 25, 48, 0.82), transparent 56%);
+  background: var(--photo-scrim);
   content: "";
   transition: background 0.35s ease;
 }
@@ -2198,39 +2243,44 @@ html[dir="rtl"] .star-meter-fill {
 }
 
 .partners-section {
-  padding: 56px 0;
+  padding: 88px 0;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   background: var(--paper);
 }
 
 .partners-section p {
-  margin: 0 0 30px;
+  margin: 0 0 44px;
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: 0.82rem;
   font-weight: 800;
   letter-spacing: 0.13em;
   text-align: center;
   text-transform: uppercase;
 }
 
+/*
+ * Centred rather than spread edge to edge: with only a handful of partners,
+ * space-between pushed them into the far corners with a hole in the middle.
+ */
 .partner-logos {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 32px;
+  justify-content: center;
+  gap: 34px 72px;
   color: var(--navy);
   filter: grayscale(1);
-  opacity: 0.55;
+  opacity: 0.72;
 }
 
 .partner-logos > span,
 .partner-logos > a {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 16px;
   font-family: var(--display);
-  font-size: 1.05rem;
+  font-size: 1.45rem;
   font-weight: 800;
   white-space: nowrap;
   transition: filter 0.25s ease, opacity 0.25s ease, transform 0.25s ease;
@@ -2245,8 +2295,9 @@ html[dir="rtl"] .star-meter-fill {
 
 .partner-logos img {
   width: auto;
-  max-width: 150px;
-  height: 46px;
+  max-width: 270px;
+  height: 96px;
+  border-radius: 14px;
   object-fit: contain;
 }
 
@@ -2257,8 +2308,8 @@ html[dir="rtl"] .star-meter-fill {
 
 .partner-mark {
   display: block;
-  width: 27px;
-  height: 27px;
+  width: 38px;
+  height: 38px;
   background: var(--orange);
 }
 
@@ -2457,8 +2508,9 @@ html[dir="rtl"] .star-meter-fill {
   margin: 13px 0 0;
   font-family: var(--display);
   font-size: clamp(2.3rem, 4.7vw, 4.7rem);
-  letter-spacing: -0.06em;
-  line-height: 1.02;
+  letter-spacing: 0.015em;
+  line-height: 1.16;
+  word-spacing: 0.05em;
 }
 
 .contact-actions {
@@ -2471,11 +2523,6 @@ html[dir="rtl"] .star-meter-fill {
   color: var(--navy);
   background: var(--paper);
   box-shadow: 0 20px 40px rgba(20, 42, 73, 0.2);
-}
-
-.contact-actions > a:last-child {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
-  font-weight: 700;
 }
 
 .site-footer {
@@ -2517,10 +2564,15 @@ html[dir="rtl"] .star-meter-fill {
   transition: color 0.25s ease, background 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
 }
 
+/*
+ * The brand marks are solid glyphs, so they take the row's colour as a fill. The
+ * global svg rule paints outlines, which would erase them completely.
+ */
 .social-links a svg {
-  width: 20px;
-  height: 20px;
-  stroke-width: 1.6;
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+  stroke: none;
 }
 
 .social-links a:hover {
@@ -2816,7 +2868,7 @@ html[dir="rtl"] .star-meter-fill {
   }
 
   .hero h1 {
-    font-size: clamp(3.3rem, 12vw, 5.5rem);
+    font-size: clamp(2rem, 9.8vw, 4.5rem);
   }
 
   .hero-note {
@@ -2955,10 +3007,6 @@ html[dir="rtl"] .star-meter-fill {
     transform-origin: right top;
   }
 
-  .hero h1 {
-    font-size: clamp(3rem, 15vw, 4.3rem);
-  }
-
   .hero-actions {
     display: grid;
   }
@@ -2986,7 +3034,23 @@ html[dir="rtl"] .star-meter-fill {
 
   .vision-photo figcaption {
     display: grid;
-    gap: 3px;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding-inline-end: 0;
+  }
+
+  .vision-caption-note {
+    font-size: 0.86rem;
+    line-height: 1.85;
+  }
+
+  .vision-slider-controls {
+    bottom: auto;
+    top: 22px;
+  }
+
+  html[dir="rtl"] .vision-slider-controls {
+    top: 22px;
   }
 
   .approach-path {
@@ -3106,33 +3170,38 @@ html[dir="rtl"] .star-meter-fill {
 }
 
 /* Language controls and Arabic layout */
+/*
+ * One compact tap: the pill shows only the language currently in use and the
+ * click swaps it. The divider and the long "العربية"/"English" label stay in the
+ * markup so the script can keep writing to them, but they are not drawn.
+ */
 .language-switch {
   display: inline-flex;
-  min-height: 42px;
+  min-width: 34px;
+  min-height: 34px;
   align-items: center;
-  gap: 8px;
-  padding: 0 13px;
+  justify-content: center;
+  gap: 0;
+  padding: 0 9px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 999px;
   color: inherit;
   background: rgba(255, 255, 255, 0.08);
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   backdrop-filter: blur(10px);
   transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
 }
 
+.language-switch i,
+.language-switch [data-language-label] {
+  display: none;
+}
+
 .language-switch:hover {
   background: rgba(255, 255, 255, 0.15);
   transform: translateY(-2px);
-}
-
-.language-switch i {
-  width: 1px;
-  height: 14px;
-  background: currentColor;
-  opacity: 0.25;
 }
 
 .site-header.is-scrolled .language-switch {
@@ -3167,6 +3236,44 @@ html[dir="rtl"] .brand-copy small,
 html[dir="rtl"] .eyebrow,
 html[dir="rtl"] .footer-links h3 {
   letter-spacing: 0;
+}
+
+/* Arabic glyphs carry taller ascenders and diacritics, so the display headings
+   and the slideshow caption need more leading than the Latin cut. */
+html[dir="rtl"] .section-intro h2,
+html[dir="rtl"] .faq-intro h2 {
+  /* Arabic is a joined script: negative tracking would pull the letterforms apart. */
+  letter-spacing: normal;
+  line-height: 1.4;
+  word-spacing: normal;
+}
+
+html[dir="rtl"] .vision-photo figcaption strong {
+  line-height: 1.45;
+}
+
+html[dir="rtl"] .vision-caption-note {
+  line-height: 2.1;
+}
+
+html[dir="rtl"] .stats-heading h2,
+html[dir="rtl"] .contact-inner h2 {
+  letter-spacing: normal;
+  line-height: 1.4;
+  word-spacing: normal;
+}
+
+html[dir="rtl"] .story-card h3 {
+  letter-spacing: normal;
+  line-height: 1.45;
+  word-spacing: normal;
+}
+
+html[dir="rtl"] .program-copy h3,
+html[dir="rtl"] .team-join h3 {
+  letter-spacing: normal;
+  line-height: 1.55;
+  word-spacing: normal;
 }
 
 html[dir="rtl"] .desktop-nav a::after {
@@ -3221,6 +3328,7 @@ html[dir="rtl"] .scroll-cue {
 html[dir="rtl"] .program-copy li {
   padding-right: 18px;
   padding-left: 0;
+  line-height: 1.9;
 }
 
 html[dir="rtl"] .program-copy li::before {
@@ -3228,10 +3336,7 @@ html[dir="rtl"] .program-copy li::before {
   left: auto;
 }
 
-html[dir="rtl"] .team-info > a,
-html[dir="rtl"] .program-arrow {
-  transform: scaleX(-1);
-}
+
 
 html[dir="rtl"] .gallery-quote > span {
   right: auto;
@@ -3360,7 +3465,9 @@ html[dir="rtl"] .lightbox-close {
   width: min(520px, 100%);
   flex-direction: column;
   gap: 28px;
+  max-height: calc(100svh - 48px);
   padding: 40px 36px 36px;
+  overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: 32px;
   background: var(--paper);
@@ -3376,7 +3483,8 @@ html[dir="rtl"] .lightbox-close {
 .teacher-modal-close {
   position: absolute;
   top: 18px;
-  right: 18px;
+  /* Logical, so the button follows the panel's own corner in Arabic. */
+  inset-inline-end: 18px;
   width: 42px;
   height: 42px;
   border: 1px solid var(--line);
@@ -3429,47 +3537,112 @@ html[dir="rtl"] .lightbox-close {
   gap: 6px;
 }
 
-.teacher-modal-specialty {
-  display: inline-flex;
+/* Portrait, name and subjects read as one block at the top of the panel. */
+.teacher-modal-header {
+  display: flex;
   align-items: center;
-  gap: 7px;
-  color: var(--orange);
-  font-family: var(--display);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  gap: 18px;
+  /* The close button sits in this corner, so the heading stops short of it. */
+  padding-inline-end: 46px;
 }
 
-.teacher-modal-specialty::before {
-  width: 18px;
-  height: 2px;
-  border-radius: 9px;
-  background: currentColor;
-  content: "";
+.teacher-modal-heading {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
 }
 
 .teacher-modal-name {
-  margin: 4px 0 0;
+  margin: 0;
   color: var(--navy);
   font-family: var(--display);
-  font-size: 1.7rem;
+  font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: -0.04em;
-  line-height: 1.1;
+  line-height: 1.15;
+  overflow-wrap: break-word;
 }
 
-.teacher-modal-role {
-  margin: 0 0 16px;
+.teacher-modal-subjects {
+  margin: 0;
+  color: var(--orange);
+  font-family: var(--display);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+/* Arabic does not read as uppercase, and the wide tracking breaks its joins. */
+html[dir="rtl"] .teacher-modal-subjects {
+  font-size: 0.85rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/*
+ * The profile itself: one label/value row per fact. The panel can grow past the
+ * viewport on a long list of certifications, so the body scrolls inside the card
+ * instead of pushing the close button off the screen.
+ */
+.teacher-modal-facts {
+  display: grid;
+  margin: 0 0 22px;
+  gap: 1px;
+  border-top: 1px solid var(--line);
+}
+
+.teacher-modal-facts > div {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 16px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+/* A display of its own beats the browser default for [hidden], so say it again. */
+.teacher-modal-facts > div[hidden],
+.teacher-modal-video[hidden] {
+  display: none;
+}
+
+.teacher-modal-facts dt {
   color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.teacher-modal-facts dd {
+  margin: 0;
+  color: var(--navy);
   font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
-.teacher-modal-contact {
-  align-self: flex-start;
+.teacher-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
 }
 
-.teacher-modal-contact svg {
+/* The one action the panel offers, in the site's navy. */
+.teacher-modal-video {
+  color: var(--paper);
+  background: var(--navy);
+  box-shadow: 0 16px 32px rgba(34, 63, 107, 0.22);
+}
+
+.teacher-modal-video:hover {
+  background: var(--navy-dark);
+}
+
+.teacher-modal-video svg {
   width: 17px;
 }
 
@@ -3489,6 +3662,16 @@ html[dir="rtl"] .lightbox-close {
   }
 
   .teacher-modal-name {
-    font-size: 1.4rem;
+    font-size: 1.25rem;
+  }
+
+  .teacher-modal-header {
+    gap: 14px;
+  }
+
+  /* Two columns leave no room for the value on a narrow phone. */
+  .teacher-modal-facts > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
   }
 }
