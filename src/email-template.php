@@ -27,9 +27,10 @@ const KHOTWA_MAIL_MUTED = '#667085';
 const KHOTWA_MAIL_SOFT = '#f4f7fb';
 const KHOTWA_MAIL_LINE = '#dfe5ee';
 
-// Web fonts load in only a few clients, so the fallbacks carry the design.
-const KHOTWA_MAIL_DISPLAY_FONT = "'Manrope','Segoe UI',Roboto,Helvetica,Arial,sans-serif";
-const KHOTWA_MAIL_BODY_FONT = "'DM Sans','Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+// Web fonts load in only a few clients, so the fallbacks carry the design. The
+// brand family is named first so any client that does have RB installed uses it.
+const KHOTWA_MAIL_DISPLAY_FONT = "'RB','Segoe UI',Tahoma,'Noto Sans Arabic',sans-serif";
+const KHOTWA_MAIL_BODY_FONT = "'RB','Segoe UI',Tahoma,'Noto Sans Arabic',sans-serif";
 
 function khotwa_mail_logo_path(): string
 {
@@ -83,7 +84,6 @@ function khotwa_email_shell(string $title, string $preheader, string $contentHtm
 <meta name="color-scheme" content="light" />
 <meta name="supported-color-schemes" content="light" />
 <title>{$safeTitle}</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&amp;family=Manrope:wght@600;800&amp;display=swap" rel="stylesheet" />
 <style type="text/css">
   /* Only the handful of clients that support a style block will use these; the
      inline styles below carry the design everywhere else. */

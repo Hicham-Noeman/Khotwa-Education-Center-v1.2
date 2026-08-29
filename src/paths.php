@@ -80,3 +80,29 @@ function khotwa_asset(string $assetPath): string
 
     return khotwa_url($assetPath) . ($version === '' ? '' : '?v=' . $version);
 }
+
+/**
+ * Brand font tags for a page <head>.
+ *
+ * Emits the @font-face stylesheet plus a preload for the Regular file, which is the
+ * weight every page needs first. The preload is skipped while the file is missing,
+ * so a copy that has not had the licensed RB files dropped in yet renders on the
+ * fallback stack instead of asking the browser for a font that 404s.
+ */
+function khotwa_head_fonts(): string
+{
+    $tags = '<link rel="stylesheet" href="'
+        . htmlspecialchars(khotwa_asset('css/fonts.css'), ENT_QUOTES, 'UTF-8') . '">';
+
+    $regular = 'fonts/rb-regular.woff2';
+    if (is_file(khotwa_path('assets/' . $regular))) {
+        $tags = '<link rel="preload" href="'
+            . htmlspecialchars(khotwa_asset($regular), ENT_QUOTES, 'UTF-8')
+            . '" as="font" type="font/woff2" crossorigin>' . "\n  " . $tags;
+    }
+
+    // PHP swallows the newline that follows a closing tag, so the markup carries
+    // its own and the next stylesheet link still lands on a fresh line.
+    return $tags . "
+";
+}

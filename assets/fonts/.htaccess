@@ -1,0 +1,14 @@
+# Font files are public; the untouched originals next to them are not.
+<IfModule mod_authz_core.c>
+  Require all granted
+</IfModule>
+
+<FilesMatch "(?i)\.(?:ttf|otf|ttc)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>

@@ -1,0 +1,48 @@
+/*
+ * Khotwa brand typeface: RB, self-hosted.
+ *
+ * One family covers both English and Arabic, so there is no second Arabic face and
+ * no unicode-range split - the same three files serve every page in both languages.
+ *
+ * Only three weights exist: Light 300, Regular 400, Bold 700. Files live in
+ * assets/fonts/ and are produced from the originals in assets/fonts/src/ by
+ * tools/build-fonts.py. woff2 is listed first and woff second, so a browser that
+ * cannot read woff2 still gets a real file rather than the fallback stack.
+ */
+
+@font-face {
+  font-family: "RB";
+  src: url("../fonts/rb-light.woff2") format("woff2"),
+       url("../fonts/rb-light.woff") format("woff");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "RB";
+  src: url("../fonts/rb-regular.woff2") format("woff2"),
+       url("../fonts/rb-regular.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "RB";
+  src: url("../fonts/rb-bold.woff2") format("woff2"),
+       url("../fonts/rb-bold.woff") format("woff");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/*
+ * The stylesheets ask for 600, 800 and 900 in places. With only one bold file the
+ * browser correctly falls back to the 700 face, but some engines then paint a
+ * smeared synthetic bold on top of it. Turning weight synthesis off keeps every
+ * heavy weight rendering as the genuine Bold file.
+ */
+:root {
+  font-synthesis-weight: none;
+}

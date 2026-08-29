@@ -792,9 +792,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' || $isCli) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Database Initialization & Seeding | Khotwa</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Tajawal:wght@500;700;800&display=swap" rel="stylesheet">
+  <?= khotwa_head_fonts() ?>
   <style>
     :root {
       --navy: #223f6b;
@@ -806,8 +804,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' || $isCli) {
       --paper: #ffffff;
       --soft: #f5f7fb;
       --line: #dfe5ee;
-      --font-en: 'Manrope', sans-serif;
-      --font-ar: 'Tajawal', sans-serif;
+      --font-en: 'RB', 'Segoe UI', Tahoma, 'Noto Sans Arabic', sans-serif;
+      --font-ar: 'RB', 'Segoe UI', Tahoma, 'Noto Sans Arabic', sans-serif;
     }
 
     * {
@@ -1134,7 +1132,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' || $isCli) {
     }
 
     .credentials-card code {
-      font-family: monospace;
+      font-family: var(--font-en);
       background: rgba(0, 0, 0, 0.2);
       padding: 2px 6px;
       border-radius: 4px;

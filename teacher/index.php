@@ -376,10 +376,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0B1C34">
   <title><?= e($views[$view]['label']) ?> | Khotwa Teacher Portal</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
+  <?= khotwa_head_fonts() ?>
   <link rel="stylesheet" href="<?= e(khotwa_asset('css/admin.css')) ?>">
   <link rel="stylesheet" href="<?= e(khotwa_asset('css/teacher.css')) ?>">
 </head>

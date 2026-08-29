@@ -7,12 +7,25 @@ if (is_logged_in()) {
     redirect_to_role_home((array) current_user());
 }
 
-// Localhost keeps the demo shortcuts; any other hostname is treated as public.
-// Judged by the address the visitor typed, not by where the request came from: on a
-// public host, a request that happens to originate on the server is still public.
+// Localhost and the office LAN keep the demo shortcuts; a routable hostname is
+// treated as public. Judged by the address the visitor typed, not by where the
+// request came from: on a public host, a request that happens to originate on the
+// server is still public. The private ranges are here so the site can be opened on
+// another laptop over the same Wi-Fi during a demo without losing the shortcuts;
+// they are unroutable from the internet, so the live host can never match.
 $requestHost = strtolower((string) ($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? ''));
 $requestHost = explode(':', $requestHost)[0];
-$isLocalRequest = in_array($requestHost, ['localhost', '127.0.0.1', '::1', ''], true);
+$requestHost = trim($requestHost, '[]');
+$isLocalRequest = in_array($requestHost, ['localhost', '127.0.0.1', '::1', ''], true)
+    || str_ends_with($requestHost, '.local')
+    || (
+        filter_var($requestHost, FILTER_VALIDATE_IP) !== false
+        && filter_var(
+            $requestHost,
+            FILTER_VALIDATE_IP,
+            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+        ) === false
+    );
 
 $error = '';
 $email = '';
@@ -120,14 +133,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
   <meta name="description" content="Log in to the Khotwa Education Center learning portal.">
   <meta name="theme-color" content="#223F6B">
   <title>Log In | Khotwa Education Center</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="<?= e(khotwa_url('assets/images/khotwa-hero.webp')) ?>" as="image" type="image/webp" fetchpriority="high">
-  <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
   <link rel="prefetch" href="<?= e(khotwa_asset('css/admin.css')) ?>" as="style">
   <link rel="prefetch" href="<?= e(khotwa_asset('js/admin.js')) ?>" as="script">
   <link rel="prefetch" href="<?= e(khotwa_asset('js/language.js')) ?>" as="script">
+  <?= khotwa_head_fonts() ?>
   <link rel="stylesheet" href="<?= e(khotwa_asset('css/auth.css')) ?>">
 </head>
 <body class="auth-page">

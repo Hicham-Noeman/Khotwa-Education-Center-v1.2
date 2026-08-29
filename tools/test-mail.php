@@ -43,7 +43,7 @@ $stamp = date('d/m/Y H:i:s');
 $text = "This is a test message from the Khotwa Education Center portal.\n\n"
     . "Sent: {$stamp}\n\n"
     . "If it arrived, password reset codes will arrive too.";
-$html = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#1c2b45;line-height:1.6">'
+$html = '<div style="font-family:RB,Segoe UI,Tahoma,Noto Sans Arabic,sans-serif;font-size:15px;color:#1c2b45;line-height:1.6">'
     . '<p>This is a test message from the Khotwa Education Center portal.</p>'
     . '<p style="color:#5b6b86">Sent: ' . htmlspecialchars($stamp, ENT_QUOTES, 'UTF-8') . '</p>'
     . '<p>If it arrived, password reset codes will arrive too.</p></div>';

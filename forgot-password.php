@@ -109,10 +109,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
   <meta name="theme-color" content="#223F6B">
   <meta name="robots" content="noindex">
   <title>Reset Password | Khotwa Education Center</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700&family=Tajawal:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700&family=Tajawal:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
+  <?= khotwa_head_fonts() ?>
   <link rel="stylesheet" href="<?= e(khotwa_asset('css/auth.css')) ?>">
 </head>
 <body class="auth-page recovery-page">

@@ -10,8 +10,8 @@
   --paper: #ffffff;
   --soft: #f4f7fb;
   --line: #e1e7ef;
-  --display: "Manrope", sans-serif;
-  --body: "DM Sans", sans-serif;
+  --display: "RB", "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif;
+  --body: "RB", "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif;
   --ease: cubic-bezier(0.2, 0.75, 0.25, 1);
 }
 
@@ -1200,7 +1200,7 @@ html[dir="rtl"] .toast-stack {
 .admin-field-ar input,
 .admin-field-ar textarea {
   text-align: right;
-  font-family: "Tajawal", sans-serif;
+  font-family: var(--body);
   line-height: 1.65;
 }
 
@@ -1672,7 +1672,7 @@ html[dir="rtl"] .toast-stack {
 .language-content-ar .language-card-heading > span {
   color: var(--navy-deep);
   background: var(--orange);
-  font-family: "Tajawal", sans-serif;
+  font-family: var(--body);
   font-size: 0.9rem;
 }
 
@@ -2156,7 +2156,7 @@ a.profile-tab {
 }
 
 html[dir="rtl"] body {
-  font-family: "Tajawal", var(--body);
+  font-family: var(--body);
   text-align: right;
 }
 
@@ -2165,7 +2165,7 @@ html[dir="rtl"] .panel-heading h2,
 html[dir="rtl"] .quick-panel h2,
 html[dir="rtl"] .admin-brand-copy strong,
 html[dir="rtl"] .metric-card strong {
-  font-family: "Tajawal", var(--display);
+  font-family: var(--display);
 }
 
 html[dir="rtl"] .admin-brand-copy small,
@@ -2696,7 +2696,7 @@ html[dir="rtl"] th:last-child {
   margin: 0;
   overflow: hidden;
   color: var(--muted);
-  font-family: "Tajawal", sans-serif;
+  font-family: var(--body);
   font-size: 0.75rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2757,7 +2757,7 @@ html[dir="rtl"] th:last-child {
 .slide-preview-card p {
   margin: 0;
   color: rgba(255, 255, 255, 0.72);
-  font-family: "Tajawal", sans-serif;
+  font-family: var(--body);
 }
 
 .slide-preview-card a {
@@ -2922,7 +2922,7 @@ html[dir="rtl"] th:last-child {
 
 .partner-preview-card small {
   color: var(--muted);
-  font-family: "Tajawal", sans-serif;
+  font-family: var(--body);
   font-size: 0.68rem;
 }
 

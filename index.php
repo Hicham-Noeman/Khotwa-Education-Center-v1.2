@@ -113,11 +113,8 @@ $homepageRating = $homepageRatingCount > 0
   <meta name="description" content="Khotwa Education Center helps students from Grade 1 till 12 build confidence, skills, and lasting academic progress.">
   <meta name="theme-color" content="#223F6B">
   <title>Khotwa Education Center | Every Step Builds a Future</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="<?= homepage_e(khotwa_url('assets/images/khotwa-hero.webp')) ?>" as="image" type="image/webp" fetchpriority="high">
-  <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
+  <?= khotwa_head_fonts() ?>
   <link rel="stylesheet" href="<?= homepage_e(khotwa_asset('css/index.css')) ?>">
 </head>
 <body>

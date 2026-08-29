@@ -10,8 +10,8 @@
   --paper: #ffffff;
   --soft: #f5f7fb;
   --line: #dfe5ee;
-  --display: "Manrope", sans-serif;
-  --body: "DM Sans", sans-serif;
+  --display: "RB", "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif;
+  --body: "RB", "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif;
   --ease: cubic-bezier(0.2, 0.75, 0.25, 1);
 }
 
@@ -463,7 +463,7 @@ svg {
   padding: 2px 7px;
   border-radius: 6px;
   background: rgba(34, 63, 107, 0.08);
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: var(--display);
   font-weight: 800;
 }
 
@@ -1585,7 +1585,7 @@ svg {
 }
 
 html[dir="rtl"] body {
-  font-family: "Tajawal", var(--body);
+  font-family: var(--body);
   text-align: right;
 }
 
@@ -1597,7 +1597,7 @@ html[dir="rtl"] h3,
 html[dir="rtl"] .visual-note strong,
 html[dir="rtl"] .primary-auth-button,
 html[dir="rtl"] .terms-nav > strong {
-  font-family: "Tajawal", var(--display);
+  font-family: var(--display);
 }
 
 html[dir="rtl"] .auth-brand small,

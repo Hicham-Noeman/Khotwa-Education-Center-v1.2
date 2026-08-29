@@ -10,8 +10,8 @@
   --paper: #ffffff;
   --soft: #f4f7fb;
   --line: rgba(34, 63, 107, 0.13);
-  --display: "Manrope", sans-serif;
-  --body: "DM Sans", sans-serif;
+  --display: "RB", "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif;
+  --body: "RB", "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif;
   --shadow: 0 24px 70px rgba(20, 42, 73, 0.16);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -2179,7 +2179,7 @@ html[dir="rtl"] .star-meter-fill {
 
 .gallery-quote > span {
   color: var(--orange);
-  font-family: Georgia, serif;
+  font-family: var(--display);
   font-size: 4rem;
   line-height: 0.7;
 }
@@ -3149,7 +3149,7 @@ html[dir="rtl"] .star-meter-fill {
 }
 
 html[dir="rtl"] body {
-  font-family: "Tajawal", var(--body);
+  font-family: var(--body);
   text-align: right;
 }
 
@@ -3160,7 +3160,7 @@ html[dir="rtl"] h2,
 html[dir="rtl"] h3,
 html[dir="rtl"] .glass-card strong,
 html[dir="rtl"] .footer-links h3 {
-  font-family: "Tajawal", var(--display);
+  font-family: var(--display);
 }
 
 html[dir="rtl"] .brand-copy small,

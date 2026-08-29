@@ -7,7 +7,7 @@
 }
 
 .teacher-arabic-name {
-  font-family: "Tajawal", sans-serif;
+  font-family: var(--body);
   direction: rtl;
 }
 
@@ -300,7 +300,7 @@
 
 .swipe-card-arabic {
   color: var(--muted);
-  font-family: "Tajawal", sans-serif;
+  font-family: var(--body);
   font-size: 0.86rem;
 }
 
@@ -430,7 +430,7 @@
 
 .quick-row-arabic {
   color: var(--muted);
-  font-family: "Tajawal", sans-serif;
+  font-family: var(--body);
   font-size: 0.72rem;
 }
 
@@ -835,7 +835,7 @@
 
 .teacher-subject-list small {
   color: var(--muted);
-  font-family: "Tajawal", sans-serif;
+  font-family: var(--body);
   font-size: 0.7rem;
 }
 

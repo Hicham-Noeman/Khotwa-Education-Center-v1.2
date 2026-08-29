@@ -359,6 +359,7 @@ function render_db_error(Throwable $exception): void
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Khotwa Database Error</title>
+        <?= khotwa_head_fonts() ?>
         <link rel="stylesheet" href="<?= e(khotwa_asset('css/auth.css')) ?>">
       </head>
       <body class="app-body">
