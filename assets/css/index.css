@@ -930,38 +930,6 @@ html[dir="rtl"] .hero h1 {
   animation-delay: -4s;
 }
 
-.scroll-cue {
-  position: absolute;
-  bottom: 32px;
-  left: clamp(24px, 7vw, 118px);
-  z-index: 4;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-}
-
-.scroll-cue i {
-  position: relative;
-  width: 42px;
-  height: 1px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.25);
-}
-
-.scroll-cue i::after {
-  position: absolute;
-  inset: 0;
-  background: var(--orange);
-  content: "";
-  transform: translateX(-100%);
-  animation: scrollLine 1.8s ease-in-out infinite;
-}
-
 .signal-bar {
   overflow: hidden;
   padding: 19px 0;
@@ -1330,10 +1298,15 @@ html[dir="rtl"] .vision-slider-controls > button svg {
   position: relative;
 }
 
-.light h2 {
+/*
+ * The approach intro runs the pair the other way round to the light sections:
+ * the label above is white and the heading under it carries the orange.
+ */
+.light .eyebrow {
   color: var(--paper);
 }
 
+.light h2,
 .light h2 span {
   color: var(--orange);
 }
@@ -1376,11 +1349,22 @@ html[dir="rtl"] .vision-slider-controls > button svg {
   transform: scaleX(1);
 }
 
+/*
+ * A column, so the four "Watch this step" buttons line up with each other no
+ * matter how many lines each description runs to: the text block takes the space
+ * it needs and the button is pushed to the bottom of every column alike.
+ */
 .approach-step {
   position: relative;
   z-index: 2;
+  display: flex;
+  flex-direction: column;
   padding: 0 12px 10px;
   text-align: center;
+}
+
+.approach-step p {
+  flex: 1 0 auto;
 }
 
 .step-node {
@@ -1450,6 +1434,7 @@ html[dir="rtl"] .vision-slider-controls > button svg {
   gap: 10px;
   margin-top: 18px;
   padding: 7px 16px 7px 7px;
+  align-self: center;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
   color: rgba(255, 255, 255, 0.72);
@@ -1832,7 +1817,7 @@ html[dir="rtl"] .visual-symbol {
   margin: 12px 0 0;
   font-family: var(--display);
   font-size: clamp(2rem, 3.5vw, 3.25rem);
-  letter-spacing: -0.05em;
+  letter-spacing: 0;
   line-height: 1.18;
 }
 
@@ -1853,7 +1838,9 @@ html[dir="rtl"] .visual-symbol {
   direction: ltr;
   font-family: var(--display);
   font-size: clamp(2.4rem, 4.2vw, 4.2rem);
-  letter-spacing: -0.07em;
+  /* The digits were nearly touching at this size; they read as one number with
+     a little air between them. */
+  letter-spacing: -0.005em;
   line-height: 1;
 }
 
@@ -1864,9 +1851,8 @@ html[dir="rtl"] .stat-item strong {
 .stat-item sup {
   margin: 0;
   /*
-   * The number carries a tight negative tracking, which pulled the sign right
-   * against the last digit. This gap is measured from the digits themselves so
-   * "12 +" and "92 %" keep the same air at every screen size.
+   * Measured from the digits themselves, so "12 +" and "92 %" keep the same air
+   * at every screen size.
    */
   margin-inline-start: 0.5em;
   align-self: flex-start;
@@ -2446,7 +2432,7 @@ html[dir="rtl"] .team-card:focus-visible .team-open {
 .partners-section p {
   margin: 0 0 44px;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 1.05rem;
   font-weight: 800;
   letter-spacing: 0.13em;
   text-align: center;
@@ -3345,10 +3331,6 @@ html[dir="rtl"] .partner-logos {
     width: 100%;
   }
 
-  .scroll-cue {
-    left: 18px;
-  }
-
   .vision-grid {
     gap: 16px;
   }
@@ -4014,11 +3996,6 @@ html[dir="rtl"] .rating-avatars span {
   margin-left: 0;
 }
 
-html[dir="rtl"] .scroll-cue {
-  right: clamp(24px, 7vw, 118px);
-  left: auto;
-}
-
 html[dir="rtl"] .program-copy li {
   padding-right: 18px;
   padding-left: 0;
@@ -4029,8 +4006,6 @@ html[dir="rtl"] .program-copy li::before {
   right: 0;
   left: auto;
 }
-
-
 
 html[dir="rtl"] .gallery-quote > span {
   right: auto;
@@ -4073,10 +4048,6 @@ html[dir="rtl"] .lightbox-close {
     transform-origin: left top;
   }
 
-  html[dir="rtl"] .scroll-cue {
-    right: 18px;
-    left: auto;
-  }
 }
 
 /* ── Brand Logo ───────────────────────────────────────────── */

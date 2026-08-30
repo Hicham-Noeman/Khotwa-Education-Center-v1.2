@@ -12,7 +12,9 @@ document.querySelectorAll(".password-toggle").forEach((button) => {
   });
 });
 
-document.querySelectorAll("[data-fill-login]").forEach((button) => {
+const demoButtons = [...document.querySelectorAll("[data-fill-login]")];
+
+demoButtons.forEach((button) => {
   button.addEventListener("click", () => {
     const form = document.querySelector("#login-form");
     const email = form?.querySelector('input[name="email"]');
@@ -21,6 +23,9 @@ document.querySelectorAll("[data-fill-login]").forEach((button) => {
 
     email.value = button.dataset.email || "";
     password.value = button.dataset.password || "";
+    // The pills are shortcuts, not a form control, so the highlight only marks
+    // which set of credentials is currently sitting in the fields.
+    demoButtons.forEach((other) => other.classList.toggle("is-active", other === button));
     email.focus();
   });
 });

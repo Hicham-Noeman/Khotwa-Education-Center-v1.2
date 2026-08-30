@@ -121,11 +121,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
   <header class="simple-auth-header">
     <a class="auth-brand" href="<?= e(khotwa_url('index.php')) ?>" aria-label="Khotwa Education Center home">
-      <span class="brand-mark">K<span>.</span></span>
-      <span>
-        <strong>Khotwa</strong>
-        <small>Education Center</small>
-      </span>
+      <img class="auth-brand-logo" src="<?= e(khotwa_url('assets/images/logo-white.svg')) ?>" alt="Khotwa Education Center" width="148" height="71">
     </a>
     <div class="simple-header-actions">
       <button class="language-switch language-switch-dark" type="button" data-language-toggle>

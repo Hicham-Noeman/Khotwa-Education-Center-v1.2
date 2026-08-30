@@ -256,7 +256,30 @@ function homepage_youtube_is_portrait(string $url): bool
  */
 function homepage_team_from_teachers(PDO $pdo): array
 {
-    $statement = $pdo->query(
+    return homepage_team_rows($pdo);
+}
+
+/**
+ * One teacher's website card, built exactly as the homepage builds it, whether or
+ * not the teacher is currently published. The admin profile shows this so the
+ * office can see what a visitor sees without opening the site.
+ */
+function homepage_team_member(PDO $pdo, int $teacherId): ?array
+{
+    return homepage_team_rows($pdo, $teacherId)[0] ?? null;
+}
+
+/**
+ * @param int|null $teacherId One teacher regardless of visibility, or every
+ *                            published teacher when null.
+ */
+function homepage_team_rows(PDO $pdo, ?int $teacherId = null): array
+{
+    $filter = $teacherId === null
+        ? "teachers.status = 'active' AND teachers.show_on_website = 1"
+        : 'teachers.id = ?';
+
+    $statement = $pdo->prepare(
         "SELECT
             teachers.id,
             TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))) AS name_en,
@@ -293,11 +316,11 @@ function homepage_team_from_teachers(PDO $pdo): array
          LEFT JOIN subjects
                 ON subjects.id = teacher_subjects.subject_id
                AND subjects.status = 'active'
-         WHERE teachers.status = 'active'
-           AND teachers.show_on_website = 1
+         WHERE " . $filter . "
          GROUP BY teachers.id
          ORDER BY teachers.first_name, teachers.last_name"
     );
+    $statement->execute($teacherId === null ? [] : [$teacherId]);
 
     $team = $statement->fetchAll();
 

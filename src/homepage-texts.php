@@ -20,14 +20,13 @@ function khotwa_homepage_text_defaults(): array
         ['hero_eyebrow', 'hero', 10, 'Admissions are now open', 'التسجيل متاح الآن'],
         ['hero_title_line_1', 'hero', 20, 'Every step builds', 'كلّ خطوة تبني'],
         ['hero_title_prefix', 'hero', 30, 'a', 'مستقبلاً أكثر'],
-        ['hero_title_words', 'hero', 40, 'brighter,stronger,wiser', 'إشراقاً,قوة,حكمة'],
+        ['hero_title_words', 'hero', 40, 'brighter,stronger,safer', 'إشراقاً,قوة,أماناً'],
         ['hero_title_suffix', 'hero', 50, 'future.', ''],
         ['hero_paragraph', 'hero', 60, 'Personalized learning, expert guidance, and purposeful practice for students from Grade 1 till 12.', 'دعم فردي، وإرشاد خبير، وتدريب هادف للطلاب من الصف الأول حتى الثاني عشر.'],
         ['hero_button_primary', 'hero', 70, 'See how we teach', 'اكتشف طريقتنا'],
         ['hero_button_secondary', 'hero', 80, 'Explore our programs', 'استكشف برامجنا'],
         ['hero_note_title', 'hero', 90, 'Grade 1 till 12', 'من الصف الأول حتى الثاني عشر'],
         ['hero_note_subtitle', 'hero', 100, 'Support at every stage', 'دعم في كل مرحلة'],
-        ['hero_scroll_cue', 'hero', 110, 'Scroll to discover', 'مرّر للاستكشاف'],
 
         // ---- highlights ----
         ['signal_chip_1', 'highlights', 120, 'Personalized learning', 'دعم فردي'],

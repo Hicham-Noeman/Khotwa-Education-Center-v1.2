@@ -211,6 +211,7 @@ function admin_profile_section_icon(string $sectionKey): string
         'student_medical_info' => 'medical',
         'student_other_phone_numbers' => 'phone',
         'student_school_schedule' => 'schedule',
+        'website' => 'website-content',
         'parent_students' => 'parent-links',
         'student_subject_enrollments' => 'enrollments',
         'student_daily_attendance' => 'attendance',
@@ -673,7 +674,8 @@ function admin_render_field(
     mixed $value = '',
     array $locked = [],
     bool $showHidden = false,
-    array $hiddenOnly = []
+    array $hiddenOnly = [],
+    string $help = ''
 ): void
 {
     $name = (string) $column['COLUMN_NAME'];
@@ -695,6 +697,11 @@ function admin_render_field(
     $label = $name === 'password_hash' ? 'Password' : admin_column_label($name);
     $type = (string) $column['DATA_TYPE'];
     $required = $column['IS_NULLABLE'] === 'NO' && $column['COLUMN_DEFAULT'] === null ? ' required' : '';
+    // A password is never re-typed to save a record: an empty box means "keep the
+    // one already set", and admin_save_record leaves the stored hash alone.
+    if ($name === 'password_hash') {
+        $required = '';
+    }
     $isLocked = array_key_exists($name, $locked);
     $value = $isLocked ? $locked[$name] : $value;
     if ($name === 'password_hash') {
@@ -765,7 +772,16 @@ function admin_render_field(
             default => $name === 'email' ? 'email' : ($name === 'password_hash' ? 'password' : 'text'),
         };
         $step = $type === 'decimal' ? ' step="0.01"' : '';
-        echo '<input type="' . e($inputType) . '" name="fields[' . e($name) . ']" value="' . e((string) $value) . '"' . $step . $required . $languageAttributes . $translationSkipAttribute . '>';
+        // An empty password box keeps whatever is already stored, so it says so.
+        $hint = $name === 'password_hash'
+            ? ' placeholder="Leave blank to keep the current password"'
+            : '';
+        echo '<input type="' . e($inputType) . '" name="fields[' . e($name) . ']" value="' . e((string) $value) . '"' . $step . $required . $hint . $languageAttributes . $translationSkipAttribute . '>';
+    }
+
+    // Room for a caller to say what a field turns into once it is on the page.
+    if ($help !== '') {
+        echo '<p class="admin-field-help">' . e($help) . '</p>';
     }
 
     echo '</label>';
@@ -942,6 +958,11 @@ function admin_save_record(PDO $pdo, string $table, array $fields, ?int $id = nu
         if ($name === 'password_hash') {
             if ($id !== null && $value === '') {
                 continue;
+            }
+            // Nothing in the form insists on a password any more, so a brand new
+            // account is the one place it still has to be demanded.
+            if ($id === null && $value === '') {
+                throw new RuntimeException('A new account needs a password.');
             }
             if ($value !== '' && !str_starts_with((string) $value, '$2y$') && !str_starts_with((string) $value, '$argon')) {
                 $value = password_hash((string) $value, PASSWORD_DEFAULT);
@@ -1304,4 +1325,186 @@ function admin_render_sidebar(array $user, string $activeView): void
       </nav>
     </aside>
     <?php
+}
+
+/**
+ * The weekly planner covers 07:00-21:00 in half-hour steps: the hours the center
+ * actually runs, so the grid stays readable instead of drawing a dead night half.
+ */
+function admin_schedule_window(): array
+{
+    return ['start' => 7 * 60, 'end' => 21 * 60, 'step' => 30];
+}
+
+/** Planner columns, in the order they are shown. */
+function admin_schedule_days(): array
+{
+    return ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+}
+
+/** "07:30" or "07:30:00" to minutes since midnight; null when it is not a time. */
+function admin_schedule_minutes(?string $time): ?int
+{
+    if ($time === null || !preg_match('/^(\d{1,2}):([0-5]\d)(?::[0-5]\d)?$/', trim($time), $parts)) {
+        return null;
+    }
+
+    $minutes = ((int) $parts[1]) * 60 + (int) $parts[2];
+
+    return $minutes <= 24 * 60 ? $minutes : null;
+}
+
+function admin_schedule_time_string(int $minutes): string
+{
+    return sprintf('%02d:%02d:00', intdiv($minutes, 60), $minutes % 60);
+}
+
+/**
+ * Splits the saved rows into the sessions the planner can draw and the ones it
+ * cannot -- a row with no times, or one sitting outside the planner window. The
+ * second group is left alone on save rather than being wiped by the replace.
+ *
+ * @return array{blocks: list<array<string, mixed>>, unplanned: int}
+ */
+function admin_student_schedule_state(PDO $pdo, int $studentId): array
+{
+    $window = admin_schedule_window();
+    $statement = $pdo->prepare(
+        'SELECT id, day_of_week, start_time, end_time, notes FROM student_school_schedule
+         WHERE student_id = ? ORDER BY start_time, id'
+    );
+    $statement->execute([$studentId]);
+
+    $blocks = [];
+    $unplanned = 0;
+
+    foreach ($statement->fetchAll() as $row) {
+        $start = admin_schedule_minutes($row['start_time'] === null ? null : (string) $row['start_time']);
+        $end = admin_schedule_minutes($row['end_time'] === null ? null : (string) $row['end_time']);
+        $fits = $start !== null
+            && $end !== null
+            && $end > $start
+            && $start >= $window['start']
+            && $end <= $window['end']
+            && $start % $window['step'] === 0
+            && $end % $window['step'] === 0;
+
+        if (!$fits) {
+            $unplanned++;
+            continue;
+        }
+
+        $blocks[] = [
+            'id' => (int) $row['id'],
+            'day' => (string) $row['day_of_week'],
+            'start' => $start,
+            'end' => $end,
+            'note' => (string) ($row['notes'] ?? ''),
+        ];
+    }
+
+    return ['blocks' => $blocks, 'unplanned' => $unplanned];
+}
+
+/**
+ * Writes the whole week in one go. Sessions that kept their id are updated,
+ * new ones are inserted and the ones the planner no longer shows are deleted,
+ * so a save never touches rows the grid could not display in the first place.
+ */
+function admin_save_student_schedule(PDO $pdo, int $studentId, string $payload): void
+{
+    $window = admin_schedule_window();
+    $days = admin_schedule_days();
+    $decoded = json_decode($payload, true);
+
+    if (!is_array($decoded)) {
+        throw new RuntimeException('The schedule could not be read. Please try again.');
+    }
+    if (count($decoded) > 200) {
+        throw new RuntimeException('A weekly schedule cannot hold more than 200 sessions.');
+    }
+
+    $blocks = [];
+    $perDay = [];
+
+    foreach ($decoded as $entry) {
+        if (!is_array($entry)) {
+            continue;
+        }
+
+        $day = strtolower(trim((string) ($entry['day'] ?? '')));
+        if (!in_array($day, $days, true)) {
+            throw new RuntimeException('The schedule contains a day the planner does not know.');
+        }
+
+        $start = admin_schedule_minutes((string) ($entry['start'] ?? ''));
+        $end = admin_schedule_minutes((string) ($entry['end'] ?? ''));
+        if ($start === null || $end === null || $end <= $start) {
+            throw new RuntimeException('Every session needs a start time earlier than its end time.');
+        }
+        if ($start < $window['start'] || $end > $window['end']) {
+            throw new RuntimeException('Sessions must sit between 7:00 AM and 9:00 PM.');
+        }
+        if ($start % $window['step'] !== 0 || $end % $window['step'] !== 0) {
+            throw new RuntimeException('Sessions must start and end on a half hour.');
+        }
+
+        foreach ($perDay[$day] ?? [] as [$otherStart, $otherEnd]) {
+            if ($start < $otherEnd && $end > $otherStart) {
+                throw new RuntimeException('Two sessions on ' . ucfirst($day) . ' overlap each other.');
+            }
+        }
+        $perDay[$day][] = [$start, $end];
+
+        $note = trim((string) ($entry['note'] ?? ''));
+        $blocks[] = [
+            'id' => (int) ($entry['id'] ?? 0),
+            'day' => $day,
+            'start' => $start,
+            'end' => $end,
+            'note' => $note === '' ? null : mb_substr($note, 0, 255),
+        ];
+    }
+
+    $plannable = array_column(admin_student_schedule_state($pdo, $studentId)['blocks'], 'id');
+    // An id is only honoured when it is a row this planner is actually showing,
+    // so a tampered payload cannot reach another student's schedule.
+    $keptIds = array_values(array_intersect(array_column($blocks, 'id'), $plannable));
+    $removedIds = array_values(array_diff($plannable, $keptIds));
+
+    $pdo->beginTransaction();
+    try {
+        if ($removedIds !== []) {
+            $delete = $pdo->prepare(
+                'DELETE FROM student_school_schedule WHERE student_id = ? AND id IN ('
+                . implode(', ', array_fill(0, count($removedIds), '?')) . ')'
+            );
+            $delete->execute(array_merge([$studentId], $removedIds));
+        }
+
+        $update = $pdo->prepare(
+            'UPDATE student_school_schedule SET day_of_week = ?, start_time = ?, end_time = ?, notes = ?
+             WHERE id = ? AND student_id = ?'
+        );
+        $insert = $pdo->prepare(
+            'INSERT INTO student_school_schedule (student_id, day_of_week, start_time, end_time, notes)
+             VALUES (?, ?, ?, ?, ?)'
+        );
+
+        foreach ($blocks as $block) {
+            $startTime = admin_schedule_time_string($block['start']);
+            $endTime = admin_schedule_time_string($block['end']);
+
+            if ($block['id'] > 0 && in_array($block['id'], $keptIds, true)) {
+                $update->execute([$block['day'], $startTime, $endTime, $block['note'], $block['id'], $studentId]);
+                continue;
+            }
+            $insert->execute([$studentId, $block['day'], $startTime, $endTime, $block['note']]);
+        }
+
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        $pdo->rollBack();
+        throw $exception;
+    }
 }

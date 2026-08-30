@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/auth.php';
 require_once __DIR__ . '/../src/admin-data.php';
+require_once __DIR__ . '/../src/homepage-data.php';
 
 $user = require_roles(['admin', 'manager']);
 $isManager = ($user['role'] ?? '') === 'manager';
@@ -58,6 +59,10 @@ try {
                     throw new RuntimeException('The selected linked record does not belong to this profile.');
                 }
                 admin_save_record($pdo, $table, (array) ($_POST['fields'] ?? []), $recordId);
+            } elseif ($action === 'save_schedule' && $type === 'student' && $table === 'student_school_schedule'
+                && isset($linkedTables[$table])) {
+                // The planner posts the whole week at once instead of one row per session.
+                admin_save_student_schedule($pdo, $personId, (string) ($_POST['schedule'] ?? '[]'));
             } elseif ($action === 'add_linked' && isset($linkedTables[$table])) {
                 $fields = (array) ($_POST['fields'] ?? []);
                 $fields[$relationColumn] = $personId;
@@ -66,9 +71,14 @@ try {
                 throw new RuntimeException('Invalid profile action.');
             }
 
+            // Coming back to the tab the record was saved from, instead of the main card.
+            $returnPanel = (string) ($_POST['return_panel'] ?? '');
+            $savedHash = $returnPanel !== ''
+                ? '#panel-' . rawurlencode($returnPanel)
+                : ($action === 'update_main' ? '' : '#panel-' . rawurlencode($table));
             header(
                 'Location: ' . khotwa_url('admin/person.php') . '?type=' . rawurlencode($type)
-                . '&id=' . $personId . '&saved=1'
+                . '&id=' . $personId . '&saved=1' . $savedHash
             );
             exit;
         } catch (Throwable $exception) {
@@ -109,6 +119,13 @@ try {
         'ID' => $personId,
       ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
       $studentQrFileBase = 'student-' . $personId;
+    }
+
+    // What a visitor sees when they open this teacher on the homepage. Kept beside
+    // the raw record so the office can check the public card without leaving here.
+    $websiteProfile = null;
+    if ($type === 'teacher') {
+        $websiteProfile = homepage_team_member($pdo, $personId);
     }
 
     $mainColumns = admin_columns($pdo, $mainTable);
@@ -208,6 +225,9 @@ try {
           <?php
           // One button per section so the whole profile is reachable without scrolling.
           $profileTabs = ['main' => ucfirst($type) . ' information'];
+          if ($websiteProfile !== null) {
+              $profileTabs['website'] = 'Website profile';
+          }
           foreach ($linkedTables as $linkedTable => $linkedLabel) {
               $profileTabs[$linkedTable] = $linkedLabel;
           }
@@ -261,6 +281,13 @@ try {
                   <?php foreach ($mainColumns as $column): ?>
                     <?php
                     $columnName = (string) $column['COLUMN_NAME'];
+                    // Portal sign-in is checked against the users table, so the copy of
+                    // the password sitting on the teacher row controls nothing. It is
+                    // shown as a pointer to the account that does instead of a box that
+                    // has to be filled in again on every edit.
+                    if ($columnName === 'password_hash') {
+                        continue;
+                    }
                     $locked = isset($mainEditableNames[$columnName])
                         ? []
                         : [$columnName => $person[$columnName] ?? ''];
@@ -273,6 +300,16 @@ try {
                     );
                     ?>
                   <?php endforeach; ?>
+                  <?php if ($type === 'teacher'): ?>
+                    <div class="admin-field admin-field-pointer">
+                      <span>Password</span>
+                      <p>
+                        <?= isset($linkedTables['users'])
+                            ? "Sign-in is handled by this teacher's portal account. Open the Portal account section to set or reset the password."
+                            : "Sign-in is handled by this teacher's portal account, which an administrator manages." ?>
+                      </p>
+                    </div>
+                  <?php endif; ?>
                 </div>
               </fieldset>
               <div class="record-form-actions">
@@ -283,6 +320,107 @@ try {
             </form>
           </section>
 
+
+          <?php if ($websiteProfile !== null): ?>
+            <?php
+            $isPublished = (string) ($person['status'] ?? '') === 'active'
+                && (int) ($person['show_on_website'] ?? 0) === 1;
+            $hiddenReason = (string) ($person['status'] ?? '') !== 'active'
+                ? 'Not on the website because this teacher is not active.'
+                : 'Not on the website because "Show On Website" is off.';
+            $yearsLabel = static fn (?int $years): string => $years === null
+                ? 'no date set yet'
+                : ($years === 0 ? 'less than a year' : $years . ($years === 1 ? ' year' : ' years'));
+
+            // The card reads these fields, so each one is edited here once and the
+            // help line says what it turns into on the public page.
+            $websiteFields = [
+                'show_on_website' => 'Takes this teacher on or off the Our team section.',
+                'photo_path' => 'Shown on the card; initials are used when there is none.',
+                'teaches_primary' => '',
+                'teaches_intermediate' => '',
+                'teaches_secondary' => 'The three switches together make the Teaches line on the card.',
+                'teaching_since' => 'The card counts this into "' . $yearsLabel($websiteProfile['years_experience']) . ' of experience".',
+                'joined_center_on' => 'The card counts this into "' . $yearsLabel($websiteProfile['years_at_center']) . ' at the center".',
+                'certifications_en' => '',
+                'certifications_ar' => 'Falls back to the English line when left empty.',
+                'video_url' => 'A YouTube link adds the video button; anything else is ignored.',
+            ];
+            $columnsByName = [];
+            foreach ($mainColumns as $mainColumn) {
+                $columnsByName[(string) $mainColumn['COLUMN_NAME']] = $mainColumn;
+            }
+            ?>
+            <section
+              class="data-panel website-profile"
+              id="panel-website"
+              role="tabpanel"
+              data-profile-panel="website"
+              <?= $activeTab === 'website' ? '' : 'hidden' ?>
+            >
+              <div class="panel-heading">
+                <div><span>Public page</span><h2>Website profile</h2></div>
+                <div class="website-profile-chips">
+                  <span class="website-state<?= $isPublished ? ' is-live' : '' ?>">
+                    <?= $isPublished ? 'Live on the website' : 'Not on the website' ?>
+                  </span>
+                  <span class="read-only-status" data-edit-status>Read only</span>
+                </div>
+              </div>
+
+              <p class="website-profile-lead">
+                <?= $isPublished
+                    ? 'These are the details behind the card visitors open from the Our team section of the homepage.'
+                    : e($hiddenReason) ?>
+              </p>
+
+              <?php // Subjects belong to another table, so they are named here rather
+                    // than edited: this is the one value on the card with no field. ?>
+              <p class="website-profile-subjects">
+                <span>Subjects on the card</span>
+                <strong><?= e((string) $websiteProfile['subjects_en']) ?></strong>
+                <?php if (trim((string) $websiteProfile['subjects_ar']) !== ''): ?>
+                  <b dir="rtl"><?= e((string) $websiteProfile['subjects_ar']) ?></b>
+                <?php endif; ?>
+                <em>Edited in the Assigned subjects section.</em>
+              </p>
+
+              <form class="website-profile-form" method="post" enctype="multipart/form-data" data-edit-form>
+                <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
+                <input type="hidden" name="action" value="update_main">
+                <input type="hidden" name="table" value="<?= e($mainTable) ?>">
+                <input type="hidden" name="record_id" value="<?= e((string) $personId) ?>">
+                <?php // Saving from here lands back on this tab rather than the main card. ?>
+                <input type="hidden" name="return_panel" value="website">
+
+                <fieldset class="record-fieldset" disabled data-edit-fields>
+                  <div class="record-form-grid">
+                    <?php foreach ($websiteFields as $websiteField => $fieldHelp): ?>
+                      <?php if (!isset($columnsByName[$websiteField])) continue; ?>
+                      <?php admin_render_field(
+                          $pdo,
+                          $mainTable,
+                          $columnsByName[$websiteField],
+                          $person[$websiteField] ?? '',
+                          isset($mainEditableNames[$websiteField]) ? [] : [$websiteField => $person[$websiteField] ?? ''],
+                          help: $fieldHelp
+                      ); ?>
+                    <?php endforeach; ?>
+                  </div>
+                </fieldset>
+
+                <div class="record-form-actions">
+                  <button class="secondary-action edit-record-button" type="button" data-edit-toggle>Edit</button>
+                  <button class="primary-action" type="submit" hidden data-save-record>Save website details</button>
+                  <button class="secondary-action" type="button" hidden data-cancel-edit>Cancel</button>
+                </div>
+              </form>
+
+              <p class="website-profile-note">
+                The name and the account status stay on the <?= e(ucfirst($type)) ?> information tab.
+              </p>
+            </section>
+          <?php endif; ?>
 
           <?php foreach ($linkedTables as $table => $label): ?>
             <?php $isAddingHere = $addTable === $table; ?>
@@ -318,6 +456,7 @@ try {
   ]); ?>
   <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/qr-tools.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/schedule-planner.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/admin.js')) ?>" defer></script>
 </body>
 </html>

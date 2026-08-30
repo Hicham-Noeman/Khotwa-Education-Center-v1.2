@@ -329,7 +329,7 @@
     "Collaborative learning": "تعلّم تعاوني",
     "Hands-on discovery": "اكتشاف بالتجربة",
     "Guided academic support": "دعم أكاديمي موجّه",
-    "Administrator demo": "حساب المدير التجريبي",
+    "Demo login": "دخول تجريبي",
     "Invalid administrator email or password.": "البريد الإلكتروني أو كلمة مرور المدير غير صحيحة.",
     "The database is unavailable. Start MySQL in XAMPP and try again.": "قاعدة البيانات غير متاحة. شغّل MySQL في XAMPP ثم حاول مجدداً.",
     "Administration": "الإدارة",
@@ -476,6 +476,16 @@
     ,"Complete student profile with every directly linked database record.": "ملف الطالب الكامل مع جميع سجلات قاعدة البيانات المرتبطة مباشرة."
     ,"Complete teacher profile with every directly linked database record.": "ملف المعلم الكامل مع جميع سجلات قاعدة البيانات المرتبطة مباشرة."
     ,"Main record": "السجل الرئيسي"
+    ,"Website profile": "الملف على الموقع"
+    ,"Public page": "الصفحة العامة"
+    ,"Live on the website": "ظاهر على الموقع"
+    ,"Not on the website": "غير ظاهر على الموقع"
+    ,"This is the card visitors open from the Our team section of the homepage.": "هذه البطاقة التي يفتحها الزوار من قسم فريقنا في الصفحة الرئيسية."
+    ,"Hidden from the website because this teacher is not active.": "غير ظاهر على الموقع لأن هذا المعلم غير نشط."
+    ,"Teaches": "يدرّس"
+    ,"Years at the center": "سنوات في المركز"
+    ,"Watch the introduction video": "شاهد الفيديو التعريفي"
+    ,"No introduction video on the card.": "لا يوجد فيديو تعريفي على البطاقة."
     ,"Student information": "معلومات الطالب"
     ,"Teacher information": "معلومات المعلم"
     ,"Save main record": "حفظ السجل الرئيسي"
@@ -483,6 +493,35 @@
     ,"Related records": "السجلات المرتبطة"
     ,"Add linked record": "إضافة سجل مرتبط"
     ,"Save linked record": "حفظ السجل المرتبط"
+    ,"Save schedule": "حفظ الجدول"
+    ,"Download as image": "تنزيل كصورة"
+    ,"Remove session": "حذف الحصة"
+    ,"Note": "ملاحظة"
+    ,"Save note": "حفظ الملاحظة"
+    ,"Clear": "مسح"
+    ,"What happens in this session?": "ماذا يحدث في هذه الحصة؟"
+    ,"Right-click to add a note": "انقر بالزر الأيمن لإضافة ملاحظة"
+    ,"Note saved on the session. Press Save schedule to keep it.": "تم حفظ الملاحظة على الحصة. اضغط حفظ الجدول للاحتفاظ بها."
+    ,"Press Edit before adding a note.": "اضغط تعديل قبل إضافة ملاحظة."
+    ,"Drag down a day to add a session, right-click one to note it, or press × to remove it.": "اسحب للأسفل داخل اليوم لإضافة حصة، انقر بالزر الأيمن لإضافة ملاحظة، أو اضغط × للحذف."
+    ,"Monday": "الاثنين"
+    ,"Tuesday": "الثلاثاء"
+    ,"Wednesday": "الأربعاء"
+    ,"Thursday": "الخميس"
+    ,"Friday": "الجمعة"
+    ,"Saturday": "السبت"
+    ,"Sunday": "الأحد"
+    ,"Mon": "اثنين"
+    ,"Tue": "ثلاثاء"
+    ,"Wed": "أربعاء"
+    ,"Thu": "خميس"
+    ,"Fri": "جمعة"
+    ,"Sat": "سبت"
+    ,"Sun": "أحد"
+    ,"Press Edit to change this schedule.": "اضغط تعديل لتغيير هذا الجدول."
+    ,"Session set. Press Save schedule to keep it.": "تم تعيين الحصة. اضغط حفظ الجدول للاحتفاظ بها."
+    ,"Session removed. Press Save schedule to keep the change.": "تم حذف الحصة. اضغط حفظ الجدول لحفظ التغيير."
+    ,"That time overlaps a session already on that day.": "هذا الوقت يتداخل مع حصة موجودة في ذلك اليوم."
     ,"Save changes": "حفظ التغييرات"
     ,"No linked records in this table.": "لا توجد سجلات مرتبطة في هذا الجدول."
     ,"Portal account": "حساب البوابة"
@@ -747,8 +786,8 @@
     if (!word) return;
 
     word.dataset.words = language === "ar"
-      ? "إشراقًا,قوة,معرفة"
-      : "brighter,stronger,wiser";
+      ? "إشراقاً,قوة,أماناً"
+      : "brighter,stronger,safer";
     word.textContent = word.dataset.words.split(",")[0];
   };
 

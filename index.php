@@ -262,10 +262,6 @@ $homepageRating = $homepageRatingCount > 0
       </div>
       <?php endif; ?>
 
-      <a class="scroll-cue" href="#about" aria-label="Scroll to about section">
-        <span data-homepage-text="hero_scroll_cue"><?= homepage_t('hero_scroll_cue') ?></span>
-        <i></i>
-      </a>
     </section>
 
     <section class="signal-bar" aria-label="Center highlights">

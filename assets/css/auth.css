@@ -155,15 +155,35 @@ svg {
   text-transform: uppercase;
 }
 
+/* The wordmark carries the name, so it stands alone in place of mark + text. */
+.auth-brand-logo {
+  display: block;
+  width: auto;
+  height: 54px;
+}
+
+.brand-mobile .auth-brand-logo {
+  height: 40px;
+}
+
 .brand-on-image .brand-mark {
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(12px);
 }
 
+/*
+ * Centred in the space the logo and the two cards leave behind, rather than
+ * pinned to one edge: auto margins against both insets put it in the middle of
+ * that gap at any screen height. The centring uses margins, not a transform, so
+ * it does not fight the arrival animation.
+ */
 .visual-copy {
   position: absolute;
-  bottom: clamp(185px, 26vh, 260px);
+  top: 125px;
+  bottom: 205px;
+  height: fit-content;
+  margin-block: auto;
   left: clamp(30px, 4vw, 68px);
   max-width: 570px;
   padding-right: 45px;
@@ -182,6 +202,11 @@ svg {
   text-transform: uppercase;
 }
 
+/* Bigger than the kicker it shares its base rule with. */
+.mini-label {
+  font-size: 0.95rem;
+}
+
 .mini-label i {
   width: 7px;
   height: 7px;
@@ -191,13 +216,26 @@ svg {
   animation: pulse 2.2s ease-in-out infinite;
 }
 
+/*
+ * The tight tracking and the 0.88 leading were squeezing the two lines into each
+ * other, and the last line ran past the foot of the panel. Roomier letters, a
+ * line height that clears the descenders, and a smaller ceiling so it fits.
+ */
 .visual-copy h1 {
-  margin: 18px 0;
+  margin: 16px 0 20px;
   font-family: var(--display);
-  font-size: clamp(3.7rem, 6vw, 6.7rem);
+  font-size: clamp(3rem, 4.6vw, 5.1rem);
   font-weight: 800;
-  letter-spacing: -0.075em;
-  line-height: 0.88;
+  letter-spacing: -0.005em;
+  line-height: 1.12;
+}
+
+/*
+ * Arabic carries its marks above and below the line, so the two lines run into
+ * each other at a leading that suits Latin capitals.
+ */
+html[dir="rtl"] .visual-copy h1 {
+  line-height: 1.45;
 }
 
 .visual-copy h1 em {
@@ -215,7 +253,7 @@ svg {
 
 .visual-note {
   position: absolute;
-  bottom: 45px;
+  bottom: 110px;
   display: flex;
   align-items: center;
   gap: 13px;
@@ -283,16 +321,20 @@ svg {
 
 .auth-visual .shape-orange {
   top: 14%;
-  right: 8%;
+  inset-inline-end: 8%;
   width: 22px;
   height: 22px;
   background: var(--orange);
   rotate: 16deg;
 }
 
+/*
+ * Kept on the side the headline runs away from - the right in English, the left
+ * in Arabic - so it never lands on top of the first letter.
+ */
 .auth-visual .shape-pink {
   top: 35%;
-  left: 9%;
+  inset-inline-end: 11%;
   width: 13px;
   height: 38px;
   background: var(--pink);
@@ -305,7 +347,7 @@ svg {
   display: grid;
   min-height: 100svh;
   align-content: center;
-  padding: 110px clamp(28px, 7vw, 120px) 60px;
+  padding: 40px clamp(28px, 7vw, 120px) 36px;
   background:
     radial-gradient(circle at 100% 0, rgba(244, 159, 15, 0.08), transparent 28%),
     radial-gradient(circle at 0 100%, rgba(79, 187, 55, 0.07), transparent 28%),
@@ -345,6 +387,14 @@ svg {
   width: 18px;
 }
 
+/* Both languages spelled out, so either one can be picked at a glance. */
+.auth-language {
+  position: absolute;
+  top: 22px;
+  inset-inline-end: clamp(28px, 7vw, 120px);
+  z-index: 3;
+}
+
 .auth-card {
   width: min(100%, 480px);
   margin: auto;
@@ -352,18 +402,22 @@ svg {
 }
 
 .auth-heading {
-  margin-bottom: 34px;
+  margin-bottom: 24px;
 }
 
 .auth-heading h2,
 .recovery-panel h1 {
-  margin: 10px 0 10px;
+  margin: 10px 0 16px;
   color: var(--navy);
   font-family: var(--display);
   font-size: clamp(2rem, 3vw, 2.75rem);
   font-weight: 800;
-  letter-spacing: -0.045em;
+  letter-spacing: -0.005em;
   line-height: 1.08;
+}
+
+.auth-heading .section-kicker {
+  font-size: 0.92rem;
 }
 
 .auth-heading p,
@@ -390,81 +444,98 @@ svg {
   line-height: 1.5;
 }
 
+/* Sits on the label's own line, hard against the right edge of the field. */
+.field-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+
+.field-head > label {
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 .demo-credential-list {
-  display: grid;
-  gap: 9px;
-  margin: -12px 0 22px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
 }
 
 .demo-credentials {
-  display: grid;
-  width: 100%;
-  grid-template-columns: 1fr auto;
-  gap: 4px 12px;
-  padding: 13px 15px;
-  border: 1px solid rgba(244, 159, 15, 0.2);
-  border-radius: 14px;
+  padding: 3px 9px;
+  border: 1px solid rgba(244, 159, 15, 0.28);
+  border-radius: 999px;
   background: rgba(244, 159, 15, 0.07);
+  color: #8d5700;
   cursor: pointer;
-  text-align: left;
-  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  font-size: 0.67rem;
+  font-weight: 800;
+  line-height: 1.5;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
 }
 
 .demo-credentials:hover {
-  border-color: rgba(244, 159, 15, 0.42);
-  background: rgba(244, 159, 15, 0.12);
+  border-color: rgba(244, 159, 15, 0.55);
+  background: rgba(244, 159, 15, 0.14);
   transform: translateY(-1px);
 }
 
+.demo-credentials.is-active {
+  border-color: rgba(244, 159, 15, 0.9);
+  background: rgba(244, 159, 15, 0.22);
+}
+
 .demo-credentials.teacher-demo {
-  border-color: rgba(79, 187, 55, 0.2);
+  border-color: rgba(79, 187, 55, 0.28);
   background: rgba(79, 187, 55, 0.07);
-}
-
-.demo-credentials.teacher-demo:hover {
-  border-color: rgba(79, 187, 55, 0.42);
-  background: rgba(79, 187, 55, 0.12);
-}
-
-.demo-credentials.teacher-demo span {
   color: #337c26;
 }
 
+.demo-credentials.teacher-demo:hover {
+  border-color: rgba(79, 187, 55, 0.55);
+  background: rgba(79, 187, 55, 0.14);
+}
+
+.demo-credentials.teacher-demo.is-active {
+  border-color: rgba(79, 187, 55, 0.9);
+  background: rgba(79, 187, 55, 0.22);
+}
+
 .demo-credentials.manager-demo {
-  border-color: rgba(47, 111, 237, 0.2);
+  border-color: rgba(47, 111, 237, 0.28);
   background: rgba(47, 111, 237, 0.07);
-}
-
-.demo-credentials.manager-demo:hover {
-  border-color: rgba(47, 111, 237, 0.42);
-  background: rgba(47, 111, 237, 0.12);
-}
-
-.demo-credentials.manager-demo span {
   color: #2459bd;
 }
 
-.demo-credentials span {
-  grid-column: 1 / -1;
-  color: #8d5700;
-  font-size: 0.65rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.demo-credentials.manager-demo:hover {
+  border-color: rgba(47, 111, 237, 0.55);
+  background: rgba(47, 111, 237, 0.14);
 }
 
-.demo-credentials strong,
-.demo-credentials code {
-  color: var(--navy);
-  font-size: 0.75rem;
+.demo-credentials.manager-demo.is-active {
+  border-color: rgba(47, 111, 237, 0.9);
+  background: rgba(47, 111, 237, 0.22);
 }
 
-.demo-credentials code {
-  padding: 2px 7px;
-  border-radius: 6px;
-  background: rgba(34, 63, 107, 0.08);
-  font-family: var(--display);
-  font-weight: 800;
+.demo-credentials.parent-demo {
+  border-color: rgba(214, 31, 105, 0.28);
+  background: rgba(214, 31, 105, 0.07);
+  color: #a81a51;
+}
+
+.demo-credentials.parent-demo:hover {
+  border-color: rgba(214, 31, 105, 0.55);
+  background: rgba(214, 31, 105, 0.14);
+}
+
+.demo-credentials.parent-demo.is-active {
+  border-color: rgba(214, 31, 105, 0.9);
+  background: rgba(214, 31, 105, 0.22);
 }
 
 .field {
@@ -484,9 +555,11 @@ svg {
   align-items: center;
 }
 
+/* Logical, so in Arabic the field icon moves to the right and the eye button to
+   the left instead of both crowding the same edge. */
 .input-wrap > svg {
   position: absolute;
-  left: 17px;
+  inset-inline-start: 17px;
   width: 20px;
   color: #8792a3;
   pointer-events: none;
@@ -515,7 +588,7 @@ svg {
 
 .password-toggle {
   position: absolute;
-  right: 13px;
+  inset-inline-end: 13px;
   display: grid;
   width: 34px;
   height: 34px;
@@ -609,19 +682,64 @@ svg {
   opacity: 1;
 }
 
+/*
+ * Log in and Forgot password share the row evenly, and the way back to the site
+ * sits under them - the top bar that used to carry it is gone.
+ */
+.auth-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.secondary-auth-button {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  color: var(--navy);
+  background: var(--paper);
+  font-size: 0.84rem;
+  font-weight: 800;
+  transition: border-color 0.25s ease, background 0.25s ease, transform 0.25s var(--ease);
+}
+
+.secondary-auth-button:hover {
+  border-color: rgba(34, 63, 107, 0.45);
+  background: rgba(34, 63, 107, 0.05);
+  transform: translateY(-2px);
+}
+
+.auth-back {
+  width: 100%;
+  margin-top: 2px;
+}
+
+.auth-back svg {
+  width: 16px;
+}
+
+/* The arrow points the way the language runs. */
+html[dir="rtl"] .auth-back svg {
+  transform: scaleX(-1);
+}
+
 .primary-auth-button {
   display: inline-flex;
   width: 100%;
-  min-height: 57px;
+  min-height: 46px;
   align-items: center;
   justify-content: center;
-  gap: 11px;
+  gap: 9px;
   border: 0;
-  border-radius: 15px;
+  border-radius: 13px;
   color: var(--paper);
   background: var(--navy);
-  box-shadow: 0 15px 34px rgba(34, 63, 107, 0.22);
-  font-size: 0.9rem;
+  box-shadow: 0 12px 26px rgba(34, 63, 107, 0.2);
+  font-size: 0.84rem;
   font-weight: 800;
   transition: transform 0.25s var(--ease), box-shadow 0.25s ease, background 0.25s ease;
 }
@@ -650,7 +768,7 @@ svg {
 }
 
 .auth-support {
-  margin: 44px auto 0;
+  margin: 20px auto 0;
   color: var(--muted);
   font-size: 0.78rem;
 }
@@ -1332,7 +1450,8 @@ svg {
   }
 
   .visual-copy {
-    bottom: 170px;
+    top: 112px;
+    bottom: 190px;
   }
 }
 
@@ -1549,6 +1668,87 @@ svg {
   }
 }
 
+/*
+ * Short screens - a 1366x768 laptop leaves roughly 600px of page once the browser
+ * takes its share. Everything shrinks by a step so the card still fits without
+ * scrolling and the headline keeps clear of the logo above it.
+ */
+@media (min-width: 901px) and (max-height: 820px) {
+  .auth-main {
+    padding-top: 28px;
+    padding-bottom: 26px;
+  }
+
+  .auth-heading {
+    margin-bottom: 18px;
+  }
+
+  .auth-heading h2,
+  .recovery-panel h1 {
+    margin: 6px 0 10px;
+    font-size: clamp(1.6rem, 2.4vw, 2.1rem);
+  }
+
+  .auth-heading p {
+    font-size: 0.88rem;
+  }
+
+  .auth-form {
+    gap: 15px;
+  }
+
+  .input-wrap input {
+    height: 48px;
+  }
+
+  .legal-copy {
+    margin-top: 16px;
+  }
+
+  .auth-support {
+    margin-top: 12px;
+  }
+
+  /* The photo side loses the same amount, in the same proportions. */
+  .auth-visual {
+    padding-block: 26px;
+  }
+
+  .auth-brand-logo {
+    height: 42px;
+  }
+
+  .visual-copy {
+    top: 92px;
+    bottom: 152px;
+  }
+
+  .visual-copy h1 {
+    font-size: clamp(2.4rem, 3.4vw, 3.6rem);
+  }
+
+  .visual-copy p {
+    font-size: 0.92rem;
+  }
+
+  .visual-note {
+    bottom: 78px;
+    padding: 10px 13px;
+  }
+}
+
+/* Shorter still: the two floating cards are the first thing that can go. */
+@media (min-width: 901px) and (max-height: 660px) {
+  .visual-note {
+    display: none;
+  }
+
+  .visual-copy {
+    top: 84px;
+    bottom: 44px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1674,18 +1874,8 @@ html[dir="rtl"] .terms-footer a span {
   transform: scaleX(-1);
 }
 
-html[dir="rtl"] .input-wrap > svg {
-  right: 17px;
-  left: auto;
-}
-
 html[dir="rtl"] .input-wrap input {
   text-align: right;
-}
-
-html[dir="rtl"] .password-toggle {
-  right: auto;
-  left: 13px;
 }
 
 html[dir="rtl"] input[type="email"],
@@ -1694,8 +1884,12 @@ html[dir="rtl"] #recovery-email-label {
   direction: ltr;
 }
 
+/*
+ * The address is Latin, so it keeps its left-to-right run - but it belongs beside
+ * the envelope on the right, not stranded at the far edge of the field.
+ */
 html[dir="rtl"] input[type="email"] {
-  text-align: left;
+  text-align: right;
 }
 
 html[dir="rtl"] .compact-form,

@@ -160,11 +160,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
       <div class="visual-grid" aria-hidden="true"></div>
 
       <a class="auth-brand brand-on-image" href="<?= e(khotwa_url('index.php')) ?>" aria-label="Khotwa Education Center home">
-        <span class="brand-mark">K<span>.</span></span>
-        <span>
-          <strong>Khotwa</strong>
-          <small>Education Center</small>
-        </span>
+        <img class="auth-brand-logo" src="<?= e(khotwa_url('assets/images/logo-white.svg')) ?>" alt="Khotwa Education Center" width="148" height="71">
       </a>
 
       <div class="visual-copy">
@@ -191,26 +187,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     </section>
 
     <main class="auth-main">
-      <div class="auth-topbar">
-        <a class="auth-brand brand-mobile" href="<?= e(khotwa_url('index.php')) ?>">
-          <span class="brand-mark">K<span>.</span></span>
-          <span>
-            <strong>Khotwa</strong>
-            <small>Education Center</small>
-          </span>
-        </a>
-        <div class="auth-top-actions">
-          <button class="language-switch" type="button" data-language-toggle>
-            <span data-language-current>EN</span>
-            <i></i>
-            <span data-language-label>العربية</span>
-          </button>
-          <a class="back-link" href="<?= e(khotwa_url('index.php')) ?>">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg>
-            Back to website
-          </a>
-        </div>
-      </div>
+      <?php // The only control on this side that is not part of the form, so it floats
+            // in the corner instead of taking a row of its own. ?>
+      <button class="language-switch auth-language" type="button" data-language-toggle>
+        <span data-language-current>EN</span>
+        <i></i>
+        <span data-language-label>العربية</span>
+      </button>
 
       <div class="auth-card">
         <div class="auth-heading">
@@ -223,48 +206,29 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
           <div class="auth-error" role="alert"><?= e($error) ?></div>
         <?php endif; ?>
 
-        <?php // The demo logins and the seeding link are development aids. On a public
-              // host they would hand every visitor an administrator account, so they
-              // are shown only when the site is being served locally. ?>
-        <?php if ($isLocalRequest): ?>
-        <div class="demo-credential-list">
-          <button class="demo-credentials" type="button" data-fill-login data-email="admin@khotwa.test" data-password="admin123">
-            <span>Administrator demo</span>
-            <strong>admin@khotwa.test</strong>
-            <code>admin123</code>
-          </button>
-          <button class="demo-credentials teacher-demo" type="button" data-fill-login data-email="maya.math@khotwa.test" data-password="teacher123">
-            <span>Teacher demo</span>
-            <strong>maya.math@khotwa.test</strong>
-            <code>teacher123</code>
-          </button>
-          <button class="demo-credentials manager-demo" type="button" data-fill-login data-email="manager@khotwa.test" data-password="manager123">
-            <span>Manager demo</span>
-            <strong>manager@khotwa.test</strong>
-            <code>manager123</code>
-          </button>
-          <button class="demo-credentials" type="button" data-fill-login data-email="parent.one@khotwa.test" data-password="parent123">
-            <span>Parent demo</span>
-            <strong>parent.one@khotwa.test</strong>
-            <code>parent123</code>
-          </button>
-        </div>
-
-        <div style="text-align: center; margin: -12px 0 24px; font-size: 0.81rem; color: var(--muted);">
-          Need to reset or seed the demo data? 
-          <a href="<?= e(khotwa_url('tools/setup.php')) ?>" style="color: var(--navy); font-weight: 700; text-decoration: underline; transition: color 0.2s ease;">Initialize & Seed Database</a>
-        </div>
-        <?php endif; ?>
-
         <form class="auth-form" id="login-form" method="post" action="<?= e(khotwa_url('login.php')) ?>">
           <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
-          <label class="field">
-            <span>Email address</span>
+          <?php // The demo logins ride on the email row rather than a block of their
+                // own: they are a development aid, shown only on a local address, and
+                // they should not push the form off the screen. Each pill names its
+                // role and carries the address and password in its tooltip. ?>
+          <div class="field">
+            <div class="field-head">
+              <label for="login-email">Email address</label>
+              <?php if ($isLocalRequest): ?>
+                <div class="demo-credential-list" role="group" aria-label="Demo logins">
+                  <button class="demo-credentials" type="button" data-fill-login data-email="admin@khotwa.test" data-password="admin123" title="admin@khotwa.test / admin123">Admin</button>
+                  <button class="demo-credentials teacher-demo" type="button" data-fill-login data-email="maya.math@khotwa.test" data-password="teacher123" title="maya.math@khotwa.test / teacher123">Teacher</button>
+                  <button class="demo-credentials manager-demo" type="button" data-fill-login data-email="manager@khotwa.test" data-password="manager123" title="manager@khotwa.test / manager123">Manager</button>
+                  <button class="demo-credentials parent-demo" type="button" data-fill-login data-email="parent.one@khotwa.test" data-password="parent123" title="parent.one@khotwa.test / parent123">Parent</button>
+                </div>
+              <?php endif; ?>
+            </div>
             <span class="input-wrap">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5h18v12H3zM3.5 7l8.5 6 8.5-6"/></svg>
-              <input type="email" name="email" value="<?= e($email) ?>" placeholder="name@example.com" autocomplete="username" required>
+              <input id="login-email" type="email" name="email" value="<?= e($email) ?>" placeholder="name@example.com" autocomplete="username" required>
             </span>
-          </label>
+          </div>
 
           <label class="field">
             <span>Password</span>
@@ -278,21 +242,22 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             </span>
           </label>
 
-          <div class="form-options">
-            <label class="check-row">
-              <input type="checkbox" name="remember" value="1"<?= ($_POST['remember'] ?? '') !== '' ? ' checked' : '' ?>>
-              <span class="custom-check">
-                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8 3 3 7-7"/></svg>
-              </span>
-              Remember me
-            </label>
-            <a href="<?= e(khotwa_url('forgot-password.php')) ?>">Forgot password?</a>
+          <?php // Every login is remembered now, so the choice is no longer put to the
+                // visitor - the field simply always says yes. ?>
+          <input type="hidden" name="remember" value="1">
+
+          <div class="auth-actions">
+            <button class="primary-auth-button" type="submit">
+              Log in
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </button>
+            <a class="secondary-auth-button" href="<?= e(khotwa_url('forgot-password.php')) ?>">Forgot password?</a>
           </div>
 
-          <button class="primary-auth-button" type="submit">
-            Log in
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </button>
+          <a class="secondary-auth-button auth-back" href="<?= e(khotwa_url('index.php')) ?>">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg>
+            Back to website
+          </a>
         </form>
 
         <p class="legal-copy">By continuing, you agree to Khotwa's <a href="<?= e(khotwa_url('terms.php')) ?>">Terms and Conditions</a>.</p>

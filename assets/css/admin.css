@@ -502,6 +502,12 @@ svg {
   text-transform: uppercase;
 }
 
+.content-kicker {
+  display: inline-block;
+  font-size: 0.95rem;
+  letter-spacing: 0.11em;
+}
+
 .content-heading h1 {
   margin: 8px 0 9px;
   color: var(--navy);
@@ -545,8 +551,8 @@ svg {
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 15px;
-  margin-bottom: 18px;
+  gap: 26px;
+  margin-bottom: 26px;
 }
 
 .metric-card,
@@ -842,7 +848,7 @@ th,
 td {
   padding: 15px 14px;
   border-bottom: 1px solid var(--line);
-  text-align: left;
+  text-align: center;
   vertical-align: middle;
   white-space: nowrap;
 }
@@ -1249,6 +1255,19 @@ html[dir="rtl"] .toast-stack {
 
 .admin-file-input::file-selector-button:hover {
   background: var(--navy-dark);
+}
+
+/* Locked with the rest of the record until Edit is pressed, so it has to look
+   locked too - the custom button styling above otherwise reads as clickable. */
+.admin-file-input:disabled {
+  background: #edf1f6 !important;
+}
+
+.admin-file-input:disabled::file-selector-button,
+.admin-file-input:disabled::file-selector-button:hover {
+  color: #eef2f7;
+  background: #aab4c2;
+  cursor: not-allowed;
 }
 
 .admin-field-help {
@@ -2203,7 +2222,7 @@ html[dir="rtl"] .table-search input {
 
 html[dir="rtl"] th,
 html[dir="rtl"] td {
-  text-align: right;
+  text-align: center;
 }
 
 html[dir="rtl"] th:first-child {
@@ -3206,7 +3225,7 @@ html[dir="rtl"] th:last-child {
 
   .metrics-grid {
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    gap: 16px;
   }
 
   .metric-card {
@@ -3643,4 +3662,392 @@ html[dir="rtl"] .qr-download-menu button {
 
 .new-student-parent .admin-field-help {
   margin: 0 0 14px;
+}
+
+/* Weekly school-schedule planner -------------------------------------------- */
+
+.schedule-planner {
+  --schedule-slot: 26px;
+  /* The note popover is placed against this box, so it has to be the offset parent. */
+  position: relative;
+  display: grid;
+  gap: 16px;
+}
+
+.schedule-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.schedule-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.schedule-hint.is-good {
+  color: #337c26;
+}
+
+.schedule-hint.is-warn {
+  color: var(--pink);
+}
+
+.schedule-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.schedule-download svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The grid scrolls sideways on narrow screens rather than squeezing seven days. */
+.schedule-grid {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.schedule-head,
+.schedule-body {
+  display: grid;
+  grid-template-columns: 62px repeat(7, minmax(96px, 1fr));
+  min-width: 760px;
+}
+
+.schedule-head {
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.schedule-head-day {
+  padding: 9px 6px;
+  border-radius: 10px;
+  color: var(--paper);
+  background: var(--navy);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.schedule-head-day i {
+  display: none;
+  font-style: normal;
+}
+
+.schedule-body {
+  gap: 4px;
+  align-items: start;
+}
+
+.schedule-axis {
+  position: relative;
+  /* The 1px lines up the hour labels with the day columns' inner edge. */
+  padding-top: 1px;
+  height: calc(var(--schedule-slots) * var(--schedule-slot));
+}
+
+.schedule-axis-label {
+  position: absolute;
+  right: 8px;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.schedule-day {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  overflow: hidden;
+  touch-action: none;
+}
+
+.schedule-slot {
+  display: block;
+  height: var(--schedule-slot);
+  border-bottom: 1px solid #f1f5fa;
+}
+
+.schedule-slot.is-hour {
+  border-bottom-color: var(--line);
+}
+
+.schedule-planner.is-editing .schedule-day {
+  cursor: crosshair;
+}
+
+.schedule-blocks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.schedule-block {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  padding: 5px 7px;
+  border-radius: 9px;
+  color: var(--paper);
+  background: var(--navy);
+  box-shadow: 0 6px 16px rgba(20, 42, 73, 0.18);
+  font-size: 0.63rem;
+  line-height: 1.3;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.schedule-block strong {
+  display: block;
+  font-weight: 800;
+}
+
+.schedule-block small {
+  display: block;
+  margin-top: 2px;
+  color: #ffd58f;
+  font-size: 0.6rem;
+}
+
+.schedule-block-remove {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: none;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--navy);
+  background: var(--paper);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.schedule-planner.is-editing .schedule-block-remove {
+  display: block;
+}
+
+.schedule-preview {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  padding: 4px 6px;
+  border: 2px dashed var(--orange);
+  border-radius: 9px;
+  color: var(--navy);
+  background: rgba(244, 159, 15, 0.16);
+  font-size: 0.6rem;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.schedule-kept-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+@media (max-width: 900px) {
+  .schedule-head-day b {
+    display: none;
+  }
+
+  .schedule-head-day i {
+    display: block;
+  }
+}
+
+.schedule-note-editor {
+  position: absolute;
+  z-index: 4;
+  display: grid;
+  gap: 7px;
+  width: 240px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  box-shadow: 0 18px 40px rgba(20, 42, 73, 0.22);
+}
+
+.schedule-note-editor label {
+  color: var(--muted);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.schedule-note-editor input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink);
+  background: var(--paper);
+  font-family: inherit;
+  font-size: 0.76rem;
+}
+
+.schedule-note-editor div {
+  display: flex;
+  gap: 7px;
+}
+
+.schedule-note-editor button {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--navy);
+  background: var(--soft);
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.schedule-note-editor button[data-note-save] {
+  border-color: transparent;
+  color: var(--paper);
+  background: var(--navy);
+}
+
+/* An hour or less cannot hold two lines, so the note joins the time on one row. */
+.schedule-block.is-compact {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 6px;
+  line-height: 1.2;
+}
+
+.schedule-block.is-compact strong {
+  flex: 0 0 auto;
+  font-size: 0.58rem;
+}
+
+.schedule-block.is-compact small {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-top: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The remove button would otherwise sit on top of a one-line session's text. */
+.schedule-planner.is-editing .schedule-block.is-compact {
+  padding-right: 23px;
+}
+
+/* Teacher website profile ---------------------------------------------------- */
+
+.website-state {
+  padding: 7px 13px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--soft);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.website-state.is-live {
+  color: #337c26;
+  background: rgba(79, 187, 55, 0.12);
+}
+
+.website-profile-lead {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.website-profile-note {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.6;
+}
+
+.website-profile-chips {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Subjects are the one thing on the card with no field of its own here. */
+.website-profile-subjects {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 20px;
+  padding: 13px 16px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--soft);
+}
+
+.website-profile-subjects > span {
+  color: var(--muted);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.website-profile-subjects strong {
+  color: var(--ink);
+  font-size: 0.86rem;
+}
+
+.website-profile-subjects b {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.website-profile-subjects em {
+  margin-inline-start: auto;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+/* The photo field is much taller than a select, and a stretched row would leave
+   its neighbours floating in the middle of all that space. */
+.website-profile-form .record-form-grid {
+  align-items: start;
 }

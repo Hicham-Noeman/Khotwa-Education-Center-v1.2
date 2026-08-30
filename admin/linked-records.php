@@ -53,6 +53,21 @@ try {
     $statement->execute([$personId]);
     $rows = $statement->fetchAll();
 
+    // The school schedule is entered on a weekly planner rather than as a stack of
+    // rows, so the section loads it as a grid of sessions instead.
+    $isPlanner = $type === 'student' && $table === 'student_school_schedule';
+    $plannerState = null;
+    $plannerName = '';
+    $window = admin_schedule_window();
+    if ($isPlanner) {
+        $plannerState = admin_student_schedule_state($pdo, $personId);
+        $nameStatement = $pdo->prepare(
+            "SELECT TRIM(CONCAT(first_name_en, ' ', COALESCE(last_name_en, ''))) AS name FROM students WHERE id = ?"
+        );
+        $nameStatement->execute([$personId]);
+        $plannerName = (string) ($nameStatement->fetchColumn() ?: 'Student');
+    }
+
     // Each saved row is collapsed, so a parent link names the account on its header
     // instead of the useless "Record 1" -- the name and the email are the whole point.
     $rowTitles = [];
@@ -79,6 +94,47 @@ try {
     exit('These records could not be loaded. Please try again.');
 }
 ?>
+<?php if ($isPlanner): ?>
+  <form
+    class="schedule-planner"
+    method="post"
+    data-edit-form
+    data-schedule-planner
+    data-schedule-window="<?= e(json_encode($window)) ?>"
+    data-schedule-blocks="<?= e(json_encode($plannerState['blocks'], JSON_UNESCAPED_UNICODE)) ?>"
+    data-schedule-name="<?= e($plannerName) ?>"
+    data-schedule-file="student-<?= e((string) $personId) ?>-schedule"
+  >
+    <input type="hidden" name="csrf" value="<?= e($csrfToken) ?>">
+    <input type="hidden" name="action" value="save_schedule">
+    <input type="hidden" name="table" value="<?= e($table) ?>">
+    <input type="hidden" name="schedule" value="<?= e(json_encode($plannerState['blocks'], JSON_UNESCAPED_UNICODE)) ?>" data-schedule-payload>
+
+    <div class="schedule-toolbar-row">
+      <p class="schedule-hint" data-schedule-hint>Press Edit to change this schedule.</p>
+      <button class="secondary-action schedule-download" type="button" data-schedule-download>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download as image
+      </button>
+    </div>
+
+    <fieldset class="record-fieldset" disabled data-edit-fields>
+      <div class="schedule-grid" data-schedule-grid></div>
+    </fieldset>
+
+    <?php if ($plannerState['unplanned'] > 0): ?>
+      <p class="schedule-kept-note"><?= $plannerState['unplanned'] === 1
+          ? '1 saved entry without a usable time is kept as it is and is not shown on the planner.'
+          : e((string) $plannerState['unplanned']) . ' saved entries without a usable time are kept as they are and are not shown on the planner.' ?></p>
+    <?php endif; ?>
+
+    <div class="record-form-actions">
+      <button class="secondary-action edit-record-button" type="button" data-edit-toggle>Edit</button>
+      <button class="primary-action" type="submit" hidden data-save-record>Save schedule</button>
+      <button class="secondary-action" type="button" hidden data-cancel-edit>Cancel</button>
+    </div>
+  </form>
+<?php else: ?>
 <div class="linked-section-actions">
   <a class="add-record-button" href="<?= e(khotwa_url('admin/person.php')) ?>?type=<?= e($type) ?>&id=<?= e((string) $personId) ?>&add_table=<?= e($table) ?>#linked-<?= e($table) ?>">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
@@ -163,4 +219,5 @@ try {
       </form>
     </details>
   <?php endforeach; ?>
+<?php endif; ?>
 <?php endif; ?>

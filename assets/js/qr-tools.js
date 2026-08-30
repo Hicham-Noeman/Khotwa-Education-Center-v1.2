@@ -3,7 +3,7 @@
     const safeFormat = format === "jpg" || format === "jpeg" ? "jpg" : "png";
     // The remote service tops out at 1000x1000, which is still print-usable.
     const safeSize = Math.max(128, Math.min(1000, Number(size) || 512));
-    return `https://api.qrserver.com/v1/create-qr-code/?size=${safeSize}x${safeSize}&format=${safeFormat}&data=${encodeURIComponent(text)}`;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=${safeSize}x${safeSize}&format=${safeFormat}&color=223f6b&data=${encodeURIComponent(text)}`;
   };
 
   const toSafeFileBase = (value) => {
@@ -44,28 +44,130 @@
   // size than the small on-screen preview instead of being upscaled from it.
   const PRINT_QR_SIZE = 2048;
 
-  const renderPrintQrCanvas = (text) =>
-    new Promise((resolve) => {
-      if (!window.QRCode || typeof window.QRCode.toCanvas !== "function") {
-        resolve(null);
-        return;
+  const QR_DARK = "#223f6b";
+  const QR_LIGHT = "#ffffff";
+
+  // The three 7x7 finder patterns are drawn as one shape; only the data modules
+  // are drawn individually, which is what keeps a styled code readable.
+  const isFinderModule = (row, col, count) =>
+    (row < 7 && col < 7) || (row < 7 && col >= count - 7) || (row >= count - 7 && col < 7);
+
+  // Soft-cornered squares, matching the rounded-rectangle language of the brand
+  // marks rather than plain squares or full circles.
+  const MODULE_RADIUS = 0.34;
+
+  // Appends one rounded square to the current path; `corners` is [tl, tr, br, bl].
+  const appendRoundedRect = (context, x, y, size, corners) => {
+    const [tl, tr, br, bl] = corners;
+    context.moveTo(x + tl, y);
+    context.lineTo(x + size - tr, y);
+    context.quadraticCurveTo(x + size, y, x + size, y + tr);
+    context.lineTo(x + size, y + size - br);
+    context.quadraticCurveTo(x + size, y + size, x + size - br, y + size);
+    context.lineTo(x + bl, y + size);
+    context.quadraticCurveTo(x, y + size, x, y + size - bl);
+    context.lineTo(x, y + tl);
+    context.quadraticCurveTo(x, y, x + tl, y);
+    context.closePath();
+  };
+
+  const fillRoundedRect = (context, x, y, size, corners) => {
+    context.beginPath();
+    appendRoundedRect(context, x, y, size, corners);
+    context.fill();
+  };
+
+  // node-qrcode only paints square modules, so the matrix is taken from
+  // QRCode.create() and drawn by hand as rounded modules instead.
+  const renderStyledQr = (canvas, text, { width, margin = 2 }) => {
+    if (!window.QRCode || typeof window.QRCode.create !== "function") {
+      return false;
+    }
+
+    let model = null;
+    try {
+      model = window.QRCode.create(text, { errorCorrectionLevel: "H" });
+    } catch (error) {
+      return false;
+    }
+
+    const count = model?.modules?.size || 0;
+    const modules = model?.modules?.data;
+    if (!count || !modules) {
+      return false;
+    }
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return false;
+    }
+
+    canvas.width = width;
+    canvas.height = width;
+    const unit = width / (count + margin * 2);
+    const offset = margin * unit;
+    const radius = unit * MODULE_RADIUS;
+
+    context.fillStyle = QR_LIGHT;
+    context.fillRect(0, 0, width, width);
+    context.fillStyle = QR_DARK;
+
+    const isDark = (row, col) =>
+      row >= 0 &&
+      col >= 0 &&
+      row < count &&
+      col < count &&
+      !isFinderModule(row, col, count) &&
+      Boolean(modules[row * count + col]);
+
+    // Every module goes into one path and is filled once, so touching modules
+    // merge cleanly instead of leaving anti-aliased seams between separate fills.
+    context.beginPath();
+    for (let row = 0; row < count; row += 1) {
+      for (let col = 0; col < count; col += 1) {
+        if (!isDark(row, col)) {
+          continue;
+        }
+        const up = isDark(row - 1, col);
+        const down = isDark(row + 1, col);
+        const left = isDark(row, col - 1);
+        const right = isDark(row, col + 1);
+        // A corner only rounds where nothing touches it, so runs of modules
+        // read as one continuous rounded bar instead of a line of beads.
+        appendRoundedRect(context, offset + col * unit, offset + row * unit, unit, [
+          !up && !left ? radius : 0,
+          !up && !right ? radius : 0,
+          !down && !right ? radius : 0,
+          !down && !left ? radius : 0,
+        ]);
       }
-      const printCanvas = document.createElement("canvas");
-      window.QRCode.toCanvas(
-        printCanvas,
-        text,
-        {
-          width: PRINT_QR_SIZE,
-          margin: 2,
-          errorCorrectionLevel: "H",
-          color: {
-            dark: "#0b1c34",
-            light: "#ffffff",
-          },
-        },
-        (error) => resolve(error ? null : printCanvas)
-      );
-    });
+    }
+    context.fill();
+
+    const drawFinder = (startRow, startCol) => {
+      const x = offset + startCol * unit;
+      const y = offset + startRow * unit;
+      // Ring: the 7x7 outline with the 5x5 hole punched out of the same path.
+      context.beginPath();
+      appendRoundedRect(context, x, y, unit * 7, Array(4).fill(unit * 2));
+      appendRoundedRect(context, x + unit, y + unit, unit * 5, Array(4).fill(unit * 1.4));
+      context.fill("evenodd");
+      // Eye: a rounded 3x3 block centred in the ring.
+      fillRoundedRect(context, x + unit * 2, y + unit * 2, unit * 3, Array(4).fill(unit * 0.9));
+    };
+
+    drawFinder(0, 0);
+    drawFinder(0, count - 7);
+    drawFinder(count - 7, 0);
+    return true;
+  };
+
+  const renderPrintQrCanvas = (text) => {
+    const printCanvas = document.createElement("canvas");
+    return Promise.resolve(
+      renderStyledQr(printCanvas, text, { width: PRINT_QR_SIZE, margin: 2 }) ? printCanvas : null
+    );
+  };
 
   // Fallback when the library cannot re-render: scale the preview up with
   // smoothing off so the modules stay hard-edged rather than blurry.
@@ -137,35 +239,14 @@
       let canvas = null;
       let fallbackImage = null;
 
-      if (window.QRCode && typeof window.QRCode.toCanvas === "function") {
-        canvas = document.createElement("canvas");
-        window.QRCode.toCanvas(
-          canvas,
-          payloadText,
-          {
-            width: 170,
-            margin: 1,
-            color: {
-              dark: "#0b1c34",
-              light: "#ffffff",
-            },
-          },
-          (error) => {
-            if (error) {
-              canvas = null;
-              fallbackImage = document.createElement("img");
-              fallbackImage.alt = "Student QR code";
-              fallbackImage.loading = "lazy";
-              fallbackImage.src = buildQrImageUrl(payloadText, "png", 340);
-              fallbackImage.addEventListener("error", () => {
-                qrContainer.textContent = "QR code could not be generated.";
-              });
-              qrContainer.replaceChildren(fallbackImage);
-              return;
-            }
-            qrContainer.replaceChildren(canvas);
-          }
-        );
+      const previewCanvas = document.createElement("canvas");
+      // Rendered at device resolution so the modules keep clean edges on retina screens.
+      const previewScale = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+      if (renderStyledQr(previewCanvas, payloadText, { width: 170 * previewScale, margin: 1 })) {
+        previewCanvas.style.width = "170px";
+        previewCanvas.style.height = "170px";
+        canvas = previewCanvas;
+        qrContainer.replaceChildren(canvas);
       } else {
         fallbackImage = document.createElement("img");
         fallbackImage.alt = "Student QR code";

@@ -375,6 +375,7 @@ const loadLinkedSection = async (section) => {
     content.innerHTML = await response.text();
     section.dataset.loaded = "true";
     setupEditForms(content);
+    window.KhotwaSchedulePlanner?.setup(content);
     retranslate();
   } catch (error) {
     content.innerHTML =
