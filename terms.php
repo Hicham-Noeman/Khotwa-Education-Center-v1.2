@@ -1,3 +1,12 @@
+<?php
+declare(strict_types=1);
+
+// Was a plain .html page, which meant its stylesheet link carried no version and
+// browsers kept serving a day-old copy after every change (.htaccess caches CSS
+// for a day). Rendered through PHP, khotwa_asset() stamps the file's timestamp on
+// the URL, so an edit is picked up on the next load.
+require_once __DIR__ . '/src/paths.php';
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,20 +15,16 @@
   <meta name="description" content="Terms and conditions design for Khotwa Education Center.">
   <meta name="theme-color" content="#223F6B">
   <title>Terms and Conditions | Khotwa Education Center</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700&family=Tajawal:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700&family=Tajawal:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
-  <link rel="stylesheet" href="assets/css/auth.css">
+  <?php // The brand face every other page loads. This page was still asking Google
+        // for DM Sans / Manrope / Tajawal, which auth.css never names, so its text
+        // rendered in a different typeface from the rest of the site. ?>
+  <?= khotwa_head_fonts() ?>
+  <link rel="stylesheet" href="<?= htmlspecialchars(khotwa_asset('css/auth.css'), ENT_QUOTES) ?>">
 </head>
 <body class="terms-page">
   <header class="terms-header">
-    <a class="auth-brand" href="index.php">
-      <span class="brand-mark">K<span>.</span></span>
-      <span>
-        <strong>Khotwa</strong>
-        <small>Education Center</small>
-      </span>
+    <a class="auth-brand terms-brand" href="<?= htmlspecialchars(khotwa_url('index.php'), ENT_QUOTES) ?>" aria-label="Khotwa Education Center home">
+      <img src="<?= htmlspecialchars(khotwa_url('assets/images/logo-color.svg'), ENT_QUOTES) ?>" alt="Khotwa Education Center" width="148" height="71">
     </a>
     <div>
       <button class="language-switch" type="button" data-language-toggle>
@@ -27,11 +32,11 @@
         <i></i>
         <span data-language-label>العربية</span>
       </button>
-      <a class="back-link" href="index.php">
+      <a class="back-link" href="<?= htmlspecialchars(khotwa_url('index.php'), ENT_QUOTES) ?>">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg>
         Back to website
       </a>
-      <a class="terms-login" href="login.php">Log in</a>
+      <a class="terms-login" href="<?= htmlspecialchars(khotwa_url('login.php'), ENT_QUOTES) ?>">Log in</a>
     </div>
   </header>
 
@@ -54,7 +59,6 @@
         <a href="#privacy">05. Privacy</a>
         <a href="#changes">06. Changes</a>
         <a href="#contact-terms">07. Contact</a>
-        <div class="terms-note"><i></i><p>This is presentation copy only and should be reviewed before production use.</p></div>
       </aside>
 
       <article class="terms-content">
@@ -92,8 +96,8 @@
 
   <footer class="terms-footer">
     <p>&copy; 2026 Khotwa Education Center</p>
-    <a href="login.php">Continue to login <span>&rarr;</span></a>
+    <a href="<?= htmlspecialchars(khotwa_url('login.php'), ENT_QUOTES) ?>">Continue to login <span>&rarr;</span></a>
   </footer>
-  <script src="assets/js/language.js" defer></script>
+  <script src="<?= htmlspecialchars(khotwa_asset('js/language.js'), ENT_QUOTES) ?>" defer></script>
 </body>
 </html>

@@ -547,13 +547,8 @@ svg {
   letter-spacing: 0.15em;
 }
 
-.mobile-menu nav .mobile-login-link {
+.mobile-menu nav .mobile-terms-link {
   color: var(--orange);
-}
-
-.mobile-menu > p {
-  margin-top: 36px;
-  color: rgba(255, 255, 255, 0.5);
 }
 
 .hero {
@@ -1117,6 +1112,13 @@ html[dir="rtl"] .vision-slider-controls {
   width: 30px;
 }
 
+/* Eyebrow label sits on the icon's line instead of on top of the heading */
+.story-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
 .story-card div > span {
   color: var(--orange);
   font-size: 0.72rem;
@@ -1127,7 +1129,7 @@ html[dir="rtl"] .vision-slider-controls {
 
 .story-card h3 {
   max-width: 460px;
-  margin: 10px 0 14px;
+  margin: 0 0 14px;
   color: var(--navy);
   font-family: var(--display);
   font-size: clamp(1.6rem, 2.6vw, 2.4rem);
@@ -1435,6 +1437,218 @@ html[dir="rtl"] .vision-slider-controls > button svg {
   color: rgba(255, 255, 255, 0.55);
   font-size: 0.9rem;
   line-height: 1.7;
+}
+
+/*
+ * The play button under a step. It reads as a quiet pill until the step is
+ * hovered or is the one the path is currently highlighting, when the ring around
+ * the triangle lights up in that step's own colour.
+ */
+.step-watch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+  padding: 7px 16px 7px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.72);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: color 0.3s ease, border-color 0.3s ease, background 0.3s ease,
+    transform 0.3s ease;
+}
+
+html[dir="rtl"] .step-watch {
+  padding: 7px 7px 7px 16px;
+}
+
+.step-watch-play {
+  position: relative;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--navy-deep);
+  background: var(--orange);
+  transition: background 0.3s ease;
+}
+
+html[dir="rtl"] .step-watch-play svg {
+  /* The triangle points the way the language reads. */
+  transform: scaleX(-1);
+}
+
+/* A soft pulse that only runs on the step the path is lighting up. */
+.step-watch-play::after {
+  position: absolute;
+  inset: 0;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  color: var(--orange);
+  content: "";
+  opacity: 0;
+}
+
+.approach-step.active .step-watch-play::after,
+.approach-step.is-auto-active .step-watch-play::after {
+  animation: stepWatchPulse 2.2s var(--ease) infinite;
+}
+
+.step-watch-play svg {
+  width: 14px;
+  fill: currentColor;
+  stroke: none;
+}
+
+.step-watch:hover,
+.step-watch:focus-visible {
+  color: var(--paper);
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.approach-step:nth-of-type(3) .step-watch-play,
+.approach-step:nth-of-type(3) .step-watch-play::after {
+  color: var(--paper);
+  background: var(--pink);
+}
+
+.approach-step:nth-of-type(3) .step-watch-play::after {
+  background: none;
+  color: var(--pink);
+}
+
+.approach-step:nth-of-type(4) .step-watch-play {
+  color: var(--paper);
+  background: var(--green);
+}
+
+.approach-step:nth-of-type(4) .step-watch-play::after {
+  color: var(--green);
+}
+
+@keyframes stepWatchPulse {
+  0% { opacity: 0.55; transform: scale(1); }
+  70% { opacity: 0; transform: scale(1.9); }
+  100% { opacity: 0; transform: scale(1.9); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .approach-step.active .step-watch-play::after,
+  .approach-step.is-auto-active .step-watch-play::after {
+    animation: none;
+  }
+}
+
+/* ── The step video player ───────────────────────────────────────────────── */
+.video-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: grid;
+  place-items: center;
+  padding: 30px;
+  visibility: hidden;
+  opacity: 0;
+  background: rgba(5, 15, 29, 0.94);
+  backdrop-filter: blur(16px);
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.video-modal.is-open {
+  visibility: visible;
+  opacity: 1;
+}
+
+.video-modal-inner {
+  position: relative;
+  width: min(980px, 94vw);
+  transform: scale(0.94);
+  transition: transform 0.4s var(--ease);
+}
+
+.video-modal.is-open .video-modal-inner {
+  transform: scale(1);
+}
+
+.video-modal-head {
+  margin: 0 0 16px;
+  /* Kept clear of the close button sitting on the same row. */
+  padding-inline-end: 62px;
+  color: var(--paper);
+}
+
+.video-modal-step {
+  color: var(--orange);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.video-modal-title {
+  margin: 6px 0 0;
+  font-family: var(--display);
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  line-height: 1.3;
+}
+
+.video-modal-frame {
+  position: relative;
+  overflow: hidden;
+  /* The player keeps the 16:9 of the source clip at every width. */
+  aspect-ratio: 16 / 9;
+  border-radius: 22px;
+  background: #000;
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.5);
+}
+
+/*
+ * A vertical clip (a YouTube Short) would sit letterboxed inside the 16:9 box, so
+ * it gets a 9:16 player instead. The width is derived from the height left over
+ * after the heading, which keeps the whole player on screen on a phone.
+ */
+.video-modal.is-portrait .video-modal-inner {
+  width: min(430px, 92vw);
+}
+
+.video-modal.is-portrait .video-modal-frame {
+  aspect-ratio: 9 / 16;
+  width: min(100%, calc((100vh - 210px) * 9 / 16));
+  width: min(100%, calc((100dvh - 210px) * 9 / 16));
+  margin-inline: auto;
+}
+
+.video-modal-frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.video-modal-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 48px;
+  height: 48px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  color: var(--paper);
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  font-size: 1.8rem;
+}
+
+html[dir="rtl"] .video-modal-close {
+  right: auto;
+  left: 0;
 }
 
 .programs-section {
@@ -2260,18 +2474,56 @@ html[dir="rtl"] .team-card:focus-visible .team-open {
 }
 
 /*
- * Centred rather than spread edge to edge: with only a handful of partners,
- * space-between pushed them into the far corners with a hole in the middle.
+ * The logos travel on their own in one endless row. The direction follows the
+ * language: in English they drift to the left, in Arabic to the right, so the
+ * strip always moves the way the page reads. index.js duplicates the row, and
+ * half a track's worth of travel lands exactly on the copy - hence the seam-free
+ * loop. The edges fade out so logos appear and leave instead of being cut off.
  */
+.partner-marquee {
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, black 9%, black 91%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 9%, black 91%, transparent);
+}
+
 .partner-logos {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  width: max-content;
   align-items: center;
-  justify-content: center;
-  gap: 34px 72px;
+  gap: 72px;
   color: var(--navy);
   filter: grayscale(1);
   opacity: 0.72;
+}
+
+/* Too few logos to fill the window: they simply sit centred and still. */
+.partner-logos:not(.is-marquee) {
+  margin-inline: auto;
+}
+
+.partner-logos.is-marquee {
+  animation: partnerScroll var(--marquee-duration, 40s) linear infinite;
+}
+
+/* Reading direction decides which way the row travels. */
+html[dir="rtl"] .partner-logos {
+  --marquee-direction: -1;
+}
+
+.partner-marquee:hover .partner-logos.is-marquee {
+  animation-play-state: paused;
+}
+
+@keyframes partnerScroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(-50% * var(--marquee-direction, 1))); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .partner-logos.is-marquee {
+    animation: none;
+  }
 }
 
 .partner-logos > span,
@@ -2619,6 +2871,11 @@ html[dir="rtl"] .team-card:focus-visible .team-open {
   color: var(--paper);
 }
 
+/* "Core Program" is one name - it should not break across two lines. */
+.footer-programs a {
+  white-space: nowrap;
+}
+
 .footer-bottom {
   display: flex;
   align-items: center;
@@ -2912,8 +3169,26 @@ html[dir="rtl"] .team-card:focus-visible .team-open {
     display: none;
   }
 
+  /*
+   * Stacked, the four programs make a very long scroll, so on a narrow screen
+   * they become one swipeable row instead - each card snaps into place and the
+   * next one peeks in at the edge to show there is more.
+   */
   .program-grid {
-    grid-template-columns: 1fr;
+    grid-auto-flow: column;
+    grid-template-columns: none;
+    grid-auto-columns: 78%;
+    gap: 16px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  .program-grid::-webkit-scrollbar {
+    display: none;
   }
 
   .program-card:last-child {
@@ -2922,6 +3197,29 @@ html[dir="rtl"] .team-card:focus-visible .team-open {
 
   .program-card {
     min-height: auto;
+    padding: 20px;
+    border-radius: 24px;
+    scroll-snap-align: start;
+  }
+
+  .program-visual {
+    height: 165px;
+    margin: 16px 0 20px;
+    border-radius: 18px;
+  }
+
+  .program-copy h3 {
+    margin: 8px 0 10px;
+    font-size: 1.2rem;
+  }
+
+  .program-copy p {
+    margin: 0 0 14px;
+    font-size: 0.86rem;
+  }
+
+  .program-copy li {
+    font-size: 0.82rem;
   }
 
   .stats-grid {
@@ -2933,8 +3231,12 @@ html[dir="rtl"] .team-card:focus-visible .team-open {
   }
 
   .partner-logos {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    gap: 52px;
+  }
+
+  .partner-logos img {
+    height: 74px;
+    max-width: 200px;
   }
 
   .faq-intro {
@@ -2981,8 +3283,51 @@ html[dir="rtl"] .team-card:focus-visible .team-open {
   }
 
   .site-header {
-    min-height: 76px;
+    min-height: 92px;
+    padding: 30px 16px 12px;
+    grid-template-columns: 1fr auto auto;
+    column-gap: 10px;
+  }
+
+  /* Once the bar has a background it hugs the top again */
+  .site-header.is-scrolled {
+    min-height: 72px;
     padding: 12px 16px;
+  }
+
+  /* Keep the log in button in the bar, right next to the menu toggle */
+  .header-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  /* Only the call to action drops out; the language pill sits beside Log in. */
+  .header-actions .header-action {
+    display: none;
+  }
+
+  .header-actions .language-switch {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0 8px;
+  }
+
+  .header-login {
+    gap: 7px;
+    padding: 9px 13px;
+    font-size: 0.74rem;
+  }
+
+  .header-login svg {
+    width: 15px;
+  }
+
+  .brand-logo {
+    height: 33px;
+  }
+
+  .site-header.is-scrolled .brand-logo {
+    height: 29px;
   }
 
   .brand-mark {
@@ -3001,10 +3346,15 @@ html[dir="rtl"] .team-card:focus-visible .team-open {
   }
 
   .hero-note {
-    top: 72px;
+    top: 118px;
     right: 18px;
     transform: scale(0.82);
     transform-origin: right top;
+  }
+
+  /* Lift the admissions badge away from the floating grade card */
+  .hero h1 {
+    margin-top: 62px;
   }
 
   .hero-actions {
@@ -3023,25 +3373,101 @@ html[dir="rtl"] .team-card:focus-visible .team-open {
     gap: 16px;
   }
 
+  /* Let the vision/mission cards size to their text instead of a tall fixed box */
   .story-card {
-    min-height: 390px;
-    padding: 28px;
+    min-height: 0;
+    gap: 18px;
+    padding: 24px 22px;
+    border-radius: 24px;
   }
 
+  .story-card::after {
+    right: -70px;
+    bottom: -80px;
+    width: 180px;
+    height: 180px;
+    border-width: 30px;
+  }
+
+  .card-number {
+    top: 22px;
+    right: 22px;
+  }
+
+  html[dir="rtl"] .card-number {
+    right: auto;
+    left: 22px;
+  }
+
+  .story-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 16px;
+  }
+
+  .story-icon svg {
+    width: 24px;
+  }
+
+  .story-head {
+    gap: 12px;
+  }
+
+  .story-card h3 {
+    margin: 0 0 10px;
+    font-size: 1.42rem;
+  }
+
+  .story-card p {
+    font-size: 0.92rem;
+    line-height: 1.7;
+  }
+
+  /*
+   * Over a photo this narrow the paragraph had no readable background left. On a
+   * phone the caption comes off the image and sits under it on solid navy: the
+   * picture keeps its own band at the top, the words get a plain surface.
+   */
   .vision-photo {
-    height: 350px;
+    display: grid;
+    grid-template-rows: 232px auto;
+    height: auto;
+    border-radius: 22px;
+    background: var(--navy-deep);
+  }
+
+  .vision-slides {
+    position: relative;
+    grid-row: 1;
+  }
+
+  /*
+   * The scrim exists to darken the foot of the picture for the caption that used
+   * to lie on it. With the caption on its own panel it only left a smoky wedge
+   * above that panel, so the photo is shown plain.
+   */
+  .vision-photo::after {
+    display: none;
   }
 
   .vision-photo figcaption {
+    position: static;
+    grid-row: 2;
     display: grid;
     grid-template-columns: 1fr;
-    gap: 10px;
-    padding-inline-end: 0;
+    gap: 8px;
+    padding: 17px 18px 20px;
+    padding-inline-end: 18px;
+  }
+
+  .vision-photo figcaption strong {
+    font-size: 1.45rem;
   }
 
   .vision-caption-note {
+    color: rgba(255, 255, 255, 0.78);
     font-size: 0.86rem;
-    line-height: 1.85;
+    line-height: 1.75;
   }
 
   .vision-slider-controls {
@@ -3080,45 +3506,275 @@ html[dir="rtl"] .team-card:focus-visible .team-open {
     margin-top: 2px;
   }
 
+  /*
+   * One number per row left most of the pink band empty. On a phone the four
+   * figures sit as a 2x2 set of tiles under the heading instead, which reads as
+   * a group and keeps the section a single screen tall.
+   */
+  .stats-section {
+    padding: 58px 0;
+  }
+
   .stats-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .stats-heading {
+    margin-bottom: 4px;
+  }
+
+  .stats-heading h2 {
+    margin-top: 10px;
+    font-size: 1.85rem;
   }
 
   .stat-item {
-    min-height: auto;
-    padding: 20px 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.22);
-    border-left: 0;
+    min-height: 0;
+    padding: 18px 16px;
+    /* Replaces the divider rule, which has nothing to divide in a tile. */
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.1);
   }
 
+  .stat-item strong {
+    font-size: 2.05rem;
+  }
+
+  .stat-item p {
+    margin-top: 7px;
+    font-size: 0.66rem;
+    letter-spacing: 0.05em;
+    line-height: 1.5;
+  }
+
+  .program-grid {
+    grid-auto-columns: 84%;
+  }
+
+  /*
+   * One full-width card per teacher made each face nearly a whole screen tall.
+   * Two compact cards per row keeps the same information at a size the section
+   * can actually be scanned at.
+   */
   .team-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .team-card {
+    padding: 10px;
+    border-radius: 20px;
   }
 
   .team-portrait {
-    height: 320px;
+    height: 152px;
+    border-radius: 15px;
   }
 
+  .portrait-initials {
+    width: 78px;
+    height: 78px;
+    border-width: 7px;
+    font-size: 1.4rem;
+  }
+
+  .portrait-shape {
+    width: 132px;
+    height: 132px;
+  }
+
+  .team-info {
+    gap: 8px;
+    padding: 12px 2px 8px;
+  }
+
+  .team-info h3 {
+    font-size: 0.88rem;
+  }
+
+  .team-info p {
+    font-size: 0.71rem;
+  }
+
+  .team-open {
+    width: 29px;
+    height: 29px;
+  }
+
+  .team-open svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .team-specialty {
+    margin: 0 2px 3px;
+    padding-top: 9px;
+    font-size: 0.6rem;
+  }
+
+  /* The join card has no portrait, so it reads better across the full row. */
+  .team-join {
+    grid-column: 1 / -1;
+    min-height: 0;
+    padding: 22px;
+  }
+
+  .join-orbit {
+    width: 96px;
+    height: 96px;
+    margin-bottom: 18px;
+  }
+
+  .join-orbit span {
+    width: 52px;
+    height: 52px;
+    font-size: 1.8rem;
+  }
+
+  .team-join h3 {
+    margin: 8px 0 16px;
+    font-size: 1.25rem;
+  }
+
+  .team-join a {
+    padding-top: 14px;
+  }
+
+  /*
+   * Four 270px photos in a single column made the gallery the longest scroll on
+   * the page. It becomes a small mosaic instead: a wide lead image with the rest
+   * paired underneath, which shows the same set in under half the height.
+   */
   .gallery-grid {
     display: grid;
-    grid-template-columns: 1fr;
-    grid-template-rows: repeat(4, 270px);
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: none;
+    grid-auto-rows: 152px;
+    gap: 10px;
   }
 
-  .gallery-wide,
-  .gallery-tall {
+  .gallery-item {
     grid-column: auto;
     grid-row: auto;
+    border-radius: 18px;
+  }
+
+  /* Whatever the admin panel sends, the first image leads the mosaic. */
+  .gallery-item:first-child {
+    grid-column: 1 / -1;
+    grid-row: span 2;
+  }
+
+  /* A stacked caption fits the narrower tile better than a spread-out row. */
+  .gallery-item > span {
+    right: 13px;
+    bottom: 11px;
+    left: 13px;
+    display: grid;
+    gap: 1px;
+    justify-items: start;
+  }
+
+  html[dir="rtl"] .gallery-item > span {
+    justify-items: end;
+  }
+
+  .gallery-item b {
+    font-size: 0.86rem;
+    line-height: 1.25;
+  }
+
+  .gallery-item:first-child b {
+    font-size: 1.05rem;
+  }
+
+  .gallery-item i {
+    font-size: 0.6rem;
   }
 
   .partner-logos {
-    grid-template-columns: 1fr 1fr;
-    justify-items: start;
-    gap: 24px;
+    gap: 30px;
+  }
+
+  .partner-logos img {
+    height: 46px;
+    max-width: 130px;
+    border-radius: 10px;
+  }
+
+  .partner-logos > span,
+  .partner-logos > a {
+    gap: 9px;
+    font-size: 0.88rem;
+  }
+
+  .partner-mark {
+    width: 26px;
+    height: 26px;
+  }
+
+  /* The whole FAQ block tightened up: shorter rows, smaller type, smaller sign. */
+  .faq-intro h2 {
+    font-size: 1.9rem;
+  }
+
+  .faq-intro > p {
+    margin: 16px 0;
+    font-size: 0.9rem;
+  }
+
+  .faq-intro {
+    margin-bottom: 26px;
+  }
+
+  .faq-item button {
+    gap: 14px;
+    padding: 17px 0;
   }
 
   .faq-item button span {
-    font-size: 0.94rem;
+    font-size: 0.88rem;
+    line-height: 1.45;
+  }
+
+  .faq-item button i {
+    flex-basis: 27px;
+    width: 27px;
+    height: 27px;
+  }
+
+  .faq-item button i::before,
+  .faq-item button i::after {
+    top: 12.5px;
+    left: 7.5px;
+    width: 12px;
+  }
+
+  .faq-answer p {
+    font-size: 0.88rem;
+    line-height: 1.7;
+  }
+
+  .faq-item.open .faq-answer p {
+    padding: 0 0 18px;
+  }
+
+  .video-modal {
+    padding: 18px 16px;
+  }
+
+  .video-modal.is-portrait .video-modal-frame {
+    width: min(100%, calc((100vh - 170px) * 9 / 16));
+    width: min(100%, calc((100dvh - 170px) * 9 / 16));
+    border-radius: 18px;
+  }
+
+  /* Without the forced break the heading reads "…a learning / plan that fits." */
+  .contact-break {
+    display: none;
   }
 
   .contact-section {
@@ -3130,16 +3786,81 @@ html[dir="rtl"] .team-card:focus-visible .team-open {
     opacity: 0.35;
   }
 
+  /*
+   * The phone footer is stripped to what the rest of the page does not already
+   * say: how to reach the center, the social buttons, and the legal line. The
+   * logo and tagline are the top of the same screen, and the two link columns
+   * only repeat the mobile menu.
+   */
+  .site-footer {
+    padding: 44px 0 24px;
+  }
+
+  /*
+   * Visit and the social buttons share one row: the contact details take the
+   * space they need and the buttons stack two by two next to them, so the whole
+   * footer is one short block instead of two stacked ones.
+   */
+  .footer-main {
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    gap: 22px;
+    padding-bottom: 30px;
+  }
+
+  .footer-brand {
+    order: 2;
+    /* Dropped past the "Visit" heading so the buttons start with the details. */
+    margin-top: 26px;
+  }
+
   .footer-links {
-    grid-template-columns: 1fr 1fr;
+    order: 1;
   }
 
-  .footer-links div:last-child {
-    grid-column: 1 / -1;
-  }
-
-  .footer-bottom {
+  .social-links {
     display: grid;
+    grid-template-columns: repeat(2, 42px);
+    gap: 9px;
+  }
+
+  /*
+   * Scoped through .footer-links, otherwise the base ".footer-links div" rule is
+   * the more specific of the two and puts the columns straight back.
+   */
+  .footer-brand .brand,
+  .footer-brand > p,
+  .footer-links .footer-explore,
+  .footer-links .footer-programs,
+  .footer-bottom .footer-login {
+    display: none;
+  }
+
+  .footer-links {
+    grid-template-columns: 1fr;
+  }
+
+  /*
+   * Terms sits with "Back to top" on one line, and the copyright takes the last
+   * line on its own, centred.
+   */
+  .footer-bottom {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px 20px;
+    text-align: center;
+  }
+
+  .footer-bottom div,
+  .footer-bottom > a {
+    order: 1;
+  }
+
+  .footer-bottom p {
+    order: 2;
+    flex: 0 0 100%;
   }
 
   .cursor-glow {
@@ -3208,13 +3929,6 @@ html[dir="rtl"] .team-card:focus-visible .team-open {
   color: var(--navy);
   border-color: rgba(34, 63, 107, 0.17);
   background: rgba(34, 63, 107, 0.05);
-}
-
-.mobile-language-switch {
-  position: absolute;
-  top: 90px;
-  right: 32px;
-  color: var(--paper);
 }
 
 html[dir="rtl"] body {
@@ -3373,16 +4087,6 @@ html[dir="rtl"] .lightbox-close {
 }
 
 @media (max-width: 580px) {
-  .mobile-language-switch {
-    top: 82px;
-    right: 18px;
-  }
-
-  html[dir="rtl"] .mobile-language-switch {
-    right: auto;
-    left: 18px;
-  }
-
   html[dir="rtl"] .hero-note {
     right: auto;
     left: 18px;

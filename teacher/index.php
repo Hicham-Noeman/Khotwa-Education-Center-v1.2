@@ -2,6 +2,9 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../src/auth.php';
+// The teacher photo upload reuses the same validation, folder, and cleanup the
+// admin panel uses, so a photo added here is identical to one added there.
+require_once __DIR__ . '/../src/admin-data.php';
 
 $user = require_roles(['teacher']);
 $teacherId = (int) ($user['teacher_id'] ?? 0);
@@ -44,6 +47,9 @@ $message = isset($_GET['saved'])
     : '';
 if (isset($_GET['flagged'])) {
     $message = 'Behaviour flag sent to the administration.';
+}
+if (isset($_GET['photo'])) {
+    $message = 'Your profile picture has been updated.';
 }
 $error = '';
 $studentRows = [];
@@ -124,7 +130,7 @@ try {
                 teachers.teaches_primary, teachers.teaches_intermediate, teachers.teaches_secondary,
                 teachers.teaching_since, teachers.joined_center_on,
                 teachers.certifications_en, teachers.certifications_ar,
-                teachers.is_teacher_of_the_month, teachers.video_url
+                teachers.is_teacher_of_the_month, teachers.video_url, teachers.photo_path
          FROM teachers
          INNER JOIN users ON users.teacher_id = teachers.id
          WHERE teachers.id = ? AND users.id = ? AND teachers.status = 'active'
@@ -134,6 +140,43 @@ try {
     $teacherProfile = $profileStatement->fetch();
     if (!$teacherProfile) {
         throw new RuntimeException('The linked teacher profile is unavailable.');
+    }
+
+    /*
+     * A teacher owns their own picture: they can add one and replace it later, but
+     * there is deliberately no way to clear it - the website falls back to initials
+     * only for a teacher who never uploaded one, and removing a photo is an
+     * administration decision.
+     */
+    if ($view === 'profile' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+        $uploadedPaths = [];
+        try {
+            verify_app_csrf();
+
+            $uploadResult = admin_prepare_uploads(
+                'teachers',
+                ['photo_path' => (string) ($teacherProfile['photo_path'] ?? '')],
+                (array) ($_FILES['uploads'] ?? [])
+            );
+            $uploadedPaths = $uploadResult['created'];
+            $newPath = (string) ($uploadResult['fields']['photo_path'] ?? '');
+
+            if ($uploadedPaths === [] || $newPath === '') {
+                throw new RuntimeException('Choose a picture to upload.');
+            }
+
+            $photoStatement = $pdo->prepare('UPDATE teachers SET photo_path = ? WHERE id = ? LIMIT 1');
+            $photoStatement->execute([$newPath, $teacherId]);
+
+            // Only once the new path is safely stored does the old file go.
+            admin_remove_uploaded_files($uploadResult['replaced']);
+
+            header('Location: ' . khotwa_url('teacher/index.php') . '?view=profile&photo=1');
+            exit;
+        } catch (Throwable $exception) {
+            admin_remove_uploaded_files($uploadedPaths);
+            $error = $exception->getMessage();
+        }
     }
 
     if (in_array($view, ['attendance', 'submission'], true) && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
@@ -777,6 +820,38 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
           <section class="profile-overview-grid">
             <article class="data-panel teacher-profile-card">
               <div class="panel-heading"><div><span>Teacher profile</span><h2><?= e($teacherName) ?></h2></div><span class="profile-id">ID <?= e((string) $teacherId) ?></span></div>
+              <?php
+              $photoPath = trim((string) ($teacherProfile['photo_path'] ?? ''));
+              $photoInitials = strtoupper(
+                  mb_substr((string) $teacherProfile['first_name'], 0, 1)
+                  . mb_substr((string) ($teacherProfile['last_name'] ?? ''), 0, 1)
+              );
+              ?>
+              <form class="profile-photo-form" method="post" enctype="multipart/form-data">
+                <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
+                <div class="profile-photo-preview">
+                  <?php if ($photoPath !== ''): ?>
+                    <img src="<?= e(khotwa_url($photoPath)) ?>" alt="<?= e($teacherName) ?>">
+                  <?php else: ?>
+                    <span><?= e($photoInitials !== '' ? $photoInitials : 'K') ?></span>
+                  <?php endif; ?>
+                </div>
+                <div class="profile-photo-controls">
+                  <span>Profile picture</span>
+                  <p>Shown on the public website in place of your initials.</p>
+                  <input
+                    class="admin-file-input"
+                    type="file"
+                    name="uploads[photo_path]"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    required
+                  >
+                  <div class="profile-photo-actions">
+                    <button class="primary-action" type="submit"><?= $photoPath === '' ? 'Upload picture' : 'Replace picture' ?></button>
+                    <small>JPEG, PNG, GIF, or WebP up to 8 MB. A new picture replaces the current one.</small>
+                  </div>
+                </div>
+              </form>
               <div class="teacher-profile-fields">
                 <div><span>First name</span><strong><?= e((string) $teacherProfile['first_name']) ?></strong></div>
                 <div><span>Last name</span><strong><?= e((string) $teacherProfile['last_name']) ?></strong></div>

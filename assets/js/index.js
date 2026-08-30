@@ -34,6 +34,17 @@ const renderHomepageContent = (language = window.KhotwaI18n?.current() || "en") 
       if (isPoint) element.hidden = !value;
       if (typeof value === "string") element.textContent = value;
     });
+
+    // A step only offers the play button once a video has been saved for it.
+    const watch = container.querySelector("[data-step-watch]");
+    if (watch) {
+      const embed = (row.video_embed_url || "").trim();
+      watch.dataset.videoEmbed = embed;
+      watch.dataset.videoTitle = row[`title_${language}`] || "";
+      watch.dataset.videoStep = row[`eyebrow_${language}`] || "";
+      watch.dataset.videoPortrait = row.video_is_portrait ? "1" : "";
+      watch.hidden = embed === "";
+    }
   });
 };
 
@@ -328,6 +339,55 @@ const renderPartners = (language) => {
     partner.append(name);
     container.append(partner);
   });
+
+  setupPartnerMarquee();
+};
+
+/*
+ * Turns the partner strip into an endless loop: the row is repeated until it is
+ * comfortably wider than its window, then that whole run is cloned once, so
+ * travelling half the track lands on an identical frame and the loop never shows
+ * a seam. Speed is fixed in pixels per second, so two partners drift at the same
+ * pace as ten. A strip that already fits with room to spare is left standing.
+ */
+const PARTNER_MARQUEE_SPEED = 55; // px per second
+
+const setupPartnerMarquee = () => {
+  const track = document.querySelector("[data-homepage-partners]");
+  const viewport = track?.closest(".partner-marquee");
+  if (!track || !viewport) return;
+
+  track.querySelectorAll("[data-marquee-clone]").forEach((clone) => clone.remove());
+  track.classList.remove("is-marquee");
+  track.style.removeProperty("--marquee-duration");
+
+  const originals = [...track.children];
+  if (originals.length === 0 || reduceMotion) return;
+
+  const gap = parseFloat(getComputedStyle(track).columnGap) || 0;
+  const runWidth = originals.reduce((total, item) => total + item.getBoundingClientRect().width + gap, 0);
+  if (runWidth < 1) return;
+
+  const viewportWidth = viewport.getBoundingClientRect().width;
+  // Nothing to loop through if the logos do not even fill their window.
+  if (runWidth <= viewportWidth) return;
+
+  const runs = Math.max(1, Math.ceil(viewportWidth / runWidth));
+  const frame = document.createDocumentFragment();
+  for (let copy = 0; copy < runs * 2 - 1; copy += 1) {
+    originals.forEach((item) => {
+      const clone = item.cloneNode(true);
+      clone.dataset.marqueeClone = "1";
+      // A duplicate logo is decoration, not a second link to the same site.
+      clone.setAttribute("aria-hidden", "true");
+      clone.tabIndex = -1;
+      frame.append(clone);
+    });
+  }
+  track.append(frame);
+
+  track.style.setProperty("--marquee-duration", `${(runWidth * runs) / PARTNER_MARQUEE_SPEED}s`);
+  track.classList.add("is-marquee");
 };
 
 const renderContacts = (language) => {
@@ -891,5 +951,76 @@ document.querySelector("#year").textContent = new Date().getFullYear();
         if (!card.getAttribute("role")) card.setAttribute("role", "button");
       });
     }, 100);
+  });
+})();
+
+// ── Step video player ─────────────────────────────────────────────────────
+/*
+ * The four approach steps can each carry a YouTube link. Clicking a step's play
+ * button opens the clip in the middle of the screen; the iframe only ever holds a
+ * source while the player is open, so closing it actually stops the video instead
+ * of leaving it playing behind the page.
+ */
+(() => {
+  const modal = document.querySelector(".video-modal");
+  const frame = modal?.querySelector("[data-video-frame]");
+  const titleNode = modal?.querySelector("[data-video-title]");
+  const stepNode = modal?.querySelector("[data-video-step]");
+  const closeButton = modal?.querySelector(".video-modal-close");
+
+  if (!modal || !frame) return;
+
+  const closeVideo = () => {
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+    body.classList.remove("lightbox-open");
+    frame.removeAttribute("src");
+  };
+
+  const openVideo = (button) => {
+    const embed = (button.dataset.videoEmbed || "").trim();
+    if (embed === "") return;
+
+    if (titleNode) titleNode.textContent = button.dataset.videoTitle || "";
+    if (stepNode) stepNode.textContent = button.dataset.videoStep || "";
+
+    // A vertical clip gets a tall player instead of the 16:9 default.
+    modal.classList.toggle("is-portrait", button.dataset.videoPortrait === "1");
+    frame.src = `${embed}?autoplay=1&rel=0&modestbranding=1`;
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+    body.classList.add("lightbox-open");
+    closeButton?.focus();
+  };
+
+  // Delegated, because the buttons are only revealed once the content loads.
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-step-watch]");
+    if (button) openVideo(button);
+  });
+
+  closeButton?.addEventListener("click", closeVideo);
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeVideo();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && modal.classList.contains("is-open")) closeVideo();
+  });
+})();
+
+// ── Partner strip loop ────────────────────────────────────────────────────
+/*
+ * The strip built by PHP needs the same treatment as the one index.js rebuilds
+ * on a language switch. Logo images settle their width only once they load, and
+ * how many copies the loop needs depends on the window, so it is measured again
+ * after load and whenever the window is resized.
+ */
+(() => {
+  let resizeTimer = 0;
+
+  window.addEventListener("load", setupPartnerMarquee);
+  window.addEventListener("resize", () => {
+    window.clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(setupPartnerMarquee, 200);
   });
 })();

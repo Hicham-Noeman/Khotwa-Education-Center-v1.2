@@ -184,6 +184,65 @@ function homepage_watch_url(string $url): string
 }
 
 /**
+ * The YouTube video id inside any of the shapes a link is usually copied in:
+ * watch?v=, youtu.be/, /embed/, /shorts/, /live/. Anything else - another host,
+ * a playlist-only link - yields an empty string and simply shows no player.
+ */
+function homepage_youtube_id(string $url): string
+{
+    $url = homepage_watch_url($url);
+    if ($url === '') {
+        return '';
+    }
+
+    $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+    $host = preg_replace('/^(www\.|m\.)/', '', $host);
+    $path = trim((string) parse_url($url, PHP_URL_PATH), '/');
+
+    if ($host === 'youtu.be') {
+        $id = explode('/', $path)[0] ?? '';
+    } elseif ($host === 'youtube.com' || $host === 'youtube-nocookie.com') {
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+        $id = (string) ($query['v'] ?? '');
+        if ($id === '' && preg_match('#^(embed|shorts|live|v)/([^/]+)#', $path, $matches) === 1) {
+            $id = $matches[2];
+        }
+    } else {
+        return '';
+    }
+
+    return preg_match('/^[A-Za-z0-9_-]{6,20}$/', $id) === 1 ? $id : '';
+}
+
+/**
+ * The privacy-friendly embed address for a stored video link, ready for the iframe
+ * the page opens. An unrecognised link yields an empty string, so nothing renders.
+ */
+function homepage_youtube_embed(string $url): string
+{
+    $id = homepage_youtube_id($url);
+
+    return $id === '' ? '' : 'https://www.youtube-nocookie.com/embed/' . $id;
+}
+
+/**
+ * Whether a stored link is a YouTube Short, i.e. a clip filmed vertically. The
+ * embed address loses that detail, so it is read off the original link and passed
+ * to the page, which then opens the player tall instead of in 16:9.
+ */
+function homepage_youtube_is_portrait(string $url): bool
+{
+    $url = homepage_watch_url($url);
+    if ($url === '') {
+        return false;
+    }
+
+    $path = trim((string) parse_url($url, PHP_URL_PATH), '/');
+
+    return preg_match('#^shorts/#', $path) === 1;
+}
+
+/**
  * The homepage team section, built from the real teacher records.
  *
  * Every active teacher appears automatically, so a teacher added in the admin panel is
@@ -272,12 +331,18 @@ function load_homepage_data(PDO $pdo): array
             eyebrow_en, eyebrow_ar, category_en, category_ar,
             title_en, title_ar, description_en, description_ar,
             point_1_en, point_1_ar, point_2_en, point_2_ar,
-            point_3_en, point_3_ar
+            point_3_en, point_3_ar, video_url
          FROM homepage_content
          WHERE status = 'active'
          ORDER BY FIELD(content_type, 'vision', 'mission', 'step', 'program'),
                   sort_order, id"
     )->fetchAll();
+
+    // Only a usable YouTube address reaches the page, already in embed form.
+    foreach ($content as $index => $row) {
+        $content[$index]['video_embed_url'] = homepage_youtube_embed((string) ($row['video_url'] ?? ''));
+        $content[$index]['video_is_portrait'] = homepage_youtube_is_portrait((string) ($row['video_url'] ?? ''));
+    }
 
     $slides = $pdo->query(
         "SELECT id, image_path, alt_en, alt_ar, title_en, title_ar,

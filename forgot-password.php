@@ -277,7 +277,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     <div class="recovery-footer">
       <a href="<?= e(khotwa_url('index.php')) ?>">Back to website</a>
       <span></span>
-      <a href="<?= e(khotwa_url('terms.html')) ?>">Terms and Conditions</a>
+      <a href="<?= e(khotwa_url('terms.php')) ?>">Terms and Conditions</a>
     </div>
   </main>
 

@@ -65,7 +65,11 @@ ServerSignature Off
   # Content Security Policy. 'unsafe-inline' is still required for the few inline
   # scripts and style attributes in the pages. The brand font is self-hosted, so the
   # Google Fonts hosts are gone and only the QR host remains off-origin.
-  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; img-src 'self' data: https://api.qrserver.com; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://api.qrserver.com"
+  #
+  # frame-src carries the YouTube player the approach steps open. Without it the
+  # default-src rule blocks the iframe and the browser shows "This content is
+  # blocked" in place of the video.
+  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; img-src 'self' data: https://api.qrserver.com; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://api.qrserver.com; frame-src https://www.youtube-nocookie.com https://www.youtube.com"
 </IfModule>
 
 # ---------------------------------------------------------------------------

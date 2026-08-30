@@ -1035,32 +1035,67 @@ svg {
   background: var(--paper);
 }
 
+/*
+ * Built to read as the homepage bar in its scrolled state - same height, blur,
+ * shadow, and pill buttons - and it sticks to the top so it stays reachable all
+ * the way down a long terms page.
+ */
 .terms-header {
-  position: relative;
-  z-index: 10;
+  position: sticky;
+  top: 0;
+  z-index: 100;
   display: flex;
-  min-height: 90px;
+  min-height: 72px;
   align-items: center;
   justify-content: space-between;
-  padding: 18px clamp(24px, 5vw, 78px);
-  border-bottom: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.93);
-  backdrop-filter: blur(16px);
+  padding: 14px clamp(24px, 4.5vw, 72px);
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 8px 35px rgba(14, 34, 60, 0.1);
+  backdrop-filter: blur(18px);
+}
+
+/* The brand mark on this page is the logo itself, at the header's own size. */
+.terms-brand img {
+  display: block;
+  width: auto;
+  height: 52px;
 }
 
 .terms-header > div {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 10px;
+}
+
+/* The same pair of pills the homepage header carries: outlined, then filled. */
+.terms-header .back-link {
+  padding: 12px 18px;
+  border: 1px solid rgba(34, 63, 107, 0.18);
+  border-radius: 999px;
+  color: var(--navy);
+  font-size: 0.83rem;
+  font-weight: 700;
+  transition: background 0.25s ease, transform 0.25s ease;
+}
+
+.terms-header .back-link:hover {
+  background: rgba(34, 63, 107, 0.07);
+  transform: translateY(-2px);
 }
 
 .terms-login {
-  padding: 11px 20px;
+  padding: 12px 18px;
   border-radius: 999px;
   color: var(--paper);
   background: var(--navy);
-  font-size: 0.8rem;
-  font-weight: 800;
+  font-size: 0.83rem;
+  font-weight: 700;
+  transition: transform 0.25s ease;
+}
+
+.terms-login:hover {
+  transform: translateY(-2px);
 }
 
 .terms-hero {
@@ -1166,31 +1201,6 @@ svg {
 .terms-nav > a:hover {
   color: var(--pink);
   padding-left: 5px;
-}
-
-.terms-note {
-  display: flex;
-  gap: 11px;
-  margin-top: 30px;
-  padding: 15px;
-  border-radius: 14px;
-  background: rgba(244, 159, 15, 0.09);
-}
-
-.terms-note i {
-  width: 8px;
-  height: 8px;
-  flex: 0 0 auto;
-  margin-top: 5px;
-  border-radius: 50%;
-  background: var(--orange);
-}
-
-.terms-note p {
-  margin: 0;
-  color: #7b6845;
-  font-size: 0.7rem;
-  line-height: 1.55;
 }
 
 .terms-content {
@@ -1362,8 +1372,7 @@ svg {
     gap: 0 25px;
   }
 
-  .terms-nav > strong,
-  .terms-note {
+  .terms-nav > strong {
     grid-column: 1 / -1;
   }
 
@@ -1384,6 +1393,23 @@ svg {
   .auth-topbar {
     right: 18px;
     left: 18px;
+  }
+
+  /*
+   * The "On this page" jump list is a desktop convenience: on a phone the whole
+   * document is one short scroll and the links only push the reading down.
+   */
+  .terms-nav > strong,
+  .terms-nav > a {
+    display: none;
+  }
+
+  .terms-layout {
+    gap: 30px;
+  }
+
+  .terms-brand img {
+    height: 40px;
   }
 
   .brand-mobile .brand-mark,
@@ -1465,8 +1491,8 @@ svg {
   }
 
   .terms-header {
-    min-height: 78px;
-    padding: 14px 17px;
+    min-height: 68px;
+    padding: 12px 16px;
   }
 
   .terms-header .back-link {
@@ -1503,8 +1529,7 @@ svg {
     grid-template-columns: 1fr;
   }
 
-  .terms-nav > strong,
-  .terms-note {
+  .terms-nav > strong {
     grid-column: auto;
   }
 

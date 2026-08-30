@@ -295,7 +295,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
           </button>
         </form>
 
-        <p class="legal-copy">By continuing, you agree to Khotwa's <a href="<?= e(khotwa_url('terms.html')) ?>">Terms and Conditions</a>.</p>
+        <p class="legal-copy">By continuing, you agree to Khotwa's <a href="<?= e(khotwa_url('terms.php')) ?>">Terms and Conditions</a>.</p>
       </div>
 
       <p class="auth-support">Need help? <a href="<?= e($supportWhatsappUrl) ?>" target="_blank" rel="noopener noreferrer">Contact our support team</a></p>

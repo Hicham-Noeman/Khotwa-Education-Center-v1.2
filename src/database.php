@@ -55,7 +55,7 @@ const KHOTWA_CENTER_HOURS_EN = 'Mon-Thu & Sat, 3:00-8:00 PM';
 const KHOTWA_CENTER_HOURS_AR = 'الاثنين–الخميس والسبت، 3:00–8:00 مساءً';
 
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
-const KHOTWA_SCHEMA_VERSION = 22;
+const KHOTWA_SCHEMA_VERSION = 23;
 
 function getDatabaseConnection(): PDO
 {
@@ -909,6 +909,7 @@ function createKhotwaTables(PDO $pdo): void
             point_2_ar VARCHAR(255) NULL,
             point_3_en VARCHAR(255) NULL,
             point_3_ar VARCHAR(255) NULL,
+            video_url VARCHAR(255) NULL,
             status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -2068,6 +2069,15 @@ function applyKhotwaMigrations(PDO $pdo): void
         'homepage_reviews',
         'display_name_ar',
         'display_name_ar VARCHAR(120) NULL AFTER display_name'
+    );
+
+    // An approach step can point at a short YouTube clip that explains it, shown
+    // as a small play button on the step and opened in a player on the page.
+    addColumnIfMissing(
+        $pdo,
+        'homepage_content',
+        'video_url',
+        'video_url VARCHAR(255) NULL AFTER point_3_ar'
     );
 
     applyHomepageCopyMigration($pdo);

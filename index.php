@@ -169,11 +169,6 @@ $homepageRating = $homepageRatingCount > 0
   </header>
 
   <div class="mobile-menu" aria-hidden="true">
-    <button class="language-switch mobile-language-switch" type="button" data-language-toggle>
-      <span data-language-current>EN</span>
-      <i></i>
-      <span data-language-label>العربية</span>
-    </button>
     <nav aria-label="Mobile navigation">
       <a href="#about"><span>01</span>About</a>
       <a href="#approach"><span>02</span>Approach</a>
@@ -181,9 +176,8 @@ $homepageRating = $homepageRatingCount > 0
       <a href="#team"><span>04</span>Team</a>
       <a href="#gallery"><span>05</span>Gallery</a>
       <a href="#faq"><span>06</span>FAQ</a>
-      <a class="mobile-login-link" href="<?= homepage_e(khotwa_url('login.php')) ?>"><span>07</span>Log in</a>
+      <a class="mobile-terms-link" href="<?= homepage_e(khotwa_url('terms.php')) ?>"><span>07</span>Terms</a>
     </nav>
-    <p>Learn deeply. Grow confidently.</p>
   </div>
 
   <main>
@@ -288,14 +282,16 @@ $homepageRating = $homepageRatingCount > 0
         <div class="vision-grid">
           <article class="story-card story-vision" data-homepage-content="vision" data-reveal data-tilt>
             <span class="card-number">01</span>
-            <div class="story-icon">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/>
-                <circle cx="12" cy="12" r="2.7"/>
-              </svg>
+            <div class="story-head">
+              <div class="story-icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/>
+                  <circle cx="12" cy="12" r="2.7"/>
+                </svg>
+              </div>
+              <span data-homepage-field="eyebrow">Our vision</span>
             </div>
             <div>
-              <span data-homepage-field="eyebrow">Our vision</span>
               <h3 data-homepage-field="title">Confident learners. Limitless futures.</h3>
               <p data-homepage-field="description">To shape a generation of curious, capable students who understand how they learn and trust how far they can go.</p>
             </div>
@@ -303,14 +299,16 @@ $homepageRating = $homepageRatingCount > 0
 
           <article class="story-card story-mission" data-homepage-content="mission" data-reveal data-tilt>
             <span class="card-number">02</span>
-            <div class="story-icon">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M21.4 2.6 2.9 9.8l7.9 3.4 3.4 7.9 7.2-18.5Z"/>
-                <path d="M21.4 2.6 10.8 13.2"/>
-              </svg>
+            <div class="story-head">
+              <div class="story-icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M21.4 2.6 2.9 9.8l7.9 3.4 3.4 7.9 7.2-18.5Z"/>
+                  <path d="M21.4 2.6 10.8 13.2"/>
+                </svg>
+              </div>
+              <span data-homepage-field="eyebrow">Our mission</span>
             </div>
             <div>
-              <span data-homepage-field="eyebrow">Our mission</span>
               <h3 data-homepage-field="title">Make every learning step count.</h3>
               <p data-homepage-field="description">We combine careful assessment, personalized instruction, purposeful practice, and consistent feedback to turn effort into progress.</p>
             </div>
@@ -363,6 +361,13 @@ $homepageRating = $homepageRatingCount > 0
             <span data-homepage-field="eyebrow">Step 01</span>
             <h3 data-homepage-field="title">Discover</h3>
             <p data-homepage-field="description">Student strengths, gaps, learning habits, and goals through focused assessment.</p>
+            <?php // Shown only when the step has a video saved in the admin panel. ?>
+            <button class="step-watch" type="button" data-step-watch hidden>
+              <span class="step-watch-play" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="m9 7 8 5-8 5V7Z"/></svg>
+              </span>
+              <span class="step-watch-label">Watch this step</span>
+            </button>
           </article>
 
           <article class="approach-step" data-homepage-content="step_guide" data-step="02">
@@ -375,6 +380,13 @@ $homepageRating = $homepageRatingCount > 0
             <span data-homepage-field="eyebrow">Step 02</span>
             <h3 data-homepage-field="title">Guide</h3>
             <p data-homepage-field="description">Students with targeted support and personalized direction for daily homework.</p>
+            <?php // Shown only when the step has a video saved in the admin panel. ?>
+            <button class="step-watch" type="button" data-step-watch hidden>
+              <span class="step-watch-play" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="m9 7 8 5-8 5V7Z"/></svg>
+              </span>
+              <span class="step-watch-label">Watch this step</span>
+            </button>
           </article>
 
           <article class="approach-step" data-homepage-content="step_build" data-step="03">
@@ -387,6 +399,13 @@ $homepageRating = $homepageRatingCount > 0
             <span data-homepage-field="eyebrow">Step 03</span>
             <h3 data-homepage-field="title">Build</h3>
             <p data-homepage-field="description">Strong academic foundations through clear explanations and effective routines.</p>
+            <?php // Shown only when the step has a video saved in the admin panel. ?>
+            <button class="step-watch" type="button" data-step-watch hidden>
+              <span class="step-watch-play" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="m9 7 8 5-8 5V7Z"/></svg>
+              </span>
+              <span class="step-watch-label">Watch this step</span>
+            </button>
           </article>
 
           <article class="approach-step" data-homepage-content="step_achieve" data-step="04">
@@ -400,6 +419,13 @@ $homepageRating = $homepageRatingCount > 0
             <span data-homepage-field="eyebrow">Step 04</span>
             <h3 data-homepage-field="title">Achieve</h3>
             <p data-homepage-field="description">Continuous progress, celebrate key milestones, and reach academic success.</p>
+            <?php // Shown only when the step has a video saved in the admin panel. ?>
+            <button class="step-watch" type="button" data-step-watch hidden>
+              <span class="step-watch-play" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="m9 7 8 5-8 5V7Z"/></svg>
+              </span>
+              <span class="step-watch-label">Watch this step</span>
+            </button>
           </article>
         </div>
       </div>
@@ -693,6 +719,8 @@ $homepageRating = $homepageRatingCount > 0
     <section class="partners-section" aria-label="Our partners">
       <div class="section-shell">
         <p>Growing through trusted partnerships</p>
+        <?php // The strip scrolls on its own, so it needs a window to scroll inside. ?>
+        <div class="partner-marquee">
         <div class="partner-logos" data-homepage-partners>
           <?php foreach ($homepagePartners as $index => $partner): ?>
             <?php
@@ -715,6 +743,7 @@ $homepageRating = $homepageRatingCount > 0
               <span><?= homepage_e($partnerName) ?></span>
             </<?= $partnerTag ?>>
           <?php endforeach; ?>
+        </div>
         </div>
       </div>
     </section>
@@ -786,7 +815,10 @@ $homepageRating = $homepageRatingCount > 0
       <div class="section-shell contact-inner" data-reveal>
         <div>
           <span class="eyebrow">Your next step</span>
-          <h2>Let’s build a learning plan<br>that fits.</h2>
+          <?php // The space before "that" is what joins the two halves into one line
+                // once the break is dropped on a phone; at the start of a line the
+                // browser collapses it away, so the wide layout is unchanged. ?>
+          <h2>Let’s build a learning plan<br class="contact-break"> that fits.</h2>
         </div>
         <div class="contact-actions">
           <a class="button button-light magnetic" href="<?= homepage_e($contactWhatsappUrl) ?>" data-contact-link="whatsapp" target="_blank" rel="noopener noreferrer">
@@ -833,20 +865,20 @@ $homepageRating = $homepageRatingCount > 0
         </div>
 
         <div class="footer-links">
-          <div>
+          <div class="footer-explore">
             <h3>Explore</h3>
             <a href="#about">About us</a>
             <a href="#approach">Our approach</a>
             <a href="#programs">Programs</a>
             <a href="#team">Our team</a>
           </div>
-          <div>
+          <div class="footer-programs">
             <h3>Programs</h3>
             <a href="#programs">Core Program</a>
             <a href="#programs">Skills Program</a>
             <a href="#programs">Enrichment Program</a>
           </div>
-          <div>
+          <div class="footer-visit">
             <h3>Visit</h3>
             <a href="mailto:khotwacenter.lb@gmail.com" data-contact-link="primary_email">khotwacenter.lb@gmail.com</a>
             <a href="<?= homepage_e($contactPhoneUrl) ?>" data-contact-link="primary_phone"><?= homepage_e($contactPhone) ?></a>
@@ -857,7 +889,7 @@ $homepageRating = $homepageRatingCount > 0
       </div>
       <div class="footer-bottom">
         <p>© <span id="year"></span> Khotwa Education Center. All rights reserved.</p>
-        <div><a href="<?= homepage_e(khotwa_url('login.php')) ?>">Log in</a><a href="<?= homepage_e(khotwa_url('terms.html')) ?>">Terms</a></div>
+        <div><a class="footer-login" href="<?= homepage_e(khotwa_url('login.php')) ?>">Log in</a><a href="<?= homepage_e(khotwa_url('terms.php')) ?>">Terms</a></div>
         <a href="#home">Back to top ↑</a>
       </div>
     </div>
@@ -869,6 +901,28 @@ $homepageRating = $homepageRatingCount > 0
       <img src="" alt="">
       <figcaption></figcaption>
     </figure>
+  </div>
+
+  <?php // The step video player. It sits in the middle of the screen over a dimmed
+        // page, and the iframe is only given a source while it is open. ?>
+  <div class="video-modal" role="dialog" aria-modal="true" aria-label="Step video" aria-hidden="true">
+    <div class="video-modal-inner">
+      <div class="video-modal-head">
+        <span class="video-modal-step" data-video-step></span>
+        <h2 class="video-modal-title" data-video-title></h2>
+      </div>
+      <button class="video-modal-close" type="button" aria-label="Close video">&times;</button>
+      <div class="video-modal-frame">
+        <iframe
+          data-video-frame
+          src=""
+          title="Step video"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allowfullscreen
+        ></iframe>
+      </div>
+    </div>
   </div>
 
   <div class="teacher-modal" role="dialog" aria-modal="true" aria-label="Teacher profile" aria-hidden="true">
