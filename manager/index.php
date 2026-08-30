@@ -78,16 +78,7 @@ function render_manager_sidebar(array $user, string $activeView): void
     }
     ?>
     <aside class="admin-sidebar manager-sidebar" id="admin-sidebar" aria-label="Manager navigation">
-      <div class="sidebar-top">
-        <a class="admin-brand" href="<?= e(khotwa_url('manager/index.php')) ?>" aria-label="Khotwa manager dashboard">
-          <span class="admin-brand-mark">K<span>.</span></span>
-          <span class="admin-brand-copy"><strong>Khotwa</strong><small>Manager Portal</small></span>
-        </a>
-        <button class="sidebar-toggle" type="button" aria-label="Close navigation panel" aria-controls="admin-sidebar" aria-expanded="true" data-sidebar-toggle>
-          <svg class="collapse-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5"/></svg>
-          <svg class="expand-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m10 7 5 5-5 5"/></svg>
-        </button>
-      </div>
+      <?php portal_sidebar_top(khotwa_url('manager/index.php'), 'Khotwa manager dashboard', 'Management'); ?>
       <nav class="admin-nav">
         <?php foreach ($groups as $groupName => $items): ?>
           <section class="nav-group">
@@ -102,14 +93,6 @@ function render_manager_sidebar(array $user, string $activeView): void
           </section>
           <?php endforeach; ?>
       </nav>
-      <div class="sidebar-account">
-        <span class="account-avatar"><?= e(strtoupper(substr((string) $user['first_name'], 0, 1))) ?></span>
-        <span class="account-copy">
-          <strong><?= e(trim((string) $user['first_name'] . ' ' . (string) $user['last_name'])) ?></strong>
-          <small>Manager</small>
-        </span>
-        <a href="<?= e(khotwa_url('logout.php')) ?>" aria-label="Log out" title="Log out"><?= admin_icon('users') ?></a>
-      </div>
     </aside>
     <?php
 }

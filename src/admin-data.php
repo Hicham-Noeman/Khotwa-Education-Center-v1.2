@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/portal-ui.php';
+
 function admin_navigation(): array
 {
     return [
@@ -1270,41 +1272,7 @@ function admin_render_sidebar(array $user, string $activeView): void
     ?>
     <?php admin_sidebar_boot_script(); ?>
     <aside class="admin-sidebar" id="admin-sidebar" aria-label="<?= e($sidebarLabel) ?>">
-      <div class="sidebar-top">
-        <a class="admin-brand" href="<?= e($brandHref) ?>" aria-label="<?= e($brandLabel) ?>">
-          <?php // The logo carries the name, so the wordmark replaces the "Khotwa" text. ?>
-          <span class="admin-brand-mark admin-brand-mark-logo">
-            <img
-              class="admin-brand-logo"
-              src="<?= e(khotwa_asset('images/logo-white.svg')) ?>"
-              alt="Khotwa"
-              width="148"
-              height="71"
-            >
-          </span>
-          <span class="admin-brand-copy"><small><?= e($brandSubline) ?></small></span>
-        </a>
-        <div class="sidebar-top-actions">
-          <?php // Language and logout live beside the brand; the footer keeps only the account. ?>
-          <button
-            class="sidebar-top-action sidebar-language-compact"
-            type="button"
-            title="Switch language"
-            aria-label="Switch language"
-            data-language-toggle
-          ><strong data-language-current>EN</strong></button>
-          <a
-            class="sidebar-top-action"
-            href="<?= e(khotwa_url('logout.php')) ?>"
-            title="Log out"
-            aria-label="Log out"
-          ><?= admin_icon('logout') ?></a>
-        </div>
-        <button class="sidebar-toggle" type="button" aria-label="Close navigation panel" aria-controls="admin-sidebar" aria-expanded="true" data-sidebar-toggle>
-          <svg class="collapse-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
-          <svg class="expand-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
-        </button>
-      </div>
+      <?php portal_sidebar_top($brandHref, $brandLabel, $brandSubline); ?>
       <nav class="admin-nav">
         <?php foreach ($groups as $groupName => $items): ?>
           <section class="nav-group">

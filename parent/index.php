@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../src/auth.php';
+require_once __DIR__ . '/../src/portal-ui.php';
 
 $user = require_roles(['parent']);
 $parentUserId = (int) ($user['id'] ?? 0);
@@ -396,16 +397,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
 <body class="admin-page parent-page">
   <div class="admin-shell" data-admin-shell>
     <aside class="admin-sidebar parent-sidebar" id="admin-sidebar" aria-label="Parent navigation">
-      <div class="sidebar-top">
-        <a class="admin-brand" href="<?= e(khotwa_url('parent/index.php')) ?>" aria-label="Khotwa parent portal home">
-          <span class="admin-brand-mark">K<span>.</span></span>
-          <span class="admin-brand-copy"><strong>Khotwa</strong><small>Parent Portal</small></span>
-        </a>
-        <button class="sidebar-toggle" type="button" aria-label="Close navigation panel" aria-controls="admin-sidebar" aria-expanded="true" data-sidebar-toggle>
-          <svg class="collapse-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5"/></svg>
-          <svg class="expand-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m10 7 5 5-5 5"/></svg>
-        </button>
-      </div>
+      <?php portal_sidebar_top(khotwa_url('parent/index.php'), 'Khotwa parent portal home', 'Parent'); ?>
 
       <nav class="admin-nav">
         <section class="nav-group">
@@ -431,20 +423,6 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
         </section>
       </nav>
 
-      <div class="sidebar-footer">
-        <button class="sidebar-language" type="button" data-language-toggle>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
-          <span><strong data-language-current>EN</strong><small data-language-label>AR</small></span>
-        </button>
-        <div class="sidebar-account">
-          <span class="account-avatar"><?= e(strtoupper(substr((string) $user['first_name'], 0, 1))) ?></span>
-          <span class="account-copy">
-            <strong><?= e(trim((string) $user['first_name'] . ' ' . (string) $user['last_name'])) ?></strong>
-            <small>Parent</small>
-          </span>
-          <a href="<?= e(khotwa_url('logout.php')) ?>" aria-label="Log out" title="Log out"><?= parent_icon('logout') ?></a>
-        </div>
-      </div>
     </aside>
 
     <div class="admin-stage">

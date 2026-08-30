@@ -5,6 +5,7 @@ require_once __DIR__ . '/../src/auth.php';
 // The teacher photo upload reuses the same validation, folder, and cleanup the
 // admin panel uses, so a photo added here is identical to one added there.
 require_once __DIR__ . '/../src/admin-data.php';
+require_once __DIR__ . '/../src/portal-ui.php';
 
 $user = require_roles(['teacher']);
 $teacherId = (int) ($user['teacher_id'] ?? 0);
@@ -77,16 +78,7 @@ function render_teacher_sidebar(array $user, string $activeView): void
 {
     ?>
     <aside class="admin-sidebar" id="admin-sidebar" aria-label="Teacher navigation">
-      <div class="sidebar-top">
-        <a class="admin-brand" href="<?= e(khotwa_url('teacher/index.php')) ?>" aria-label="Khotwa teacher portal home">
-          <span class="admin-brand-mark">K<span>.</span></span>
-          <span class="admin-brand-copy"><strong>Khotwa</strong><small>Teacher Portal</small></span>
-        </a>
-        <button class="sidebar-toggle" type="button" aria-label="Close navigation panel" aria-controls="admin-sidebar" aria-expanded="true" data-sidebar-toggle>
-          <svg class="collapse-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
-          <svg class="expand-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
-        </button>
-      </div>
+      <?php portal_sidebar_top(khotwa_url('teacher/index.php'), 'Khotwa teacher portal home', 'Teacher'); ?>
       <nav class="admin-nav">
         <section class="nav-group">
           <h2>My Workspace</h2>
@@ -99,20 +91,6 @@ function render_teacher_sidebar(array $user, string $activeView): void
           <?php endforeach; ?>
         </section>
       </nav>
-      <div class="sidebar-footer">
-        <button class="sidebar-language" type="button" data-language-toggle>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
-          <span><strong data-language-current>EN</strong><small data-language-label>AR</small></span>
-        </button>
-        <div class="sidebar-account">
-          <span class="account-avatar"><?= e(strtoupper(substr((string) $user['first_name'], 0, 1))) ?></span>
-          <span class="account-copy">
-            <strong><?= e(trim((string) $user['first_name'] . ' ' . (string) $user['last_name'])) ?></strong>
-            <small>Teacher</small>
-          </span>
-          <a href="<?= e(khotwa_url('logout.php')) ?>" aria-label="Log out" title="Log out"><?= teacher_icon('logout') ?></a>
-        </div>
-      </div>
     </aside>
     <?php
 }

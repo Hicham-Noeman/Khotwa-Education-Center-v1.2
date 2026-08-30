@@ -1514,26 +1514,6 @@ html[dir="rtl"] .step-watch-play svg {
   transform: translateY(-2px);
 }
 
-.approach-step:nth-of-type(3) .step-watch-play,
-.approach-step:nth-of-type(3) .step-watch-play::after {
-  color: var(--paper);
-  background: var(--pink);
-}
-
-.approach-step:nth-of-type(3) .step-watch-play::after {
-  background: none;
-  color: var(--pink);
-}
-
-.approach-step:nth-of-type(4) .step-watch-play {
-  color: var(--paper);
-  background: var(--green);
-}
-
-.approach-step:nth-of-type(4) .step-watch-play::after {
-  color: var(--green);
-}
-
 @keyframes stepWatchPulse {
   0% { opacity: 0.55; transform: scale(1); }
   70% { opacity: 0; transform: scale(1.9); }
