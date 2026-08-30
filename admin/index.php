@@ -648,6 +648,19 @@ try {
             "SELECT id, name_en, name_ar, logo_path, website_url, sort_order, status
              FROM homepage_partners ORDER BY sort_order, id"
         )->fetchAll();
+    } elseif ($view === 'website-texts') {
+        $pageDescription = 'Every fixed sentence on the public website and the terms page:'
+            . ' headings, buttons, questions and answers, footer wording. Each row carries'
+            . ' the English and the Arabic version of the same text.';
+        $columns = [
+            'text_key' => 'Text', 'section' => 'Section',
+            'value_en' => 'English text', 'value_ar' => 'Arabic text',
+            'sort_order' => 'Order',
+        ];
+        $rows = $pdo->query(
+            'SELECT id, text_key, section, value_en, value_ar, sort_order
+             FROM homepage_texts ORDER BY sort_order, id'
+        )->fetchAll();
     } elseif ($view === 'website-slides') {
         $pageDescription = 'Images and bilingual captions shown as the vision and mission slideshow.';
         $columns = [

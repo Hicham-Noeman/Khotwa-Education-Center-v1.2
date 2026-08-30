@@ -6,6 +6,32 @@ declare(strict_types=1);
 // for a day). Rendered through PHP, khotwa_asset() stamps the file's timestamp on
 // the URL, so an edit is picked up on the next load.
 require_once __DIR__ . '/src/paths.php';
+
+// The wording below is administration's, from the Page Texts table. The seeded
+// defaults stand in whenever the database cannot be reached, so this page still
+// renders in full on a broken connection.
+define('KHOTWA_SKIP_AUTO_BOOTSTRAP', true);
+require_once __DIR__ . '/src/database.php';
+require_once __DIR__ . '/src/homepage-data.php';
+
+$termsTexts = [];
+try {
+    $termsTexts = load_homepage_data(getDatabaseConnection())['texts'] ?? [];
+} catch (Throwable $exception) {
+    // Seeded wording it is.
+}
+
+function terms_e(?string $value): string
+{
+    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+}
+
+function terms_t(string $key): string
+{
+    global $termsTexts;
+
+    return terms_e(homepage_text($termsTexts, $key));
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -34,70 +60,85 @@ require_once __DIR__ . '/src/paths.php';
       </button>
       <a class="back-link" href="<?= htmlspecialchars(khotwa_url('index.php'), ENT_QUOTES) ?>">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg>
-        Back to website
+        <span data-homepage-text="terms_back_link"><?= terms_t('terms_back_link') ?></span>
       </a>
-      <a class="terms-login" href="<?= htmlspecialchars(khotwa_url('login.php'), ENT_QUOTES) ?>">Log in</a>
+      <a class="terms-login" href="<?= htmlspecialchars(khotwa_url('login.php'), ENT_QUOTES) ?>" data-homepage-text="terms_login_link"><?= terms_t('terms_login_link') ?></a>
     </div>
   </header>
 
   <main>
     <section class="terms-hero">
       <div class="terms-orbit" aria-hidden="true"></div>
-      <span class="section-kicker">Clear expectations, shared trust</span>
-      <h1>Terms and<br><em>Conditions.</em></h1>
-      <p>A clear design template for how Khotwa Education Center can explain account access, learning services, privacy, and responsible use.</p>
-      <div class="terms-meta"><span>Design draft</span><span>Last updated: June 12, 2026</span></div>
+      <span class="section-kicker" data-homepage-text="terms_kicker"><?= terms_t('terms_kicker') ?></span>
+      <h1><span data-homepage-text="terms_title_line_1"><?= terms_t('terms_title_line_1') ?></span><br><em data-homepage-text="terms_title_line_2"><?= terms_t('terms_title_line_2') ?></em></h1>
+      <p data-homepage-text="terms_intro"><?= terms_t('terms_intro') ?></p>
+      <div class="terms-meta"><span data-homepage-text="terms_meta_status"><?= terms_t('terms_meta_status') ?></span><span data-homepage-text="terms_meta_updated"><?= terms_t('terms_meta_updated') ?></span></div>
     </section>
 
     <div class="terms-layout">
+      <?php
+      // The anchors are fixed; only the labels beside them are editable.
+      $termsSections = [
+          1 => 'acceptance',
+          2 => 'accounts',
+          3 => 'services',
+          4 => 'conduct',
+          5 => 'privacy',
+          6 => 'changes',
+          7 => 'contact-terms',
+      ];
+      ?>
       <aside class="terms-nav">
-        <strong>On this page</strong>
-        <a href="#acceptance">01. Acceptance</a>
-        <a href="#accounts">02. Accounts</a>
-        <a href="#services">03. Learning services</a>
-        <a href="#conduct">04. Responsible use</a>
-        <a href="#privacy">05. Privacy</a>
-        <a href="#changes">06. Changes</a>
-        <a href="#contact-terms">07. Contact</a>
+        <strong data-homepage-text="terms_nav_heading"><?= terms_t('terms_nav_heading') ?></strong>
+        <?php foreach ($termsSections as $termsIndex => $termsAnchor): ?>
+          <a href="#<?= terms_e($termsAnchor) ?>" data-homepage-text="terms_nav_<?= $termsIndex ?>"><?= terms_t('terms_nav_' . $termsIndex) ?></a>
+        <?php endforeach; ?>
       </aside>
 
       <article class="terms-content">
-        <section id="acceptance">
-          <span>01</span>
-          <div><h2>Acceptance of terms</h2><p>By accessing the Khotwa website or learning portal, users agree to follow these terms and any center policies shared during enrollment. Parents or guardians are responsible for accounts created for learners under the applicable legal age.</p></div>
-        </section>
-        <section id="accounts">
-          <span>02</span>
-          <div><h2>Account access</h2><p>Users should provide accurate information, keep login credentials private, and notify Khotwa if they believe an account has been accessed without permission. Account access may be limited when information is incomplete or portal use creates a security concern.</p></div>
-        </section>
-        <section id="services">
-          <span>03</span>
-          <div><h2>Learning services</h2><p>Programs, schedules, instructors, resources, and learning plans may change to support student needs and center operations. Specific enrollment, payment, cancellation, and attendance conditions should be provided separately for each program.</p></div>
-        </section>
-        <section id="conduct">
-          <span>04</span>
-          <div><h2>Responsible use</h2><p>The portal and its educational materials should be used respectfully and only for their intended learning purpose. Users may not disrupt services, share protected resources without permission, impersonate another person, or attempt to access restricted areas.</p></div>
-        </section>
-        <section id="privacy">
-          <span>05</span>
-          <div><h2>Privacy and learner data</h2><p>Khotwa may collect information needed to provide learning services, communicate with families, and report progress. A production version should explain what data is collected, how it is stored, who can access it, and how users may request corrections or deletion.</p></div>
-        </section>
-        <section id="changes">
-          <span>06</span>
-          <div><h2>Updates to these terms</h2><p>These terms may be updated when services, regulations, or center policies change. The latest version should always display its effective date, and important changes should be communicated through an appropriate channel.</p></div>
-        </section>
-        <section id="contact-terms">
-          <span>07</span>
-          <div><h2>Questions and contact</h2><p>Questions about these terms can be directed to <a href="mailto:khotwacenter.lb@gmail.com">khotwacenter.lb@gmail.com</a> or discussed with the center team during working hours.</p></div>
-        </section>
+        <?php foreach ($termsSections as $termsIndex => $termsAnchor): ?>
+          <section id="<?= terms_e($termsAnchor) ?>">
+            <span><?= terms_e(str_pad((string) $termsIndex, 2, '0', STR_PAD_LEFT)) ?></span>
+            <div>
+              <h2 data-homepage-text="terms_section_<?= $termsIndex ?>_title"><?= terms_t('terms_section_' . $termsIndex . '_title') ?></h2>
+              <?php if ($termsIndex === 7): ?>
+                <?php // The contact line wraps the center's real email address, which is
+                      // kept in Contact & Social rather than repeated in the sentence. ?>
+                <p>
+                  <span data-homepage-text="terms_section_7_body_before"><?= terms_t('terms_section_7_body_before') ?></span>
+                  <a href="mailto:<?= terms_t('team_join_email') ?>" data-contact-link="primary_email"><?= terms_t('team_join_email') ?></a>
+                  <span data-homepage-text="terms_section_7_body_after"><?= terms_t('terms_section_7_body_after') ?></span>
+                </p>
+              <?php else: ?>
+                <p data-homepage-text="terms_section_<?= $termsIndex ?>_body"><?= terms_t('terms_section_' . $termsIndex . '_body') ?></p>
+              <?php endif; ?>
+            </div>
+          </section>
+        <?php endforeach; ?>
       </article>
     </div>
   </main>
 
   <footer class="terms-footer">
-    <p>&copy; 2026 Khotwa Education Center</p>
-    <a href="<?= htmlspecialchars(khotwa_url('login.php'), ENT_QUOTES) ?>">Continue to login <span>&rarr;</span></a>
+    <p data-homepage-text="terms_footer_copyright"><?= terms_t('terms_footer_copyright') ?></p>
+    <a href="<?= htmlspecialchars(khotwa_url('login.php'), ENT_QUOTES) ?>"><span data-homepage-text="terms_footer_link"><?= terms_t('terms_footer_link') ?></span> <span>&rarr;</span></a>
   </footer>
+  <?php // index.js does this for the homepage; this page carries the same few lines. ?>
+  <script>
+    window.KhotwaPageTexts = <?= json_encode(
+        $termsTexts,
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+    ) ?>;
+    document.addEventListener('khotwa:languagechange', (event) => {
+      const language = event.detail?.language || 'en';
+      document.querySelectorAll('[data-homepage-text]').forEach((element) => {
+        const row = window.KhotwaPageTexts[element.dataset.homepageText];
+        if (!row) return;
+        const value = typeof row[language] === 'string' ? row[language] : row.en;
+        if (typeof value === 'string') element.textContent = value;
+      });
+    });
+  </script>
   <script src="<?= htmlspecialchars(khotwa_asset('js/language.js'), ENT_QUOTES) ?>" defer></script>
 </body>
 </html>

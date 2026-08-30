@@ -15,6 +15,7 @@ $homepageData = [
     'contacts' => [],
     'reviews' => [],
     'settings' => [],
+    'texts' => [],
 ];
 $homepageDataLoaded = false;
 
@@ -28,6 +29,20 @@ try {
 function homepage_e(?string $value): string
 {
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+}
+
+/**
+ * An editable sentence, escaped and ready to print.
+ *
+ * The page is always delivered in English - index.js swaps in the Arabic version
+ * of the same key when the visitor switches language - so this only ever reads the
+ * English field, falling back to the seeded wording when the row is missing.
+ */
+function homepage_t(string $key): string
+{
+    global $homepageData;
+
+    return homepage_e(homepage_text($homepageData['texts'] ?? [], $key));
 }
 
 /**
@@ -198,23 +213,23 @@ $homepageRating = $homepageRatingCount > 0
         <?php if ($admissionsBannerVisible): ?>
           <div class="eyebrow hero-eyebrow">
             <span class="pulse-dot"></span>
-            Admissions are now open
+            <span data-homepage-text="hero_eyebrow"><?= homepage_t('hero_eyebrow') ?></span>
           </div>
         <?php endif; ?>
         <h1>
-          <span class="hero-line" data-i18n="heroLineOne">Every step builds</span><br>
-          <span class="hero-line"><span data-i18n="heroArticle">a</span> <span class="changing-word" data-i18n-skip data-words="brighter,stronger,wiser">brighter</span> <span data-i18n="heroFuture">future.</span></span>
+          <span class="hero-line" data-homepage-text="hero_title_line_1"><?= homepage_t('hero_title_line_1') ?></span><br>
+          <span class="hero-line"><span data-homepage-text="hero_title_prefix"><?= homepage_t('hero_title_prefix') ?></span> <span class="changing-word" data-i18n-skip data-homepage-words="hero_title_words" data-words="<?= homepage_t('hero_title_words') ?>"><?= homepage_e(explode(',', html_entity_decode(homepage_t('hero_title_words'), ENT_QUOTES, 'UTF-8'))[0]) ?></span> <span data-homepage-text="hero_title_suffix"><?= homepage_t('hero_title_suffix') ?></span></span>
         </h1>
-        <p>Personalized learning, expert guidance, and purposeful practice for students from Grade 1 till 12.</p>
+        <p data-homepage-text="hero_paragraph"><?= homepage_t('hero_paragraph') ?></p>
         <div class="hero-actions">
           <a class="button button-primary magnetic" href="#approach">
-            See how we teach
+            <span data-homepage-text="hero_button_primary"><?= homepage_t('hero_button_primary') ?></span>
             <span class="play-icon">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z"/></svg>
             </span>
           </a>
           <a class="button button-primary magnetic" href="#programs">
-            Explore our programs
+            <span data-homepage-text="hero_button_secondary"><?= homepage_t('hero_button_secondary') ?></span>
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M5 12h14M13 6l6 6-6 6"/>
             </svg>
@@ -230,8 +245,8 @@ $homepageRating = $homepageRatingCount > 0
           </svg>
         </div>
         <div>
-          <strong>Grade 1 till 12</strong>
-          <span>Support at every stage</span>
+          <strong data-homepage-text="hero_note_title"><?= homepage_t('hero_note_title') ?></strong>
+          <span data-homepage-text="hero_note_subtitle"><?= homepage_t('hero_note_subtitle') ?></span>
         </div>
       </div>
 
@@ -248,25 +263,27 @@ $homepageRating = $homepageRatingCount > 0
       <?php endif; ?>
 
       <a class="scroll-cue" href="#about" aria-label="Scroll to about section">
-        <span>Scroll to discover</span>
+        <span data-homepage-text="hero_scroll_cue"><?= homepage_t('hero_scroll_cue') ?></span>
         <i></i>
       </a>
     </section>
 
     <section class="signal-bar" aria-label="Center highlights">
+      <?php // The six chips are listed twice so the strip can loop without a gap. ?>
       <div class="signal-track">
-        <span><i class="dot orange"></i>Personalized learning</span>
-        <span><i class="spark">✦</i>Academic confidence</span>
-        <span><i class="dot green"></i>Expert educators</span>
-        <span><i class="spark">✦</i>Visible progress</span>
-        <span><i class="dot pink"></i>Active learning</span>
-        <span><i class="spark">✦</i>Future-ready skills</span>
-        <span><i class="dot orange"></i>Personalized learning</span>
-        <span><i class="spark">✦</i>Academic confidence</span>
-        <span><i class="dot green"></i>Expert educators</span>
-        <span><i class="spark">✦</i>Visible progress</span>
-        <span><i class="dot pink"></i>Active learning</span>
-        <span><i class="spark">✦</i>Future-ready skills</span>
+        <?php $signalChips = [
+            ['dot orange', 'signal_chip_1'],
+            ['spark', 'signal_chip_2'],
+            ['dot green', 'signal_chip_3'],
+            ['spark', 'signal_chip_4'],
+            ['dot pink', 'signal_chip_5'],
+            ['spark', 'signal_chip_6'],
+        ]; ?>
+        <?php for ($chipPass = 0; $chipPass < 2; $chipPass++): ?>
+          <?php foreach ($signalChips as [$chipMark, $chipKey]): ?>
+            <span><i class="<?= homepage_e($chipMark) ?>"><?= $chipMark === 'spark' ? '✦' : '' ?></i><span data-homepage-text="<?= homepage_e($chipKey) ?>"><?= homepage_t($chipKey) ?></span></span>
+          <?php endforeach; ?>
+        <?php endfor; ?>
       </div>
     </section>
 
@@ -274,8 +291,8 @@ $homepageRating = $homepageRatingCount > 0
       <div class="section-shell">
         <div class="section-intro" data-reveal>
           <div>
-            <span class="eyebrow dark">Who we are</span>
-            <h2>Learning that moves<br><span>people forward.</span></h2>
+            <span class="eyebrow dark" data-homepage-text="about_eyebrow"><?= homepage_t('about_eyebrow') ?></span>
+            <h2><span data-homepage-text="about_title_line_1"><?= homepage_t('about_title_line_1') ?></span><br><span data-homepage-text="about_title_line_2"><?= homepage_t('about_title_line_2') ?></span></h2>
           </div>
         </div>
 
@@ -323,7 +340,7 @@ $homepageRating = $homepageRatingCount > 0
                 <strong>Human guidance</strong>
                 <span>at the center of every lesson</span>
               </div>
-              <p class="vision-caption-note">“Khotwa” signifies the beginning of every achievement. We believe that sustainable success is built with confidence and clarity, step by step, through a carefully designed educational journey tailored to each learner’s aspirations.</p>
+              <p class="vision-caption-note" data-homepage-text="about_caption_note"><?= homepage_t('about_caption_note') ?></p>
             </figcaption>
             <div class="vision-slider-controls" data-vision-controls hidden>
               <button type="button" aria-label="Previous slide" data-vision-previous>
@@ -344,9 +361,9 @@ $homepageRating = $homepageRatingCount > 0
       <div class="approach-glow glow-two" aria-hidden="true"></div>
       <div class="section-shell">
         <div class="section-intro centered light" data-reveal>
-          <span class="eyebrow">Our approach</span>
-          <h2>Four steps. One clear path<br><span>to real progress.</span></h2>
-          <p>No guesswork. Every learner follows a responsive cycle designed to reveal needs, build understanding, and make growth measurable.</p>
+          <span class="eyebrow" data-homepage-text="approach_eyebrow"><?= homepage_t('approach_eyebrow') ?></span>
+          <h2><span data-homepage-text="approach_title_line_1"><?= homepage_t('approach_title_line_1') ?></span><br><span data-homepage-text="approach_title_line_2"><?= homepage_t('approach_title_line_2') ?></span></h2>
+          <p data-homepage-text="approach_paragraph"><?= homepage_t('approach_paragraph') ?></p>
         </div>
 
         <div class="approach-path" data-reveal>
@@ -435,10 +452,10 @@ $homepageRating = $homepageRatingCount > 0
       <div class="section-shell">
         <div class="section-intro split-intro" data-reveal>
           <div>
-            <span class="eyebrow dark">Our programs</span>
-            <h2>More ways to<br><span>learn and thrive.</span></h2>
+            <span class="eyebrow dark" data-homepage-text="programs_eyebrow"><?= homepage_t('programs_eyebrow') ?></span>
+            <h2><span data-homepage-text="programs_title_line_1"><?= homepage_t('programs_title_line_1') ?></span><br><span data-homepage-text="programs_title_line_2"><?= homepage_t('programs_title_line_2') ?></span></h2>
           </div>
-          <p>From academic support to practical training and creative activities, every program is designed with a clear purpose and an active learning experience.</p>
+          <p data-homepage-text="programs_paragraph"><?= homepage_t('programs_paragraph') ?></p>
         </div>
 
         <div class="program-grid">
@@ -521,8 +538,8 @@ $homepageRating = $homepageRatingCount > 0
         data-homepage-statistics
       >
         <div class="stats-heading" data-reveal>
-          <span class="eyebrow">Khotwa in numbers</span>
-          <h2>Small steps.<br>Big momentum.</h2>
+          <span class="eyebrow" data-homepage-text="stats_eyebrow"><?= homepage_t('stats_eyebrow') ?></span>
+          <h2><span data-homepage-text="stats_title_line_1"><?= homepage_t('stats_title_line_1') ?></span><br><span data-homepage-text="stats_title_line_2"><?= homepage_t('stats_title_line_2') ?></span></h2>
         </div>
         <?php foreach ($statisticItems as $statistic): ?>
           <div class="stat-item" data-reveal>
@@ -543,8 +560,8 @@ $homepageRating = $homepageRatingCount > 0
       <section class="reviews-section section" id="reviews">
         <div class="section-shell">
           <div class="section-intro centered" data-reveal>
-            <span class="eyebrow dark">Parents’ Voices</span>
-            <h2>What parents say<br><span>about Khotwa.</span></h2>
+            <span class="eyebrow dark" data-homepage-text="reviews_eyebrow"><?= homepage_t('reviews_eyebrow') ?></span>
+            <h2><span data-homepage-text="reviews_title_line_1"><?= homepage_t('reviews_title_line_1') ?></span><br><span data-homepage-text="reviews_title_line_2"><?= homepage_t('reviews_title_line_2') ?></span></h2>
             <?php if ($homepageRating !== null): ?>
               <div class="reviews-score" data-i18n-skip>
                 <?= homepage_star_meter($homepageRating) ?>
@@ -608,9 +625,9 @@ $homepageRating = $homepageRatingCount > 0
     <section class="team-section section" id="team">
       <div class="section-shell">
         <div class="section-intro centered" data-reveal>
-          <span class="eyebrow dark">Meet our team</span>
-          <h2>Experts who teach with<br><span>clarity and care.</span></h2>
-          <p>Our educators bring subject expertise, thoughtful guidance, and the belief that every learner can make meaningful progress.</p>
+          <span class="eyebrow dark" data-homepage-text="team_eyebrow"><?= homepage_t('team_eyebrow') ?></span>
+          <h2><span data-homepage-text="team_title_line_1"><?= homepage_t('team_title_line_1') ?></span><br><span data-homepage-text="team_title_line_2"><?= homepage_t('team_title_line_2') ?></span></h2>
+          <p data-homepage-text="team_paragraph"><?= homepage_t('team_paragraph') ?></p>
         </div>
 
         <div class="team-grid" data-homepage-team>
@@ -667,9 +684,9 @@ $homepageRating = $homepageRatingCount > 0
               <span>+</span>
             </div>
             <div>
-              <span>Grow with us</span>
-              <h3>Great educators are always welcome.</h3>
-              <a href="mailto:khotwacenter.lb@gmail.com">Join our team <b>↗</b></a>
+              <span data-homepage-text="team_join_eyebrow"><?= homepage_t('team_join_eyebrow') ?></span>
+              <h3 data-homepage-text="team_join_title"><?= homepage_t('team_join_title') ?></h3>
+              <a href="mailto:<?= homepage_t('team_join_email') ?>"><span data-homepage-text="team_join_link"><?= homepage_t('team_join_link') ?></span> <b>↗</b></a>
             </div>
           </article>
         </div>
@@ -680,10 +697,10 @@ $homepageRating = $homepageRatingCount > 0
       <div class="section-shell">
         <div class="section-intro split-intro" data-reveal>
           <div>
-            <span class="eyebrow dark">Inside Khotwa</span>
-            <h2>Learning looks<br><span>good in action.</span></h2>
+            <span class="eyebrow dark" data-homepage-text="gallery_eyebrow"><?= homepage_t('gallery_eyebrow') ?></span>
+            <h2><span data-homepage-text="gallery_title_line_1"><?= homepage_t('gallery_title_line_1') ?></span><br><span data-homepage-text="gallery_title_line_2"><?= homepage_t('gallery_title_line_2') ?></span></h2>
           </div>
-          <p>An inside look at our dynamic learning spaces, crafted to cultivate focus and empower student collaboration.</p>
+          <p data-homepage-text="gallery_paragraph"><?= homepage_t('gallery_paragraph') ?></p>
         </div>
 
         <div class="gallery-grid" data-homepage-gallery>
@@ -752,58 +769,33 @@ $homepageRating = $homepageRatingCount > 0
     <section class="faq-section section" id="faq">
       <div class="section-shell faq-layout">
         <div class="faq-intro" data-reveal>
-          <span class="eyebrow dark">Questions, answered</span>
-          <h2>Everything you need<br><span>before the first step.</span></h2>
-          <p>Still curious? Our team is ready to learn about your goals and recommend the right place to begin.</p>
-          <a class="text-link" href="#contact">Ask us anything <span>↗</span></a>
+          <span class="eyebrow dark" data-homepage-text="faq_eyebrow"><?= homepage_t('faq_eyebrow') ?></span>
+          <h2><span data-homepage-text="faq_title_line_1"><?= homepage_t('faq_title_line_1') ?></span><br><span data-homepage-text="faq_title_line_2"><?= homepage_t('faq_title_line_2') ?></span></h2>
+          <p data-homepage-text="faq_paragraph"><?= homepage_t('faq_paragraph') ?></p>
+          <a class="text-link" href="#contact"><span data-homepage-text="faq_link"><?= homepage_t('faq_link') ?></span> <span>↗</span></a>
         </div>
 
+        <?php // Five questions, each a row in the Page Texts table. ?>
         <div class="faq-list" data-reveal>
-          <article class="faq-item open">
-            <button type="button" aria-expanded="true">
-              <span>What grades do you support?</span>
-              <i></i>
-            </button>
-            <div class="faq-answer">
-              <p>We support learners from Grade 1 till 12, with age-appropriate programs for foundational learning, school support, and exam preparation.</p>
-            </div>
-          </article>
-          <article class="faq-item">
-            <button type="button" aria-expanded="false">
-              <span>How do you decide where a student should begin?</span>
-              <i></i>
-            </button>
-            <div class="faq-answer">
-              <p>Every journey starts with a conversation and a focused diagnostic assessment. We use the results to build a clear learning plan around the student's current needs and goals.</p>
-            </div>
-          </article>
-          <article class="faq-item">
-            <button type="button" aria-expanded="false">
-              <span>Do you offer individual and group sessions?</span>
-              <i></i>
-            </button>
-            <div class="faq-answer">
-              <p>Yes. Depending on the subject, goal, and learner profile, we offer individual sessions and carefully matched small groups.</p>
-            </div>
-          </article>
-          <article class="faq-item">
-            <button type="button" aria-expanded="false">
-              <span>How do families receive progress updates?</span>
-              <i></i>
-            </button>
-            <div class="faq-answer">
-              <p>Families receive regular feedback on attendance, completed skills, current priorities, and measurable learning progress.</p>
-            </div>
-          </article>
-          <article class="faq-item">
-            <button type="button" aria-expanded="false">
-              <span>Are your activities open to students outside the center?</span>
-              <i></i>
-            </button>
-            <div class="faq-answer">
-              <p>Many workshops, seasonal clubs, and special activities are open to the wider community. Availability may vary by age group and schedule.</p>
-            </div>
-          </article>
+          <?php for ($faqIndex = 1; $faqIndex <= 5; $faqIndex++): ?>
+            <?php
+            $faqQuestion = homepage_t('faq_question_' . $faqIndex);
+            $faqAnswer = homepage_t('faq_answer_' . $faqIndex);
+            if (trim($faqQuestion) === '') {
+                continue;
+            }
+            $faqOpen = $faqIndex === 1;
+            ?>
+            <article class="faq-item<?= $faqOpen ? ' open' : '' ?>">
+              <button type="button" aria-expanded="<?= $faqOpen ? 'true' : 'false' ?>">
+                <span data-homepage-text="faq_question_<?= $faqIndex ?>"><?= $faqQuestion ?></span>
+                <i></i>
+              </button>
+              <div class="faq-answer">
+                <p data-homepage-text="faq_answer_<?= $faqIndex ?>"><?= $faqAnswer ?></p>
+              </div>
+            </article>
+          <?php endfor; ?>
         </div>
       </div>
     </section>
@@ -814,15 +806,15 @@ $homepageRating = $homepageRatingCount > 0
       </div>
       <div class="section-shell contact-inner" data-reveal>
         <div>
-          <span class="eyebrow">Your next step</span>
+          <span class="eyebrow" data-homepage-text="contact_eyebrow"><?= homepage_t('contact_eyebrow') ?></span>
           <?php // The space before "that" is what joins the two halves into one line
                 // once the break is dropped on a phone; at the start of a line the
                 // browser collapses it away, so the wide layout is unchanged. ?>
-          <h2>Let’s build a learning plan<br class="contact-break"> that fits.</h2>
+          <h2><span data-homepage-text="contact_title_line_1"><?= homepage_t('contact_title_line_1') ?></span><br class="contact-break"> <span data-homepage-text="contact_title_line_2"><?= homepage_t('contact_title_line_2') ?></span></h2>
         </div>
         <div class="contact-actions">
           <a class="button button-light magnetic" href="<?= homepage_e($contactWhatsappUrl) ?>" data-contact-link="whatsapp" target="_blank" rel="noopener noreferrer">
-            Contact us now
+            <span data-homepage-text="contact_button"><?= homepage_t('contact_button') ?></span>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </a>
         </div>
@@ -837,7 +829,7 @@ $homepageRating = $homepageRatingCount > 0
           <a class="brand brand-light" href="#home">
             <img class="brand-logo" src="<?= homepage_e(khotwa_url('assets/images/logo-white.svg')) ?>" alt="Khotwa Education Center" width="148" height="71">
           </a>
-          <p>One step at a time, toward stronger skills, greater confidence, and a future full of possibility.</p>
+          <p data-homepage-text="footer_tagline"><?= homepage_t('footer_tagline') ?></p>
           <?php
           $socialTypes = homepage_social_link_types();
           $socialLinks = array_values(array_filter(
@@ -866,20 +858,19 @@ $homepageRating = $homepageRatingCount > 0
 
         <div class="footer-links">
           <div class="footer-explore">
-            <h3>Explore</h3>
-            <a href="#about">About us</a>
-            <a href="#approach">Our approach</a>
-            <a href="#programs">Programs</a>
-            <a href="#team">Our team</a>
+            <h3 data-homepage-text="footer_explore_heading"><?= homepage_t('footer_explore_heading') ?></h3>
+            <?php foreach (['#about' => 1, '#approach' => 2, '#programs' => 3, '#team' => 4] as $exploreHref => $exploreIndex): ?>
+              <a href="<?= homepage_e($exploreHref) ?>" data-homepage-text="footer_explore_<?= $exploreIndex ?>"><?= homepage_t('footer_explore_' . $exploreIndex) ?></a>
+            <?php endforeach; ?>
           </div>
           <div class="footer-programs">
-            <h3>Programs</h3>
-            <a href="#programs">Core Program</a>
-            <a href="#programs">Skills Program</a>
-            <a href="#programs">Enrichment Program</a>
+            <h3 data-homepage-text="footer_programs_heading"><?= homepage_t('footer_programs_heading') ?></h3>
+            <?php for ($programIndex = 1; $programIndex <= 3; $programIndex++): ?>
+              <a href="#programs" data-homepage-text="footer_programs_<?= $programIndex ?>"><?= homepage_t('footer_programs_' . $programIndex) ?></a>
+            <?php endfor; ?>
           </div>
           <div class="footer-visit">
-            <h3>Visit</h3>
+            <h3 data-homepage-text="footer_visit_heading"><?= homepage_t('footer_visit_heading') ?></h3>
             <a href="mailto:khotwacenter.lb@gmail.com" data-contact-link="primary_email">khotwacenter.lb@gmail.com</a>
             <a href="<?= homepage_e($contactPhoneUrl) ?>" data-contact-link="primary_phone"><?= homepage_e($contactPhone) ?></a>
             <a href="<?= homepage_e($contactMapUrl) ?>" data-contact-link="google_map" target="_blank" rel="noopener noreferrer"><?= homepage_e($contactAddress) ?></a>
@@ -888,9 +879,9 @@ $homepageRating = $homepageRatingCount > 0
         </div>
       </div>
       <div class="footer-bottom">
-        <p>© <span id="year"></span> Khotwa Education Center. All rights reserved.</p>
-        <div><a class="footer-login" href="<?= homepage_e(khotwa_url('login.php')) ?>">Log in</a><a href="<?= homepage_e(khotwa_url('terms.php')) ?>">Terms</a></div>
-        <a href="#home">Back to top ↑</a>
+        <p>© <span id="year"></span> <span data-homepage-text="footer_copyright"><?= homepage_t('footer_copyright') ?></span></p>
+        <div><a class="footer-login" href="<?= homepage_e(khotwa_url('login.php')) ?>" data-homepage-text="footer_login"><?= homepage_t('footer_login') ?></a><a href="<?= homepage_e(khotwa_url('terms.php')) ?>" data-homepage-text="footer_terms"><?= homepage_t('footer_terms') ?></a></div>
+        <a href="#home" data-homepage-text="footer_back_to_top"><?= homepage_t('footer_back_to_top') ?></a>
       </div>
     </div>
   </footer>

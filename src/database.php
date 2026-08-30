@@ -14,6 +14,7 @@ declare(strict_types=1);
  */
 
 require_once __DIR__ . '/paths.php';
+require_once __DIR__ . '/homepage-texts.php';
 
 $dbHost = '127.0.0.1';
 // XAMPP's MariaDB runs on 3307 here because a separate Windows "MySQL80" service
@@ -55,7 +56,7 @@ const KHOTWA_CENTER_HOURS_EN = 'Mon-Thu & Sat, 3:00-8:00 PM';
 const KHOTWA_CENTER_HOURS_AR = 'الاثنين–الخميس والسبت، 3:00–8:00 مساءً';
 
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
-const KHOTWA_SCHEMA_VERSION = 23;
+const KHOTWA_SCHEMA_VERSION = 24;
 
 function getDatabaseConnection(): PDO
 {
@@ -116,6 +117,7 @@ function ensureKhotwaSchema(PDO $pdo): void
     seedHomepageContentDefaults($pdo);
     seedHomepageCollectionsDefaults($pdo);
     seedHomepageSettingsDefaults($pdo);
+    seedHomepageTextDefaults($pdo);
     seedManagerAccountDefault($pdo);
     seedExpiationDefaults($pdo);
     $pdo->exec(
@@ -148,6 +150,25 @@ function seedManagerAccountDefault(PDO $pdo): void
         password_hash('manager123', PASSWORD_DEFAULT),
         'Management dashboard and operations account',
     ]);
+}
+
+/**
+ * Adds any seed sentence the table does not carry yet, and never touches one that
+ * is already there: a wording the administration has edited stays edited, while a
+ * key added in a later version still arrives on the next load.
+ */
+function seedHomepageTextDefaults(PDO $pdo): void
+{
+    $statement = $pdo->prepare(
+        'INSERT IGNORE INTO homepage_texts (text_key, section, sort_order, value_en, value_ar)
+         VALUES (?, ?, ?, ?, ?)'
+    );
+
+    foreach (khotwa_homepage_text_defaults() as $row) {
+        // The array is ordered key, section, sort, en, ar - the statement wants the
+        // same order, so it can be passed straight through.
+        $statement->execute([$row[0], $row[1], $row[2], $row[3], $row[4]]);
+    }
 }
 
 function seedHomepageSettingsDefaults(PDO $pdo): void
@@ -1078,6 +1099,22 @@ function createKhotwaTables(PDO $pdo): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
         // Small key/value store for homepage switches such as the admissions banner.
+        // Every fixed sentence on the public pages, so the wording is administration's
+        // to change rather than the code's. Seeded from khotwa_homepage_text_defaults().
+        "CREATE TABLE IF NOT EXISTS homepage_texts (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            text_key VARCHAR(80) NOT NULL,
+            section VARCHAR(40) NOT NULL,
+            value_en TEXT NOT NULL,
+            value_ar TEXT NOT NULL,
+            sort_order SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_homepage_text_key (text_key),
+            INDEX idx_homepage_text_section (section, sort_order)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
         "CREATE TABLE IF NOT EXISTS homepage_settings (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             setting_key VARCHAR(80) NOT NULL,

@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/homepage-texts.php';
+
 /**
  * Homepage counters that are calculated from live data instead of the stored
  * homepage_statistics numbers. The stored number stays as the fallback whenever
@@ -397,6 +399,16 @@ function load_homepage_data(PDO $pdo): array
         $settings[(string) $row['setting_key']] = (string) $row['setting_value'];
     }
 
+    $texts = [];
+    foreach (
+        $pdo->query('SELECT text_key, value_en, value_ar FROM homepage_texts')->fetchAll() as $row
+    ) {
+        $texts[(string) $row['text_key']] = [
+            'en' => (string) $row['value_en'],
+            'ar' => (string) $row['value_ar'],
+        ];
+    }
+
     $metrics = homepage_dynamic_metrics($pdo, $settings);
     $statistics = homepage_apply_dynamic_statistics($statistics, $metrics);
 
@@ -410,6 +422,27 @@ function load_homepage_data(PDO $pdo): array
         'contacts' => $contacts,
         'reviews' => $reviews,
         'settings' => $settings,
+        'texts' => $texts,
         'metrics' => $metrics,
     ];
+}
+
+/**
+ * One editable sentence, in the language asked for.
+ *
+ * Falls back to the seeded wording whenever the row is missing or its field is
+ * empty, so an unfinished translation or an unreachable database never leaves a
+ * hole in the page. $texts is the map load_homepage_data() returns.
+ */
+function homepage_text(array $texts, string $key, string $language = 'en'): string
+{
+    $value = trim((string) ($texts[$key][$language] ?? ''));
+    if ($value !== '') {
+        return $value;
+    }
+
+    // An Arabic field left blank still has English to show rather than nothing.
+    $english = trim((string) ($texts[$key]['en'] ?? ''));
+
+    return $english !== '' ? $english : khotwa_homepage_text_default($key, $language);
 }

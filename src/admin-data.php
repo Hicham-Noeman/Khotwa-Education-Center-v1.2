@@ -21,6 +21,7 @@ function admin_navigation(): array
         'expiation-categories' => ['label' => 'Categories', 'group' => 'Expiations', 'sidebar' => false],
         'age-groups' => ['label' => 'Age Groups', 'group' => 'Expiations', 'sidebar' => false],
         'website-content' => ['label' => 'Website Content', 'group' => 'Website'],
+        'website-texts' => ['label' => 'Page Texts', 'group' => 'Website', 'sidebar' => false],
         'website-slides' => ['label' => 'Vision Slides', 'group' => 'Website', 'sidebar' => false],
         'website-statistics' => ['label' => 'Statistics', 'group' => 'Website', 'sidebar' => false],
         'website-gallery' => ['label' => 'Gallery Images', 'group' => 'Website', 'sidebar' => false],
@@ -45,6 +46,7 @@ function admin_manager_allowed_views(): array
         'expiation-categories',
         'age-groups',
         'website-content',
+        'website-texts',
         'website-slides',
         'website-statistics',
         'website-gallery',
@@ -102,6 +104,7 @@ function admin_view_tables(): array
         'expiation-categories' => 'expiation_categories',
         'age-groups' => 'age_groups',
         'website-content' => 'homepage_content',
+        'website-texts' => 'homepage_texts',
         'website-slides' => 'homepage_slides',
         'website-statistics' => 'homepage_statistics',
         'website-gallery' => 'homepage_gallery_images',
@@ -301,6 +304,7 @@ function admin_workspace_tab_groups(): array
         ],
         [
             'website-content' => 'Website Content',
+            'website-texts' => 'Page Texts',
             'website-reviews' => 'Parent Reviews',
             'website-contacts' => 'Contact & Social',
         ],
@@ -402,6 +406,10 @@ function admin_workspace_url(string $view, array $query = []): string
 function admin_column_label(string $column): string
 {
     $labels = [
+        'text_key' => 'Text',
+        'section' => 'Section',
+        'value_en' => 'English text',
+        'value_ar' => 'Arabic text',
         'photo_path' => 'Photo',
         'image_path' => 'Image',
         'logo_path' => 'Logo',

@@ -9,6 +9,7 @@ const translate = (value) => window.KhotwaI18n?.t(value) || value;
 
 const homepageContentNodes = document.querySelectorAll("[data-homepage-content]");
 let homepageContent = new Map();
+let homepageTexts = {};
 let homepageCollections = {
   slides: [],
   statistics: [],
@@ -390,6 +391,36 @@ const setupPartnerMarquee = () => {
   track.classList.add("is-marquee");
 };
 
+/*
+ * The fixed wording of the page - headings, buttons, questions, footer lines -
+ * lives in the homepage_texts table so the administration owns it. PHP always
+ * delivers the English field; this swaps in the other language's field for the
+ * same key. It runs after language.js has finished its own pass, so a text that
+ * the administration has edited wins over the built-in dictionary.
+ *
+ * An empty field is honoured rather than filled in from English: "future." has
+ * no Arabic half of its own, because the Arabic headline carries it in the words
+ * before it.
+ */
+const renderHomepageTexts = (language) => {
+  document.querySelectorAll("[data-homepage-text]").forEach((element) => {
+    const row = homepageTexts[element.dataset.homepageText];
+    if (!row) return;
+
+    const value = typeof row[language] === "string" ? row[language] : row.en;
+    if (typeof value === "string") element.textContent = value;
+  });
+
+  // The rotating headline word is one row holding a comma-separated list.
+  const word = document.querySelector("[data-homepage-words]");
+  const words = homepageTexts[word?.dataset.homepageWords || ""];
+  const list = words && typeof words[language] === "string" ? words[language].trim() : "";
+  if (word && list !== "") {
+    word.dataset.words = list;
+    word.textContent = list.split(",")[0];
+  }
+};
+
 const renderContacts = (language) => {
   const contacts = new Map(homepageCollections.contacts.map((row) => [row.link_key, row]));
 
@@ -435,6 +466,7 @@ const renderContacts = (language) => {
 };
 
 const renderHomepageCollections = (language = window.KhotwaI18n?.current() || "en") => {
+  renderHomepageTexts(language);
   renderVisionSlides(language);
   renderStatistics(language);
   renderTeam(language);
@@ -460,6 +492,7 @@ const homepageDataPromise = (embeddedHomepageData
       partners: data.partners || [],
       contacts: data.contacts || [],
     };
+    homepageTexts = data.texts || {};
     renderHomepageContent();
     renderHomepageCollections();
   })
