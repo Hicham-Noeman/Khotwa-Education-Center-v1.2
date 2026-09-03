@@ -3865,12 +3865,14 @@ html[dir="rtl"] .qr-download-menu button {
   font-size: 0.68rem;
 }
 
+/* Scoped to the planner: the availability grid has no long day label to
+   swap out, so hiding its <b> would leave the header row blank. */
 @media (max-width: 900px) {
-  .schedule-head-day b {
+  .schedule-planner .schedule-head-day b {
     display: none;
   }
 
-  .schedule-head-day i {
+  .schedule-planner .schedule-head-day i {
     display: block;
   }
 }
@@ -4050,4 +4052,522 @@ html[dir="rtl"] .qr-download-menu button {
    its neighbours floating in the middle of all that space. */
 .website-profile-form .record-form-grid {
   align-items: start;
+}
+
+/* ---------------------------------------------------------------------------
+   Schedule check
+
+   Three stacked panels: the filter form, the shared-availability heatmap, and
+   the wide student table. Everything is scoped to this page so the student
+   planner, which shares the .schedule-* grid classes, keeps its own behaviour.
+   --------------------------------------------------------------------------- */
+
+/* Filter form -------------------------------------------------------------- */
+
+.schedule-filter-note {
+  max-width: 34ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.6;
+  text-align: end;
+}
+
+.schedule-check-filters {
+  display: grid;
+  gap: 18px;
+}
+
+/* The three controls have very different heights - a 48px segmented row beside
+   a 200px checklist - so they hang from a shared top edge rather than trying
+   to find a baseline none of them share. */
+.schedule-check-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.schedule-check-filters fieldset.admin-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  gap: 9px;
+}
+
+/* The field label, with room for the "3 selected" chip on the same line. */
+.filter-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 17px;
+}
+
+/* Nested one level deeper than .admin-field > span, so it restates the label
+   look here instead of inheriting body text at full size. */
+.filter-field-head > span {
+  color: var(--navy);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.filter-count {
+  padding: 2px 9px;
+  border-radius: 999px;
+  color: var(--navy-deep);
+  background: rgba(244, 159, 15, 0.22);
+  font-size: 0.61rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Checklists: grade and school -------------------------------------------- */
+
+.filter-checklist-box {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  /* Grows with a short list and caps before it can stretch the page, so two
+     schools do not sit in the same tall box as twelve grades. */
+  min-height: 132px;
+  max-height: 214px;
+  overflow-y: auto;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--soft);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(34, 63, 107, 0.25) transparent;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.filter-checklist-box::-webkit-scrollbar {
+  width: 9px;
+}
+
+.filter-checklist-box::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: rgba(34, 63, 107, 0.24);
+  background-clip: content-box;
+}
+
+.filter-checklist-box:focus-within {
+  border-color: rgba(34, 63, 107, 0.45);
+  background: var(--paper);
+  box-shadow: 0 0 0 4px rgba(34, 63, 107, 0.06);
+}
+
+.filter-checklist-box label,
+.filter-radio-row label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: var(--navy);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.filter-checklist-box label:hover,
+.filter-radio-row label:hover {
+  background: rgba(34, 63, 107, 0.07);
+}
+
+/* A ticked row is tinted and flagged in the gutter, so the chosen few stay
+   findable while the rest of a long list scrolls past. */
+.filter-checklist-box label:has(input:checked) {
+  background: rgba(34, 63, 107, 0.09);
+  font-weight: 800;
+}
+
+.filter-checklist-box label:not(.filter-checklist-all):has(input:checked)::before {
+  position: absolute;
+  inset-block: 7px;
+  inset-inline-start: 0;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--orange);
+  content: "";
+}
+
+/*
+ * These are checkboxes and radios, not text boxes. Without the reset they
+ * inherit .admin-field input - full width, 45px tall, padded and bordered -
+ * which is what turned each option into a large empty grey block.
+ */
+.filter-checklist-box input,
+.filter-radio-row input {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Drawn by hand rather than left to accent-color, so the tick carries the
+   same radius and navy as the panel around it. */
+.filter-checklist-box input {
+  position: relative;
+  appearance: none;
+  border: 1.5px solid #c4cfdd;
+  border-radius: 6px;
+  background: var(--paper);
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.filter-checklist-box input:checked {
+  border-color: var(--navy);
+  background: var(--navy);
+}
+
+.filter-checklist-box input:checked::after {
+  position: absolute;
+  top: 2px;
+  left: 4.5px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--paper);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  content: "";
+}
+
+.filter-checklist-box input:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
+.filter-checklist-box label span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-checklist-box label small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+/* "All" heads the list and stays put while the options scroll under it. */
+.filter-checklist-all {
+  position: sticky;
+  top: -7px;
+  z-index: 1;
+  margin: -7px -7px 4px;
+  padding: 12px 16px 10px !important;
+  border-bottom: 1px solid var(--line);
+  border-radius: 13px 13px 0 0 !important;
+  background: var(--soft);
+}
+
+.filter-checklist-box:focus-within .filter-checklist-all {
+  background: var(--paper);
+}
+
+.filter-checklist-all:hover {
+  background: rgba(34, 63, 107, 0.07) !important;
+}
+
+/* Category: one segmented control ----------------------------------------- */
+
+/* Three short, mutually exclusive options, so it reads as a single switch.
+   A radio dot next to a filled pill says the same thing twice, so the input
+   is hidden and the label carries the whole hit area. */
+.filter-radio-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  min-height: 48px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--soft);
+}
+
+.filter-radio-row input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  border: 0;
+  background: none;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.filter-radio-row label {
+  flex: 1 1 0;
+  justify-content: center;
+  gap: 0;
+  min-width: 0;
+  padding: 9px 6px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.filter-radio-row label:has(input:checked) {
+  color: var(--paper);
+  background: var(--navy);
+  box-shadow: 0 7px 16px rgba(20, 42, 73, 0.18);
+}
+
+.filter-radio-row label:has(input:focus-visible) {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
+/* The buttons take a row of their own: dropped into the field grid they land
+   in whatever column happens to be left over, which reads as a mistake. */
+.schedule-check-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding-top: 17px;
+  border-top: 1px solid var(--line);
+}
+
+.schedule-check-actions .secondary-action {
+  background: var(--soft);
+}
+
+/* Nothing chosen yet ------------------------------------------------------- */
+
+.schedule-check-empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  max-width: 47ch;
+  margin: 0 auto;
+  padding: 34px 6px 38px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.75;
+  text-align: center;
+}
+
+.schedule-check-empty-mark {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 6px;
+  border-radius: 18px;
+  color: var(--navy);
+  background: rgba(34, 63, 107, 0.07);
+}
+
+.schedule-check-empty-mark svg {
+  width: 26px;
+  height: 26px;
+  stroke-width: 1.7;
+}
+
+.schedule-check-empty strong {
+  color: var(--navy);
+  font-family: var(--display);
+  font-size: 1.2rem;
+  letter-spacing: -0.02em;
+}
+
+/* Shared availability heatmap ---------------------------------------------- */
+
+/* Same seven-column shape as the student planner, but read-only and filled by
+   headcount rather than blocks: green where every matched student is free. */
+.schedule-availability .schedule-day {
+  /* The planner draws blocks over an empty column; here the slots are the fill
+     itself, so the column padding must not space them apart. */
+  display: block;
+  border-color: transparent;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(20, 42, 73, 0.06);
+}
+
+.schedule-availability .schedule-slot {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.55);
+  transition: filter 0.12s ease;
+}
+
+.schedule-availability .schedule-slot.is-hour {
+  border-bottom-color: rgba(255, 255, 255, 0.85);
+}
+
+/* Every slot carries its headcount as a title, so it darkens under the cursor
+   to show it is worth pointing at. */
+.schedule-availability .schedule-slot:hover {
+  filter: brightness(0.92);
+}
+
+.schedule-availability .schedule-slot.is-free {
+  background: #4ea653;
+}
+
+.schedule-availability .schedule-slot.is-some {
+  background: #ffd7a1;
+}
+
+.schedule-availability .schedule-slot.is-all {
+  background: #eef2f7;
+}
+
+.schedule-availability-legend {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin: 0;
+  color: var(--navy);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+/* Swatch and wording travel together, so neither can be read against the
+   wrong neighbour once the row wraps. */
+.schedule-availability-legend .legend-item {
+  display: inline-flex;
+  font-size: 0.68rem;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--soft);
+  white-space: nowrap;
+}
+
+.schedule-availability-legend i {
+  width: 11px;
+  height: 11px;
+  flex: none;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(20, 42, 73, 0.1);
+}
+
+.schedule-availability-legend .is-free { background: #4ea653; }
+.schedule-availability-legend .is-some { background: #ffd7a1; }
+.schedule-availability-legend .is-all { background: #eef2f7; }
+
+/* The windows spelled out, for the days the heatmap shows as usable. */
+.schedule-free-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  gap: 10px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.schedule-free-summary li {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--soft);
+}
+
+/* A day nobody shares is outlined rather than filled, so the usable days
+   carry the weight. */
+.schedule-free-summary li:has(.empty-value) {
+  border-style: dashed;
+  background: var(--paper);
+}
+
+.schedule-free-summary strong {
+  color: var(--navy);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.schedule-free-summary .empty-value {
+  font-size: 0.72rem;
+}
+
+.schedule-free-windows {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.schedule-free-window {
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: #2f7a33;
+  background: rgba(78, 166, 83, 0.16);
+  font-size: 0.72rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Matching students table -------------------------------------------------- */
+
+/* Seven day columns on top of the student details, so the table scrolls
+   sideways rather than crushing the day columns. */
+.schedule-check-table th,
+.schedule-check-table td {
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+/* One chip per school block, stacked: the cells cannot wrap, so laying them
+   out inline would push the table far wider than the screen. */
+.schedule-check-slot {
+  display: block;
+  width: fit-content;
+  margin-bottom: 3px;
+  padding: 2px 8px;
+  border-radius: 7px;
+  color: var(--navy);
+  background: rgba(34, 63, 107, 0.08);
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.65;
+}
+
+.schedule-check-table .table-cell-detail {
+  display: block;
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .schedule-filter-note {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .filter-checklist-box {
+    min-height: 120px;
+    max-height: 182px;
+  }
+
+  .schedule-check-actions .primary-action,
+  .schedule-check-actions .secondary-action {
+    flex: 1 1 auto;
+  }
 }

@@ -644,3 +644,102 @@ const setupTableNavigation = () => {
 };
 
 setupTableNavigation();
+
+/*
+ * Payment amount follows the billing month.
+ *
+ * Entering a payment almost always settles the month in full, so choosing the
+ * month drops that month's outstanding balance into the amount box. It is a
+ * plain default, not a lock: the box stays editable for a part payment, and
+ * once it has been edited by hand a later month change leaves it alone.
+ */
+const setupAmountAutofill = () => {
+  document.querySelectorAll("select[data-fills-amount]").forEach((select) => {
+    const targetName = select.getAttribute("data-fills-amount");
+    const form = select.closest("form");
+    if (!form) return;
+
+    const amountInput = form.querySelector(
+      `[name="fields[${targetName}]"]`
+    );
+    if (!amountInput) return;
+
+    // Once the administrator types their own figure, stop overwriting it.
+    let userEdited = false;
+    amountInput.addEventListener("input", () => {
+      userEdited = true;
+    });
+
+    const balanceOf = () => {
+      const option = select.options[select.selectedIndex];
+      const raw = option ? option.getAttribute("data-balance") : null;
+      if (raw === null || raw === "") return null;
+      const balance = Number.parseFloat(raw);
+      return Number.isFinite(balance) ? balance : null;
+    };
+
+    const applyBalance = () => {
+      if (userEdited) return;
+      const balance = balanceOf();
+      if (balance === null) return;
+      amountInput.value = balance.toFixed(2);
+    };
+
+    select.addEventListener("change", applyBalance);
+
+    // A blank box on a fresh form starts at the selected month's balance.
+    if (amountInput.value.trim() === "" || Number.parseFloat(amountInput.value) === 0) {
+      applyBalance();
+    }
+  });
+};
+
+setupAmountAutofill();
+
+/*
+ * "All" boxes on the multi-choice filters.
+ *
+ * All and the individual boxes are two views of one choice, so they stay in
+ * step: ticking All clears the rest, ticking any of the rest clears All, and
+ * clearing the last one falls back to All. The All box itself is never
+ * submitted - an empty list already means "no restriction" to the server, so
+ * the filter works with JavaScript off too.
+ */
+const setupFilterChecklists = () => {
+  document.querySelectorAll("[data-checklist]").forEach((list) => {
+    const allBox = list.querySelector("[data-checklist-all]");
+    const boxes = Array.from(list.querySelectorAll('input[type="checkbox"]:not([data-checklist-all])'));
+    if (!allBox || boxes.length === 0) return;
+
+    const field = list.closest(".admin-field");
+    const counter = field ? field.querySelector("[data-checklist-count]") : null;
+
+    const syncAll = () => {
+      const chosen = boxes.filter((box) => box.checked).length;
+      allBox.checked = chosen === 0;
+
+      // The chip only earns its space once a subset is actually chosen.
+      if (counter) {
+        counter.hidden = chosen === 0;
+        counter.textContent = chosen + " selected";
+      }
+    };
+
+    allBox.addEventListener("change", () => {
+      if (allBox.checked) {
+        boxes.forEach((box) => {
+          box.checked = false;
+        });
+      } else {
+        // Unticking All on its own would leave nothing selected, which means the
+        // same thing - so it stays ticked rather than becoming a no-op.
+        allBox.checked = true;
+      }
+    });
+
+    boxes.forEach((box) => box.addEventListener("change", syncAll));
+    syncAll();
+  });
+};
+
+setupFilterChecklists();

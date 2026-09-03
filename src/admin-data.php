@@ -11,11 +11,12 @@ function admin_navigation(): array
         'teachers' => ['label' => 'Teachers', 'group' => 'People', 'sidebar' => false],
         'parent-links' => ['label' => 'Parents', 'group' => 'People', 'sidebar' => false],
         'nationalities' => ['label' => 'Nationalities', 'group' => 'People', 'sidebar' => false],
+        'schools' => ['label' => 'Schools', 'group' => 'People', 'sidebar' => false],
         'attendance' => ['label' => 'Attendance', 'group' => 'Academics'],
         'subjects' => ['label' => 'Subjects', 'group' => 'Academics', 'sidebar' => false],
+        'schedule-check' => ['label' => 'Schedule Check', 'group' => 'Academics', 'sidebar' => false],
         'subscriptions' => ['label' => 'Subscriptions', 'group' => 'Finance'],
         'payments' => ['label' => 'Payments', 'group' => 'Finance', 'sidebar' => false],
-        'enrollments' => ['label' => 'Enrollments', 'group' => 'Finance', 'sidebar' => false],
         'warnings' => ['label' => 'Warnings', 'group' => 'Management'],
         'expiations' => ['label' => 'Expiations', 'group' => 'Expiations'],
         'expiation-categories' => ['label' => 'Categories', 'group' => 'Expiations', 'sidebar' => false],
@@ -37,8 +38,9 @@ function admin_manager_allowed_views(): array
         'students',
         'teachers',
         'nationalities',
+        'schools',
+        'schedule-check',
         'subjects',
-        'enrollments',
         'subscriptions',
         'payments',
         'warnings',
@@ -92,9 +94,9 @@ function admin_view_tables(): array
         'students' => 'students',
         'teachers' => 'teachers',
         'nationalities' => 'nationalities',
+        'schools' => 'schools',
         'attendance' => 'student_daily_attendance',
         'subjects' => 'subjects',
-        'enrollments' => 'student_subject_enrollments',
         'subscriptions' => 'student_subscription_months',
         'payments' => 'student_subscription_payments',
         'warnings' => 'student_warnings',
@@ -236,6 +238,8 @@ function admin_icon(string $name): string
         'teachers' => '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
         'attendance' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18m-5 5 2 2 4-4"/>',
         'subjects' => '<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2Z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7Z"/>',
+        'schools' => '<path d="m12 3 9 5-9 5-9-5Z"/><path d="M6 11v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5"/>',
+        'schedule-check' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/><path d="m9 16 2 2 4-4"/>',
         'enrollments' => '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
         'subscriptions' => '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
         'payments' => '<circle cx="12" cy="12" r="9"/><path d="M16 8h-5a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4H8m4-10v12"/>',
@@ -288,15 +292,18 @@ function admin_workspace_tab_groups(): array
             'teachers' => 'Teachers',
             'parent-links' => 'Parents',
             'nationalities' => 'Nationalities',
+            'schools' => 'Schools',
         ],
         [
             'attendance' => 'Attendance',
             'subjects' => 'Subjects',
+            'schedule-check' => 'Schedule Check',
         ],
+        // Enrollments left this strip: a subject enrollment belongs to one student,
+        // so it is edited on that student's profile rather than in a flat list.
         [
             'subscriptions' => 'Subscriptions',
             'payments' => 'Payments',
-            'enrollments' => 'Enrollments',
         ],
         [
             'expiations' => 'Expiations',
@@ -422,11 +429,13 @@ function admin_column_label(string $column): string
         'link_type' => 'Link Type',
         'layout_style' => 'Layout',
         'contact_url' => 'Contact Link',
-        'joined_center_on' => 'At The Center Since',
-        'video_url' => 'Video Link',
         'website_url' => 'Website Link',
         'parent_user_id' => 'Parent User',
         'nationality_id' => 'Nationality',
+        'school_id' => 'School',
+        'school_name' => 'School (old free text)',
+        'grade_name' => 'Grade',
+        'phone_number' => 'Phone Number',
         // The teacher's own name in Arabic, shown on the Arabic side of the website.
         'first_name_ar' => 'First Name AR',
         'last_name_ar' => 'Last Name AR',
@@ -518,11 +527,17 @@ function admin_relation_options(PDO $pdo, string $column): array
         'teacher_subject_id' => "SELECT teacher_subjects.id, CONCAT(TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))), ' / ', subjects.name_en) label FROM teacher_subjects INNER JOIN teachers ON teachers.id = teacher_subjects.teacher_id INNER JOIN subjects ON subjects.id = teacher_subjects.subject_id ORDER BY label",
         'daily_attendance_id' => "SELECT student_daily_attendance.id, CONCAT(student_daily_attendance.attendance_date, ' / ', students.first_name_en, ' ', students.last_name_en) label FROM student_daily_attendance INNER JOIN students ON students.id = student_daily_attendance.student_id ORDER BY student_daily_attendance.attendance_date DESC",
         'subscription_id' => "SELECT student_subscriptions.id, CONCAT(students.first_name_en, ' ', students.last_name_en, ' / ', student_subscriptions.start_date) label FROM student_subscriptions INNER JOIN students ON students.id = student_subscriptions.student_id ORDER BY students.last_name_en, student_subscriptions.start_date DESC",
-        'subscription_month_id' => "SELECT student_subscription_months.id, CONCAT(students.first_name_en, ' ', students.last_name_en, ' / ', student_subscription_months.billing_year, '-', LPAD(student_subscription_months.billing_month, 2, '0')) label FROM student_subscription_months INNER JOIN students ON students.id = student_subscription_months.student_id ORDER BY student_subscription_months.billing_year DESC, student_subscription_months.billing_month DESC",
+        // 'balance' rides along so the payment form can offer the outstanding
+        // amount as the default: entering a payment normally settles the month in
+        // full, and typing the figure by hand was the step that got it wrong.
+        'subscription_month_id' => "SELECT student_subscription_months.id, CONCAT(students.first_name_en, ' ', students.last_name_en, ' / ', student_subscription_months.billing_year, '-', LPAD(student_subscription_months.billing_month, 2, '0'), ' / ', FORMAT(GREATEST(student_subscription_months.expected_amount - student_subscription_months.paid_amount, 0), 2), ' due') label, GREATEST(student_subscription_months.expected_amount - student_subscription_months.paid_amount, 0) balance FROM student_subscription_months INNER JOIN students ON students.id = student_subscription_months.student_id ORDER BY student_subscription_months.billing_year DESC, student_subscription_months.billing_month DESC",
         'parent_user_id' => "SELECT id, CONCAT(first_name, ' ', COALESCE(last_name, ''), ' / ', email) label FROM users WHERE role = 'parent' ORDER BY first_name, last_name, email",
         'category_id' => "SELECT id, CONCAT(name_en, ' / ', name_ar) label FROM expiation_categories ORDER BY sort_order, name_en",
         'age_group_id' => "SELECT id, CONCAT(name_en, ' (', min_age, '-', max_age, ')') label FROM age_groups ORDER BY sort_order, min_age",
         'nationality_id' => "SELECT id, CONCAT(name_en, ' / ', name_ar) label FROM nationalities ORDER BY sort_order, name_en",
+        // The category rides along in the label: two schools in one town often share
+        // a name, and private/public is what tells them apart.
+        'school_id' => "SELECT id, CONCAT(name, ' (', UPPER(LEFT(category, 1)), SUBSTRING(category, 2), ')') label FROM schools WHERE status = 'active' ORDER BY name",
     ];
 
     if (!isset($queries[$column])) {
@@ -740,13 +755,19 @@ function admin_render_field(
         echo '<input type="hidden" name="fields[' . e($name) . ']" value="' . e((string) $value) . '">';
         echo '<input type="text" value="' . e($lockedLabel) . '" disabled' . $languageAttributes . $translationSkipAttribute . '>';
     } elseif ($options !== []) {
-        echo '<select name="fields[' . e($name) . ']"' . $required . '>';
+        // Picking a billing month fills the amount box with what that month still
+        // owes, so the common case - paying a month off in full - is one click.
+        $fillsAmount = $name === 'subscription_month_id' ? ' data-fills-amount="paid_amount"' : '';
+        echo '<select name="fields[' . e($name) . ']"' . $required . $fillsAmount . '>';
         if ($column['IS_NULLABLE'] === 'YES' || $value === '') {
             echo '<option value="">Select an option</option>';
         }
         foreach ($options as $option) {
             $selected = (string) $option['id'] === (string) $value ? ' selected' : '';
-            echo '<option value="' . e((string) $option['id']) . '"' . $selected . '>' . e((string) $option['label']) . '</option>';
+            $balance = isset($option['balance'])
+                ? ' data-balance="' . e((string) $option['balance']) . '"'
+                : '';
+            echo '<option value="' . e((string) $option['id']) . '"' . $selected . $balance . '>' . e((string) $option['label']) . '</option>';
         }
         echo '</select>';
     } elseif ($type === 'tinyint' && str_contains((string) $column['COLUMN_TYPE'], '(1)')) {
@@ -857,13 +878,19 @@ function admin_sync_subscription_month_payment(PDO $pdo, int $subscriptionMonthI
     $expectedAmount = (float) $month['expected_amount'];
     $paidAmount = (float) $payment['paid_amount'];
     $billingType = (string) $month['billing_type'];
+    // Money is compared to the nearest cent. DECIMAL arriving as a PHP float means
+    // a month settled exactly in full can land a hair either side of the expected
+    // figure, and reading "partial" on a fully paid month is the one outcome the
+    // administrator must never see.
+    $difference = round($paidAmount - $expectedAmount, 2);
+
     if ($paidAmount <= 0 && in_array($billingType, ['paused', 'unsubscribed'], true)) {
         $paymentStatus = $billingType;
     } elseif ($paidAmount <= 0) {
         $paymentStatus = 'not_paid';
-    } elseif ($paidAmount < $expectedAmount) {
+    } elseif ($difference < 0.0) {
         $paymentStatus = 'partial_paid';
-    } elseif ($paidAmount > $expectedAmount) {
+    } elseif ($difference > 0.0) {
         $paymentStatus = 'overpaid';
     } else {
         $paymentStatus = 'paid';
@@ -1507,4 +1534,340 @@ function admin_save_student_schedule(PDO $pdo, int $studentId, string $payload):
         $pdo->rollBack();
         throw $exception;
     }
+}
+
+/**
+ * Filter options for the schedule check screen.
+ *
+ * Grades come from what has actually been typed on the academic records rather
+ * than a fixed list, because the grade naming differs between the schools the
+ * center draws from.
+ *
+ * @return array{grades: array<int, string>, schools: array<int, array<string, mixed>>}
+ */
+function admin_schedule_check_filter_options(PDO $pdo): array
+{
+    return [
+        'grades' => array_column($pdo->query(
+            "SELECT DISTINCT grade_name
+             FROM student_academic_records
+             WHERE grade_name IS NOT NULL AND TRIM(grade_name) <> ''
+             ORDER BY grade_name"
+        )->fetchAll(), 'grade_name'),
+        'schools' => $pdo->query(
+            "SELECT id, name, category FROM schools WHERE status = 'active' ORDER BY name"
+        )->fetchAll(),
+    ];
+}
+
+/**
+ * Students matching the schedule filters, each carrying their day-school week.
+ *
+ * This is the day school's timetable only - what hours the child is away. The
+ * center's own attendance lives under Attendance, and nothing is booked or
+ * changed from here: the week is set on the student's profile, and this screen
+ * exists to look it up and take it away as a file.
+ *
+ * The sessions are fetched in one query for the whole result set and stitched
+ * back by student id, rather than a query per student.
+ *
+ * @param array<string, string> $filters q, age_group, grade, school_category, school
+ * @return array<int, array<string, mixed>>
+ */
+function admin_schedule_check_rows(PDO $pdo, array $filters): array
+{
+    $conditions = ["students.status = 'active'"];
+    $parameters = [];
+
+    // Grades and schools are both "one or more": an empty list means no grade
+    // restriction at all, which is what the All box leaves behind.
+    $grades = array_values(array_filter(
+        array_map('trim', (array) ($filters['grades'] ?? [])),
+        static fn (string $value): bool => $value !== ''
+    ));
+    if ($grades !== []) {
+        $conditions[] = 'record.grade_name IN (' . implode(', ', array_fill(0, count($grades), '?')) . ')';
+        array_push($parameters, ...$grades);
+    }
+
+    $category = (string) ($filters['school_category'] ?? '');
+    if (in_array($category, ['private', 'public'], true)) {
+        $conditions[] = 'schools.category = ?';
+        $parameters[] = $category;
+    }
+
+    $schoolIds = array_values(array_filter(
+        array_map('intval', (array) ($filters['schools'] ?? [])),
+        static fn (int $id): bool => $id > 0
+    ));
+    if ($schoolIds !== []) {
+        $conditions[] = 'schools.id IN (' . implode(', ', array_fill(0, count($schoolIds), '?')) . ')';
+        array_push($parameters, ...$schoolIds);
+    }
+
+    $sql =
+        "SELECT students.id,
+                TRIM(CONCAT_WS(' ', students.first_name_en, students.last_name_en)) AS student_name,
+                TIMESTAMPDIFF(YEAR, students.date_of_birth, CURDATE()) AS age,
+                record.grade_name,
+                schools.name AS school_name,
+                schools.category AS school_category
+         FROM students
+         LEFT JOIN student_academic_records record
+                ON record.student_id = students.id AND record.is_current = 1
+         LEFT JOIN schools ON schools.id = record.school_id
+         WHERE " . implode("\n           AND ", $conditions) . "
+         ORDER BY student_name";
+
+    $statement = $pdo->prepare($sql);
+    $statement->execute($parameters);
+    $students = $statement->fetchAll();
+
+    if ($students === []) {
+        return [];
+    }
+
+    $ids = array_map(static fn (array $row): int => (int) $row['id'], $students);
+    $placeholders = implode(', ', array_fill(0, count($ids), '?'));
+
+    $scheduleStatement = $pdo->prepare(
+        "SELECT student_id, day_of_week, start_time, end_time
+         FROM student_school_schedule
+         WHERE student_id IN ({$placeholders})
+         ORDER BY start_time"
+    );
+    $scheduleStatement->execute($ids);
+
+    $schedule = [];
+    foreach ($scheduleStatement->fetchAll() as $slot) {
+        $schedule[(int) $slot['student_id']][(string) $slot['day_of_week']][] = $slot;
+    }
+
+    foreach ($students as $index => $student) {
+        $studentId = (int) $student['id'];
+        $students[$index]['schedule'] = $schedule[$studentId] ?? [];
+    }
+
+    return $students;
+}
+
+/**
+ * "08:30 - 13:00" for one school session, from the stored TIME columns.
+ */
+function admin_schedule_slot_label(array $slot): string
+{
+    $start = substr((string) ($slot['start_time'] ?? ''), 0, 5);
+    $end = substr((string) ($slot['end_time'] ?? ''), 0, 5);
+
+    if ($start === '' && $end === '') {
+        return '';
+    }
+
+    return $end === '' ? $start : $start . '–' . $end;
+}
+
+/**
+ * Sends the filtered school week as a CSV download and ends the request.
+ *
+ * One column per weekday, several sessions in a day joined into the one cell, so
+ * the file opens as the same grid the screen shows. A UTF-8 BOM leads, because
+ * Excel on Windows reads a plain UTF-8 CSV as the system codepage and turns the
+ * Arabic names to mojibake without it.
+ *
+ * @param array<int, array<string, mixed>> $rows from admin_schedule_check_rows()
+ */
+function admin_send_schedule_check_csv(array $rows): never
+{
+    $days = admin_schedule_days();
+
+    // A filename the office can file: schedule-check-2026-09-03.csv
+    $filename = 'schedule-check-' . date('Y-m-d') . '.csv';
+
+    header('Content-Type: text/csv; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: no-store');
+
+    $handle = fopen('php://output', 'wb');
+    fwrite($handle, "\xEF\xBB\xBF");
+
+    $header = ['Student', 'Age', 'Grade', 'School', 'School category'];
+    foreach ($days as $day) {
+        $header[] = ucfirst($day);
+    }
+    fputcsv($handle, $header);
+
+    foreach ($rows as $row) {
+        $line = [
+            (string) $row['student_name'],
+            (string) $row['age'],
+            (string) ($row['grade_name'] ?? ''),
+            (string) ($row['school_name'] ?? ''),
+            $row['school_category'] === null ? '' : ucfirst((string) $row['school_category']),
+        ];
+
+        foreach ($days as $day) {
+            $labels = array_map(
+                'admin_schedule_slot_label',
+                $row['schedule'][$day] ?? []
+            );
+            $line[] = implode(', ', array_filter($labels));
+        }
+
+        fputcsv($handle, $line);
+    }
+
+    fclose($handle);
+    exit;
+}
+
+/**
+ * Overlays every matched student's school week into one availability grid.
+ *
+ * Each half-hour of each day carries how many of them are at their day school
+ * then. Zero means the whole group is free, which is the answer the screen is
+ * really being asked for: when can all of these children be brought in together.
+ *
+ * A session that covers only part of a slot makes the whole slot busy. Rounding
+ * the other way would advertise a free half-hour that somebody is still in class
+ * for, and a schedule that lies in that direction is worse than one that is
+ * merely cautious.
+ *
+ * @param array<int, array<string, mixed>> $rows from admin_schedule_check_rows()
+ * @return array{days: array<int, string>, slots: array<int, int>, busy: array<string, array<int, int>>, total: int, free: array<string, array<int, array{start: int, end: int}>>}
+ */
+function admin_schedule_availability(array $rows): array
+{
+    $window = admin_schedule_window();
+    $days = admin_schedule_days();
+    $slotCount = intdiv($window['end'] - $window['start'], $window['step']);
+
+    $busy = [];
+    foreach ($days as $day) {
+        $busy[$day] = array_fill(0, $slotCount, 0);
+    }
+
+    foreach ($rows as $row) {
+        foreach ($days as $day) {
+            foreach (($row['schedule'][$day] ?? []) as $session) {
+                $start = admin_schedule_minutes($session['start_time'] ?? null);
+                $end = admin_schedule_minutes($session['end_time'] ?? null);
+                if ($start === null || $end === null || $end <= $start) {
+                    continue;
+                }
+
+                $first = intdiv(max($start, $window['start']) - $window['start'], $window['step']);
+                $last = (int) ceil((min($end, $window['end']) - $window['start']) / $window['step']) - 1;
+
+                for ($index = max($first, 0); $index <= min($last, $slotCount - 1); $index++) {
+                    $busy[$day][$index]++;
+                }
+            }
+        }
+    }
+
+    // Runs of consecutive free slots, so the page can name the windows in words
+    // instead of leaving the reader to count squares.
+    $free = [];
+    foreach ($days as $day) {
+        $free[$day] = [];
+        $runStart = null;
+
+        for ($index = 0; $index <= $slotCount; $index++) {
+            $isFree = $index < $slotCount && $busy[$day][$index] === 0;
+
+            if ($isFree && $runStart === null) {
+                $runStart = $index;
+            } elseif (!$isFree && $runStart !== null) {
+                $free[$day][] = [
+                    'start' => $window['start'] + ($runStart * $window['step']),
+                    'end' => $window['start'] + ($index * $window['step']),
+                ];
+                $runStart = null;
+            }
+        }
+    }
+
+    return [
+        'days' => $days,
+        'slots' => range(0, $slotCount - 1),
+        'busy' => $busy,
+        'total' => count($rows),
+        'free' => $free,
+    ];
+}
+
+/**
+ * "07:00–10:00" for one free run, from the minute offsets the grid works in.
+ */
+function admin_schedule_window_label(array $run): string
+{
+    return substr(admin_schedule_time_string((int) $run['start']), 0, 5)
+        . '–' . substr(admin_schedule_time_string((int) $run['end']), 0, 5);
+}
+
+/**
+ * Reads the schedule filters out of the query string.
+ *
+ * Grades and schools arrive as repeated parameters (grade[]=, school[]=), so
+ * they are normalised to plain lists here and every page that needs them - the
+ * screen, the download link, the empty state - reads the same shape.
+ *
+ * @param array<string, mixed> $query usually $_GET
+ * @return array{grades: array<int, string>, school_category: string, schools: array<int, string>}
+ */
+function admin_schedule_check_filters(array $query): array
+{
+    $category = (string) ($query['school_category'] ?? '');
+
+    return [
+        'grades' => array_values(array_filter(
+            array_map('strval', (array) ($query['grade'] ?? [])),
+            static fn (string $value): bool => $value !== ''
+        )),
+        // Anything that is not one of the two categories means "both".
+        'school_category' => in_array($category, ['private', 'public'], true) ? $category : '',
+        'schools' => array_values(array_filter(
+            array_map('strval', (array) ($query['school'] ?? [])),
+            static fn (string $value): bool => $value !== ''
+        )),
+    ];
+}
+
+/**
+ * Whether the administrator has narrowed anything down yet.
+ *
+ * The screen stays empty until they have: the point of it is to compare a chosen
+ * group, and opening it straight onto all several hundred students would show a
+ * shared-availability grid that answers a question nobody asked.
+ *
+ * @param array<string, mixed> $filters from admin_schedule_check_filters()
+ */
+function admin_schedule_check_has_selection(array $filters): bool
+{
+    return $filters['grades'] !== []
+        || $filters['school_category'] !== ''
+        || $filters['schools'] !== [];
+}
+
+/**
+ * The filters flattened back into query-string pairs, for the download link.
+ *
+ * @param array<string, mixed> $filters from admin_schedule_check_filters()
+ * @return array<string, mixed>
+ */
+function admin_schedule_check_query(array $filters): array
+{
+    $query = [];
+
+    if ($filters['grades'] !== []) {
+        $query['grade'] = $filters['grades'];
+    }
+    if ($filters['school_category'] !== '') {
+        $query['school_category'] = $filters['school_category'];
+    }
+    if ($filters['schools'] !== []) {
+        $query['school'] = $filters['schools'];
+    }
+
+    return $query;
 }

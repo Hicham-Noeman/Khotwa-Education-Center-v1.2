@@ -28,6 +28,13 @@ function render_value(string $key, mixed $value): string
         return e(number_format((float) $text, 2));
     }
 
+    // The database keeps ISO strings; every date a user reads is day/month/year.
+    // Matched on the value rather than the column name, because the list views
+    // alias their columns freely (billing_period, last_seen, and so on).
+    if (preg_match('/^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?$/', $text) === 1) {
+        return e(str_contains($text, ':') ? fmt_datetime($text) : fmt_date($text));
+    }
+
     return e($text);
 }
 
@@ -52,6 +59,10 @@ $rows = [];
 $metrics = [];
 $recentAttendance = [];
 $warningGroups = [];
+$scheduleFilters = ['grades' => [], 'school_category' => '', 'schools' => []];
+$scheduleFilterOptions = ['grades' => [], 'schools' => []];
+$scheduleHasSelection = false;
+$scheduleRows = [];
 $websiteCollections = [
     'content' => [],
     'slides' => [],
@@ -437,26 +448,6 @@ try {
              LEFT JOIN student_subject_enrollments ON student_subject_enrollments.subject_id = subjects.id
              GROUP BY subjects.id ORDER BY subjects.name_en"
         )->fetchAll();
-    } elseif ($view === 'enrollments') {
-        $pageDescription = 'Connections between students, teachers, subjects, and academic years.';
-        $columns = [
-            'student_name' => 'Student', 'subject_name' => 'Subject',
-            'teacher_name' => 'Teacher', 'academic_year' => 'Academic year',
-            'start_date' => 'Start date', 'status' => 'Status',
-        ];
-        $rows = $pdo->query(
-            "SELECT student_subject_enrollments.id,
-                    CONCAT(students.first_name_en, ' ', students.last_name_en) student_name,
-                    subjects.name_en subject_name,
-                    TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))) teacher_name,
-                    student_subject_enrollments.academic_year, student_subject_enrollments.start_date,
-                    student_subject_enrollments.status
-             FROM student_subject_enrollments
-             INNER JOIN students ON students.id = student_subject_enrollments.student_id
-             INNER JOIN subjects ON subjects.id = student_subject_enrollments.subject_id
-             INNER JOIN teachers ON teachers.id = student_subject_enrollments.teacher_id
-             ORDER BY student_subject_enrollments.academic_year DESC, student_name"
-        )->fetchAll();
     } elseif ($view === 'subscriptions') {
         $pageDescription = 'Monthly billing status and outstanding amounts for each student.';
         $columns = [
@@ -581,24 +572,64 @@ try {
              GROUP BY nationalities.id
              ORDER BY nationalities.sort_order, nationalities.name_en"
         )->fetchAll();
+    } elseif ($view === 'schedule-check') {
+        $pageDescription = 'Day-school hours and center enrollments side by side, so a session is never booked against a school day.';
+        $scheduleFilters = admin_schedule_check_filters($_GET);
+        $scheduleFilterOptions = admin_schedule_check_filter_options($pdo);
+        $scheduleHasSelection = admin_schedule_check_has_selection($scheduleFilters);
+        $scheduleRows = $scheduleHasSelection
+            ? admin_schedule_check_rows($pdo, $scheduleFilters)
+            : [];
+
+        // The same filtered week, as a file. Sent before any markup, then the
+        // request ends: nothing below this point may echo into the download.
+        if ($scheduleHasSelection && ($_GET['download'] ?? '') === 'csv') {
+            admin_send_schedule_check_csv($scheduleRows);
+        }
+    } elseif ($view === 'schools') {
+        $pageDescription = 'The day schools the students attend. The category decides which timetable the center plans around.';
+        $columns = [
+            'name' => 'School', 'category' => 'Category',
+            'phone_number' => 'Phone', 'email' => 'Email',
+            'student_count' => 'Students', 'status' => 'Status',
+        ];
+        // Only the current academic record counts a student towards a school, so a
+        // child who changed school last year is not counted against both.
+        $rows = $pdo->query(
+            "SELECT schools.id, schools.name, schools.category,
+                    schools.phone_number, schools.email,
+                    COUNT(DISTINCT CASE WHEN r.is_current = 1 THEN r.student_id END) student_count,
+                    schools.status
+             FROM schools
+             LEFT JOIN student_academic_records r ON r.school_id = schools.id
+             GROUP BY schools.id
+             ORDER BY schools.name"
+        )->fetchAll();
     } elseif ($view === 'parent-links') {
         $pageDescription = 'Relationships between parent portal accounts and student records.';
         $columns = [
             'parent_name' => 'Parent', 'parent_email' => 'Email',
-            'student_name' => 'Student',
+            'warning_count' => 'Warnings',
             'status' => 'Status', 'updated_at' => 'Updated',
         ];
+        // The linked student's name is off this list: what the office needs at a
+        // glance is which parents have a warning to discuss. Open the row to see
+        // which child the link belongs to.
         $rows = $pdo->query(
             "SELECT parent_students.id,
                 CONCAT(users.first_name, ' ', COALESCE(users.last_name, '')) AS parent_name,
                 users.email AS parent_email,
-                CONCAT(students.first_name_en, ' ', students.last_name_en) AS student_name,
+                (SELECT COUNT(*)
+                   FROM student_warnings
+                  WHERE student_warnings.student_id = parent_students.student_id
+                    AND student_warnings.status NOT IN ('dismissed', 'resolved')
+                ) AS warning_count,
                 parent_students.status,
                 parent_students.updated_at
              FROM parent_students
              INNER JOIN users ON users.id = parent_students.parent_user_id
              INNER JOIN students ON students.id = parent_students.student_id
-             ORDER BY parent_name, student_name"
+             ORDER BY warning_count DESC, parent_name"
         )->fetchAll();
     } elseif ($view === 'website-content') {
         $pageDescription = 'One creative workspace for homepage writing, slides, statistics, team members, gallery images, and partner logos.';
@@ -744,6 +775,10 @@ try {
         if ($tabView === 'website-content') {
             continue;
         }
+        // Some tabs are a report rather than a table - there is nothing to count.
+        if (!isset($viewTables[$tabView])) {
+            continue;
+        }
         $workspaceTabCounts[$tabView] = (int) $pdo->query(
             'SELECT COUNT(*) FROM ' . admin_quote_identifier($viewTables[$tabView])
         )->fetchColumn();
@@ -811,6 +846,255 @@ try {
               </div>
             </article>
           </section>
+        <?php elseif ($view === 'schedule-check'): ?>
+          <?php $scheduleCheckDays = admin_schedule_days(); ?>
+          <?php $workspaceTabs = $workspaceTabs ?? []; ?>
+          <?php if ($workspaceTabs !== []): ?>
+            <?php // Same strip the table views carry, so this page sits in its group
+                  // instead of looking like a page reached from nowhere. ?>
+            <div class="profile-workspace">
+              <?php admin_render_workspace_tabs($workspaceTabs, $view, $workspaceTabCounts ?? []); ?>
+              <div class="profile-panels">
+          <?php endif; ?>
+          <section class="data-panel">
+            <div class="panel-heading">
+              <div><span>Filters</span><h2>Choose the group</h2></div>
+              <p class="schedule-filter-note">Grade, school category and school all narrow the same list of active students.</p>
+            </div>
+            <form class="schedule-check-filters" method="get" action="<?= e(khotwa_url('admin/index.php')) ?>">
+              <input type="hidden" name="view" value="schedule-check">
+
+              <?php // Three controls of very different heights, so they hang from
+                    // a shared top edge and the buttons get a row of their own. ?>
+              <div class="schedule-check-fields">
+                <fieldset class="admin-field filter-checklist">
+                  <div class="filter-field-head">
+                    <span>Grade</span>
+                    <em class="filter-count" data-checklist-count hidden></em>
+                  </div>
+                  <?php // "All" is a real checkbox rather than an empty option: it has to
+                        // clear the others, and it has to read as chosen when none are. ?>
+                  <div class="filter-checklist-box" data-checklist>
+                    <label class="filter-checklist-all">
+                      <input type="checkbox" data-checklist-all<?= $scheduleFilters['grades'] === [] ? ' checked' : '' ?>>
+                      <span>All grades</span>
+                    </label>
+                    <?php foreach ($scheduleFilterOptions['grades'] as $gradeName): ?>
+                      <label>
+                        <input type="checkbox" name="grade[]" value="<?= e((string) $gradeName) ?>"<?= in_array((string) $gradeName, $scheduleFilters['grades'], true) ? ' checked' : '' ?>>
+                        <span><?= e((string) $gradeName) ?></span>
+                      </label>
+                    <?php endforeach; ?>
+                  </div>
+                </fieldset>
+
+                <fieldset class="admin-field">
+                  <div class="filter-field-head"><span>School category</span></div>
+                  <div class="filter-radio-row">
+                    <label>
+                      <input type="radio" name="school_category" value=""<?= $scheduleFilters['school_category'] === '' ? ' checked' : '' ?>>
+                      <span>Both</span>
+                    </label>
+                    <label>
+                      <input type="radio" name="school_category" value="private"<?= $scheduleFilters['school_category'] === 'private' ? ' checked' : '' ?>>
+                      <span>Private</span>
+                    </label>
+                    <label>
+                      <input type="radio" name="school_category" value="public"<?= $scheduleFilters['school_category'] === 'public' ? ' checked' : '' ?>>
+                      <span>Public</span>
+                    </label>
+                  </div>
+                </fieldset>
+
+                <fieldset class="admin-field filter-checklist">
+                  <div class="filter-field-head">
+                    <span>School</span>
+                    <em class="filter-count" data-checklist-count hidden></em>
+                  </div>
+                  <div class="filter-checklist-box" data-checklist>
+                    <label class="filter-checklist-all">
+                      <input type="checkbox" data-checklist-all<?= $scheduleFilters['schools'] === [] ? ' checked' : '' ?>>
+                      <span>All schools</span>
+                    </label>
+                    <?php foreach ($scheduleFilterOptions['schools'] as $school): ?>
+                      <label>
+                        <input type="checkbox" name="school[]" value="<?= e((string) $school['id']) ?>"<?= in_array((string) $school['id'], $scheduleFilters['schools'], true) ? ' checked' : '' ?>>
+                        <span><?= e($school['name']) ?> <small><?= e(ucfirst((string) $school['category'])) ?></small></span>
+                      </label>
+                    <?php endforeach; ?>
+                  </div>
+                </fieldset>
+              </div>
+
+              <div class="schedule-check-actions">
+                <button class="primary-action" type="submit">Apply filters</button>
+                <a class="secondary-action" href="<?= e(khotwa_url('admin/index.php')) ?>?view=schedule-check">Reset</a>
+              </div>
+            </form>
+          </section>
+
+          <?php if (!$scheduleHasSelection): ?>
+            <section class="data-panel">
+              <div class="schedule-check-empty">
+                <span class="schedule-check-empty-mark" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="4"></rect><path d="M8 3v4M16 3v4M3 11h18"></path></svg>
+                </span>
+                <strong>Choose who to compare.</strong>
+                <span>Pick one or more grades, a school category, or one or more schools, then apply.
+                The shared availability is only meaningful for a group you have chosen.</span>
+              </div>
+            </section>
+          <?php else: ?>
+          <?php if ($scheduleRows !== []): ?>
+            <?php
+            $availability = admin_schedule_availability($scheduleRows);
+            $scheduleWindow = admin_schedule_window();
+            $slotHeight = 26;
+            ?>
+            <section class="data-panel">
+              <div class="panel-heading">
+                <div>
+                  <span>Everyone free</span>
+                  <h2>Shared availability</h2>
+                </div>
+                <p class="schedule-availability-legend">
+                  <span class="legend-item"><i class="is-free"></i>All <?= e((string) $availability['total']) ?> free</span>
+                  <span class="legend-item"><i class="is-some"></i>Some at school</span>
+                  <span class="legend-item"><i class="is-all"></i>All at school</span>
+                </p>
+              </div>
+
+              <div class="schedule-grid schedule-availability" style="--schedule-slot: <?= e((string) $slotHeight) ?>px; --schedule-slots: <?= e((string) count($availability['slots'])) ?>;">
+                <div class="schedule-head">
+                  <span></span>
+                  <?php foreach ($availability['days'] as $day): ?>
+                    <span class="schedule-head-day"><b><?= e(ucfirst(substr($day, 0, 3))) ?></b></span>
+                  <?php endforeach; ?>
+                </div>
+                <div class="schedule-body">
+                  <div class="schedule-axis">
+                    <?php foreach ($availability['slots'] as $index): ?>
+                      <?php $minutes = $scheduleWindow['start'] + ($index * $scheduleWindow['step']); ?>
+                      <?php if ($minutes % 60 === 0): ?>
+                        <span class="schedule-axis-label" style="top: <?= e((string) ($index * $slotHeight)) ?>px;">
+                          <?= e(substr(admin_schedule_time_string($minutes), 0, 5)) ?>
+                        </span>
+                      <?php endif; ?>
+                    <?php endforeach; ?>
+                  </div>
+                  <?php foreach ($availability['days'] as $day): ?>
+                    <div class="schedule-day">
+                      <?php foreach ($availability['slots'] as $index): ?>
+                        <?php
+                        $busyCount = $availability['busy'][$day][$index];
+                        $slotClass = $busyCount === 0
+                            ? 'is-free'
+                            : ($busyCount >= $availability['total'] ? 'is-all' : 'is-some');
+                        $minutes = $scheduleWindow['start'] + ($index * $scheduleWindow['step']);
+                        $slotTitle = ucfirst($day) . ' ' . substr(admin_schedule_time_string($minutes), 0, 5)
+                            . ' · ' . ($busyCount === 0
+                                ? 'everyone free'
+                                : $busyCount . ' of ' . $availability['total'] . ' at school');
+                        ?>
+                        <span
+                          class="schedule-slot <?= e($slotClass) ?><?= $minutes % 60 === 0 ? ' is-hour' : '' ?>"
+                          title="<?= e($slotTitle) ?>"
+                        ></span>
+                      <?php endforeach; ?>
+                    </div>
+                  <?php endforeach; ?>
+                </div>
+              </div>
+
+              <ul class="schedule-free-summary">
+                <?php foreach ($availability['days'] as $day): ?>
+                  <li>
+                    <strong><?= e(ucfirst($day)) ?></strong>
+                    <?php if ($availability['free'][$day] === []): ?>
+                      <span class="empty-value">No window with everyone free</span>
+                    <?php else: ?>
+                      <span class="schedule-free-windows">
+                        <?php foreach ($availability['free'][$day] as $run): ?>
+                          <span class="schedule-free-window"><?= e(admin_schedule_window_label($run)) ?></span>
+                        <?php endforeach; ?>
+                      </span>
+                    <?php endif; ?>
+                  </li>
+                <?php endforeach; ?>
+              </ul>
+            </section>
+          <?php endif; ?>
+
+          <section class="data-panel">
+            <div class="panel-heading">
+              <div>
+                <span>Matching students</span>
+                <h2><?= e((string) count($scheduleRows)) ?> found</h2>
+              </div>
+              <?php if ($scheduleRows !== []): ?>
+                <?php // The download repeats whatever is filtered on screen. ?>
+                <a class="secondary-action" href="<?= e(khotwa_url('admin/index.php')) ?>?<?= e(http_build_query(
+                    ['view' => 'schedule-check', 'download' => 'csv'] + admin_schedule_check_query($scheduleFilters)
+                )) ?>">Download CSV</a>
+              <?php endif; ?>
+            </div>
+            <div class="table-scroll">
+              <table class="schedule-check-table">
+                <thead>
+                  <tr>
+                    <th>Student</th><th>Age</th><th>Grade</th><th>School</th>
+                    <?php foreach ($scheduleCheckDays as $day): ?>
+                      <th><?= e(ucfirst(substr($day, 0, 3))) ?></th>
+                    <?php endforeach; ?>
+                    <th>Schedule</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php if ($scheduleRows === []): ?>
+                    <tr><td class="empty-row" colspan="<?= e((string) (count($scheduleCheckDays) + 5)) ?>">No active students match these filters.</td></tr>
+                  <?php else: ?>
+                    <?php foreach ($scheduleRows as $scheduleRow): ?>
+                      <tr>
+                        <td><strong><?= e((string) $scheduleRow['student_name']) ?></strong></td>
+                        <td><?= e((string) $scheduleRow['age']) ?></td>
+                        <td><?= render_value('grade_name', $scheduleRow['grade_name']) ?></td>
+                        <td>
+                          <?php if ($scheduleRow['school_name'] === null): ?>
+                            <span class="empty-value">—</span>
+                          <?php else: ?>
+                            <?= e((string) $scheduleRow['school_name']) ?>
+                            <small class="table-cell-detail"><?= e(ucfirst((string) $scheduleRow['school_category'])) ?></small>
+                          <?php endif; ?>
+                        </td>
+                        <?php foreach ($scheduleCheckDays as $day): ?>
+                          <td>
+                            <?php $slots = $scheduleRow['schedule'][$day] ?? []; ?>
+                            <?php if ($slots === []): ?>
+                              <span class="empty-value">—</span>
+                            <?php else: ?>
+                              <?php foreach ($slots as $slot): ?>
+                                <small class="schedule-check-slot"><?= e(admin_schedule_slot_label($slot)) ?></small>
+                              <?php endforeach; ?>
+                            <?php endif; ?>
+                          </td>
+                        <?php endforeach; ?>
+                        <td>
+                          <a class="secondary-action" href="<?= e(khotwa_url('admin/person.php')) ?>?type=student&amp;id=<?= e((string) $scheduleRow['id']) ?>#panel-student_school_schedule">
+                            <?= $scheduleRow['schedule'] === [] ? 'Set' : 'Edit' ?>
+                          </a>
+                        </td>
+                      </tr>
+                    <?php endforeach; ?>
+                  <?php endif; ?>
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <?php endif; // schedule-check has a selection ?>
+          <?php if ($workspaceTabs !== []): ?>
+              </div>
+            </div>
+          <?php endif; ?>
         <?php else: ?>
 
           <?php if ($isAdding && $view !== 'parent-links'): ?>

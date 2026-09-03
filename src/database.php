@@ -56,7 +56,7 @@ const KHOTWA_CENTER_HOURS_EN = 'Mon-Thu & Sat, 3:00-8:00 PM';
 const KHOTWA_CENTER_HOURS_AR = 'الاثنين–الخميس والسبت، 3:00–8:00 مساءً';
 
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
-const KHOTWA_SCHEMA_VERSION = 24;
+const KHOTWA_SCHEMA_VERSION = 25;
 
 function getDatabaseConnection(): PDO
 {
@@ -396,6 +396,29 @@ function createKhotwaTables(PDO $pdo): void
             INDEX idx_nationalities_status_order (status, sort_order)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
+        /*
+         * The schools the students attend during the day. Kept as its own table
+         * rather than the free-text school_name it replaces, so that a student can
+         * be found by the school's category: the center's own timetable has to work
+         * around whichever hours the child's day school keeps.
+         */
+        "CREATE TABLE IF NOT EXISTS schools (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            name VARCHAR(150) NOT NULL,
+            category ENUM('private', 'public') NOT NULL DEFAULT 'private',
+            address TEXT NULL,
+            phone_number VARCHAR(30) NULL,
+            email VARCHAR(150) NULL,
+            notes TEXT NULL,
+            status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_schools_name (name),
+            INDEX idx_schools_category_status (category, status),
+            INDEX idx_schools_status_name (status, name)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
         "CREATE TABLE IF NOT EXISTS students (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             first_name_en VARCHAR(100) NOT NULL,
@@ -477,6 +500,7 @@ function createKhotwaTables(PDO $pdo): void
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             student_id BIGINT UNSIGNED NOT NULL,
             academic_year SMALLINT UNSIGNED NOT NULL,
+            school_id BIGINT UNSIGNED NULL,
             school_name VARCHAR(150) NULL,
             grade_name VARCHAR(100) NULL,
             final_total DECIMAL(8,2) NULL,
@@ -488,9 +512,14 @@ function createKhotwaTables(PDO $pdo): void
             PRIMARY KEY (id),
             UNIQUE KEY uq_student_academic_year (student_id, academic_year),
             INDEX idx_academic_student_current (student_id, is_current),
+            INDEX idx_academic_school (school_id),
             CONSTRAINT fk_academic_student
                 FOREIGN KEY (student_id) REFERENCES students(id)
                 ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_academic_school
+                FOREIGN KEY (school_id) REFERENCES schools(id)
+                ON DELETE SET NULL
                 ON UPDATE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
@@ -2117,7 +2146,79 @@ function applyKhotwaMigrations(PDO $pdo): void
         'video_url VARCHAR(255) NULL AFTER point_3_ar'
     );
 
+    khotwa_migrate_schools($pdo);
+
     applyHomepageCopyMigration($pdo);
+}
+
+/**
+ * Introduces the schools table and points the academic records at it.
+ *
+ * The school used to be free text on each academic record, which meant the same
+ * school arrived spelled three different ways and could not be filtered on. Every
+ * distinct name already stored is lifted into a row here and the record relinked,
+ * so nothing an administrator typed is lost. school_name is deliberately kept
+ * alongside school_id: it is the fallback for a record whose school was later
+ * deleted, and it is what the migration matches on when it runs again.
+ */
+function khotwa_migrate_schools(PDO $pdo): void
+{
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS schools (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            name VARCHAR(150) NOT NULL,
+            category ENUM('private', 'public') NOT NULL DEFAULT 'private',
+            address TEXT NULL,
+            phone_number VARCHAR(30) NULL,
+            email VARCHAR(150) NULL,
+            notes TEXT NULL,
+            status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_schools_name (name),
+            INDEX idx_schools_category_status (category, status),
+            INDEX idx_schools_status_name (status, name)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+
+    addColumnIfMissing(
+        $pdo,
+        'student_academic_records',
+        'school_id',
+        'school_id BIGINT UNSIGNED NULL AFTER academic_year'
+    );
+    addIndexIfMissing(
+        $pdo,
+        'student_academic_records',
+        'idx_academic_school',
+        'INDEX idx_academic_school (school_id)'
+    );
+
+    // Lift every school name already typed into a real row. INSERT IGNORE against
+    // the unique name means a second run adds nothing.
+    if (columnExists($pdo, 'student_academic_records', 'school_name')) {
+        $pdo->exec(
+            "INSERT IGNORE INTO schools (name, category)
+             SELECT DISTINCT TRIM(school_name), 'private'
+             FROM student_academic_records
+             WHERE school_name IS NOT NULL AND TRIM(school_name) <> ''"
+        );
+
+        $pdo->exec(
+            "UPDATE student_academic_records AS r
+             INNER JOIN schools AS s ON s.name = TRIM(r.school_name)
+             SET r.school_id = s.id
+             WHERE r.school_id IS NULL"
+        );
+    }
+
+    addForeignKeyIfMissing(
+        $pdo,
+        'student_academic_records',
+        'fk_academic_school',
+        'FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE SET NULL ON UPDATE CASCADE'
+    );
 }
 
 // Raise this when the canonical homepage copy changes and every existing

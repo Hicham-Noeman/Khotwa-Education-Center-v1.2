@@ -436,9 +436,9 @@ $page = $views[$view];
               <?= admin_icon('teachers') ?>
               <span><strong>Edit teachers</strong><small>Open a teacher to add subjects</small></span>
             </a>
-            <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=enrollments&new=1">
+            <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=students">
               <?= admin_icon('enrollments') ?>
-              <span><strong>Assign student</strong><small>Connect students to teacher subjects</small></span>
+              <span><strong>Assign student</strong><small>Open a student to add subject enrollments</small></span>
             </a>
             <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=payments&new=1">
               <?= admin_icon('payments') ?>
