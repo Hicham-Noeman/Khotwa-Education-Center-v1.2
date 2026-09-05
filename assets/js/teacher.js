@@ -310,12 +310,14 @@ const buildSwipeCard = (row, isTop) => {
   const name = row.querySelector(".quick-row-copy strong")?.textContent || "";
   const arabic = row.querySelector(".quick-row-arabic")?.textContent || "";
   const meta = row.querySelector(".quick-row-meta")?.textContent || "";
+  const school = row.querySelector(".quick-row-school")?.textContent || "";
 
   card.innerHTML = `
     <span class="swipe-card-avatar">${avatar}</span>
     <strong class="swipe-card-name">${name}</strong>
     <small class="swipe-card-arabic">${arabic}</small>
     <span class="swipe-card-meta">${meta}</span>
+    ${school ? `<span class="swipe-card-school">${school}</span>` : ""}
   `;
 
   if (!isTop) return card;
@@ -333,23 +335,24 @@ const buildSwipeCard = (row, isTop) => {
     card.style.opacity = "";
   };
 
-  const dismissCard = (status, direction) => {
-    card.style.transition = "transform 0.24s ease, opacity 0.24s ease";
-    card.style.transform = `translateX(${direction * 120}%) rotate(${direction * 12}deg)`;
-    card.style.opacity = "0";
-    window.setTimeout(() => {
-      setRowStatus(row, status);
-      updateMetrics();
-      applyFilters();
-    }, 220);
-  };
+  /*
+   * Every direction advances to the next student.
+   *
+   * The card leaves along the way it was flicked so the gesture still feels
+   * answered, but no direction carries a meaning any more - a swipe cannot
+   * record attendance, only the Came / Absent buttons can. That removes the
+   * misfires the old axis lock caused, where a sideways flick that started
+   * with a little vertical drift silently skipped instead of marking.
+   */
+  const skipCard = () => {
+    const exit = gestureAxis === "horizontal"
+      ? `translateX(${currentX > 0 ? 120 : -120}%) rotate(${currentX > 0 ? 12 : -12}deg)`
+      : `translateY(${currentY > 0 ? 120 : -120}%)`;
 
-  const skipCard = (direction) => {
-    const translateY = direction === "previous" ? 120 : -120;
     card.style.transition = "transform 0.22s ease, opacity 0.22s ease";
-    card.style.transform = `translateY(${translateY}%)`;
+    card.style.transform = exit;
     card.style.opacity = "0";
-    window.setTimeout(() => rotateDeck(direction), 200);
+    window.setTimeout(() => rotateDeck("next"), 200);
   };
 
   card.addEventListener("pointerdown", (event) => {
@@ -377,45 +380,28 @@ const buildSwipeCard = (row, isTop) => {
     if (gestureAxis === "horizontal") {
       const rotate = currentX * 0.04;
       card.style.transform = `translateX(${currentX}px) rotate(${rotate}deg)`;
-      card.classList.toggle("is-swipe-right", currentX > 40);
-      card.classList.toggle("is-swipe-left", currentX < -40);
-      card.classList.remove("is-swipe-up", "is-swipe-down");
     } else {
       card.style.transform = `translateY(${currentY}px)`;
-      card.classList.toggle("is-swipe-up", currentY < -40);
-      card.classList.toggle("is-swipe-down", currentY > 40);
-      card.classList.remove("is-swipe-right", "is-swipe-left");
     }
+
+    const travelled = gestureAxis === "horizontal" ? Math.abs(currentX) : Math.abs(currentY);
+    card.classList.toggle("is-swipe-next", travelled > 40);
   });
 
   const finishSwipe = () => {
     if (!dragging) return;
     dragging = false;
-    card.classList.remove("is-swipe-right", "is-swipe-left", "is-swipe-up", "is-swipe-down");
+    card.classList.remove("is-swipe-next");
 
-    if (gestureAxis === "") {
-      resetPosition();
+    // A tap, or a drag too short to be meant as a swipe, leaves the card alone
+    // rather than moving a student the teacher was only pointing at.
+    const travelled = gestureAxis === "horizontal"
+      ? Math.abs(currentX)
+      : (gestureAxis === "vertical" ? Math.abs(currentY) : 0);
+
+    if (travelled > 90) {
+      skipCard();
       return;
-    }
-
-    if (gestureAxis === "horizontal") {
-      if (currentX > 90) {
-        dismissCard("attended", 1);
-        return;
-      }
-      if (currentX < -90) {
-        dismissCard("missed", -1);
-        return;
-      }
-    } else {
-      if (currentY < -90) {
-        skipCard("next");
-        return;
-      }
-      if (currentY > 90) {
-        skipCard("previous");
-        return;
-      }
     }
     resetPosition();
   };
@@ -424,7 +410,7 @@ const buildSwipeCard = (row, isTop) => {
   card.addEventListener("pointercancel", () => {
     dragging = false;
     gestureAxis = "";
-    card.classList.remove("is-swipe-right", "is-swipe-left", "is-swipe-up", "is-swipe-down");
+    card.classList.remove("is-swipe-next");
     resetPosition();
   });
 
@@ -692,4 +678,88 @@ hydrateAttendanceDraft();
 updateMetrics();
 applyFilters();
 hydrateSubmissionDraft();
+
+/*
+ * Behaviour flag draft.
+ *
+ * The flag form is a plain POST on a tab that teachers leave constantly - to
+ * check a name on Students, or to finish marking attendance - and every one of
+ * those trips used to wipe what they had typed. The fields are mirrored into
+ * localStorage on each keystroke and put back when the tab is next opened, so
+ * a half-written flag survives the round trip.
+ *
+ * The draft is cleared only once the server confirms the flag was filed, which
+ * it does by redirecting back with ?flagged=1.
+ */
+const flagForm = document.querySelector("[data-flag-form]");
+
+if (flagForm) {
+  const flagDraftKey = "khotwa-teacher-flag-draft:" + (document.body.dataset.teacherId || "0");
+  // Only the teacher's own words are worth restoring; the CSRF token is issued
+  // per session and must always come from the freshly rendered form.
+  const flagFields = ["student_id", "reason", "conversation_minutes", "notes"];
+
+  const flagInput = (fieldName) => flagForm.elements.namedItem(fieldName);
+
+  const clearFlagDraft = () => {
+    try {
+      localStorage.removeItem(flagDraftKey);
+    } catch {
+      /* Private browsing can refuse storage; the form still works without it. */
+    }
+  };
+
+  const saveFlagDraft = () => {
+    const draft = {};
+    flagFields.forEach((fieldName) => {
+      const field = flagInput(fieldName);
+      if (field && field.value !== "") draft[fieldName] = field.value;
+    });
+
+    try {
+      if (Object.keys(draft).length === 0) {
+        localStorage.removeItem(flagDraftKey);
+      } else {
+        localStorage.setItem(flagDraftKey, JSON.stringify(draft));
+      }
+    } catch {
+      /* Storage full or blocked - typing must not break because of it. */
+    }
+  };
+
+  const restoreFlagDraft = () => {
+    let draft = null;
+    try {
+      draft = JSON.parse(localStorage.getItem(flagDraftKey) || "null");
+    } catch {
+      draft = null;
+    }
+    if (!draft || typeof draft !== "object") return;
+
+    flagFields.forEach((fieldName) => {
+      const field = flagInput(fieldName);
+      if (!field || typeof draft[fieldName] !== "string") return;
+
+      // A student who is no longer assigned has no option left to select, so
+      // the value is dropped rather than silently selecting nothing.
+      if (field.tagName === "SELECT" && !field.querySelector(`option[value="${CSS.escape(draft[fieldName])}"]`)) {
+        return;
+      }
+      field.value = draft[fieldName];
+    });
+  };
+
+  if (new URLSearchParams(window.location.search).has("flagged")) {
+    clearFlagDraft();
+  } else {
+    restoreFlagDraft();
+  }
+
+  flagForm.addEventListener("input", saveFlagDraft);
+  flagForm.addEventListener("change", saveFlagDraft);
+
+  // The redirect that follows a successful POST clears the draft on arrival;
+  // dropping it here would lose the text if the request fails on the way.
+  flagForm.addEventListener("submit", saveFlagDraft);
+}
 })();

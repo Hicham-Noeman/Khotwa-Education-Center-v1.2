@@ -297,6 +297,7 @@ try {
                     CONCAT(students.first_name_en, ' ', students.last_name_en) AS student_name,
                     CONCAT(students.first_name_ar, ' ', students.last_name_ar) AS student_name_ar,
                     COALESCE(student_academic_records.grade_name, 'Not set') AS grade_name,
+                    COALESCE(schools.name, 'Not set') AS school_name,
                     subjects.name_en AS subject_name,
                     subjects.name_ar AS subject_name_ar,
                     student_subject_enrollments.academic_year,
@@ -309,6 +310,7 @@ try {
              LEFT JOIN student_academic_records
                 ON student_academic_records.student_id = students.id
                 AND student_academic_records.is_current = 1
+             LEFT JOIN schools ON schools.id = student_academic_records.school_id
              LEFT JOIN student_subject_attendance latest_attendance
                 ON latest_attendance.id = (
                     SELECT attendance.id
@@ -358,6 +360,7 @@ try {
                     CONCAT(students.first_name_en, ' ', students.last_name_en) AS student_name,
                     CONCAT(students.first_name_ar, ' ', students.last_name_ar) AS student_name_ar,
                     COALESCE(student_academic_records.grade_name, 'Not set') AS grade_name,
+                    COALESCE(schools.name, 'Not set') AS school_name,
                     subjects.name_en AS subject_name,
                     student_subject_attendance.status AS attendance_status,
                     student_subject_attendance.homework_note,
@@ -369,6 +372,7 @@ try {
              LEFT JOIN student_academic_records
                 ON student_academic_records.student_id = students.id
                 AND student_academic_records.is_current = 1
+             LEFT JOIN schools ON schools.id = student_academic_records.school_id
              INNER JOIN student_daily_attendance
                 ON student_daily_attendance.student_id = students.id
                 AND student_daily_attendance.attendance_date = ?
@@ -473,7 +477,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
               <table data-admin-table>
                 <thead>
                   <tr>
-                    <?php foreach (['Student', 'Arabic name', 'Grade', 'Subject', 'Academic year', 'Latest attendance'] as $index => $label): ?>
+                    <?php foreach (['Student', 'Arabic name', 'Grade', 'School', 'Subject', 'Academic year', 'Latest attendance'] as $index => $label): ?>
                       <th aria-sort="none"><button class="sort-button" type="button" data-sort-column="<?= $index ?>"><?= e($label) ?><span aria-hidden="true"></span></button></th>
                     <?php endforeach; ?>
                   </tr>
@@ -492,6 +496,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                         <td data-sort-value="<?= e((string) $row['student_name']) ?>"><strong><?= e((string) $row['student_name']) ?></strong></td>
                         <td data-sort-value="<?= e((string) $row['student_name_ar']) ?>" class="teacher-arabic-name"><?= e((string) $row['student_name_ar']) ?></td>
                         <td data-sort-value="<?= e((string) $row['grade_name']) ?>"><?= e((string) $row['grade_name']) ?></td>
+                        <td data-sort-value="<?= e((string) $row['school_name']) ?>"><?= e((string) $row['school_name']) ?></td>
                         <td data-sort-value="<?= e((string) $row['subject_name']) ?>"><?= e((string) $row['subject_name']) ?></td>
                         <td data-sort-value="<?= e((string) $row['academic_year']) ?>"><?= e((string) $row['academic_year']) ?></td>
                         <td data-sort-value="<?= e((string) ($row['latest_attendance_date'] ?? '')) ?>">
@@ -551,7 +556,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
 
                 <div class="attendance-swipe-zone" data-swipe-zone>
                   <div class="swipe-stack" data-swipe-stack aria-live="polite"></div>
-                  <p class="swipe-skip-hint">Swipe up for next, down for previous</p>
+                  <p class="swipe-skip-hint">Swipe any direction for the next student &middot; tap Came or Absent to mark</p>
                   <div class="swipe-zone-empty" data-swipe-empty hidden>
                     <strong data-swipe-empty-title>All students marked</strong>
                     <p data-swipe-empty-message>Add any attendance notes, then save.</p>
@@ -589,6 +594,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                         (string) $row['student_name'] . ' '
                         . (string) $row['student_name_ar'] . ' '
                         . (string) $row['grade_name'] . ' '
+                        . (string) $row['school_name'] . ' '
                         . (string) $row['subject_name']
                     );
                     ?>
@@ -605,6 +611,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                         <strong><?= e((string) $row['student_name']) ?></strong>
                         <small class="quick-row-arabic"><?= e((string) $row['student_name_ar']) ?></small>
                         <span class="quick-row-meta"><?= e((string) $row['grade_name']) ?> &middot; <?= e((string) $row['subject_name']) ?></span>
+                        <span class="quick-row-school"><?= e((string) $row['school_name']) ?></span>
                       </div>
                       <div class="quick-row-actions">
                         <button class="quick-status-btn quick-status-came" type="button" data-set-status="attended" aria-pressed="<?= $rowStatus === 'attended' ? 'true' : 'false' ?>">Came</button>
@@ -636,7 +643,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                       <div class="notes-row-head">
                         <div>
                           <strong><?= e((string) $row['student_name']) ?></strong>
-                          <small><?= e((string) $row['subject_name']) ?> &middot; <?= e((string) $row['grade_name']) ?></small>
+                          <small><?= e((string) $row['subject_name']) ?> &middot; <?= e((string) $row['grade_name']) ?> &middot; <?= e((string) $row['school_name']) ?></small>
                         </div>
                         <span class="attendance-state" data-notes-status-label><?= $rowStatus === 'attended' ? 'Came' : ($rowStatus === 'missed' ? 'Did not come' : 'Not marked') ?></span>
                       </div>
@@ -697,7 +704,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                         <span class="quick-row-avatar"><?= e(strtoupper(substr((string) $row['student_name'], 0, 1))) ?></span>
                         <div>
                           <strong><?= e((string) $row['student_name']) ?></strong>
-                          <small><?= e((string) $row['grade_name']) ?> &middot; <?= e((string) $row['subject_name']) ?></small>
+                          <small><?= e((string) $row['grade_name']) ?> &middot; <?= e((string) $row['subject_name']) ?> &middot; <?= e((string) $row['school_name']) ?></small>
                         </div>
                         <span class="attendance-state" data-review-status-label><?= $rowStatus === 'attended' ? 'Came' : ($rowStatus === 'missed' ? 'Absent' : 'Not marked') ?></span>
                       </div>
@@ -734,7 +741,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
               <?php if ($flagStudents === []): ?>
                 <p class="linked-empty">No active students are assigned to your subjects yet.</p>
               <?php else: ?>
-                <form method="post" class="behaviour-flag-form">
+                <form method="post" class="behaviour-flag-form" data-flag-form>
                   <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
                   <label>
                     <span>Student</span>

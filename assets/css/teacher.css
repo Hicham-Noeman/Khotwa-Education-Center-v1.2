@@ -216,24 +216,11 @@
   user-select: none;
 }
 
-.swipe-card.is-swipe-right {
-  border-color: rgba(79, 187, 55, 0.45);
-  box-shadow: 0 18px 40px rgba(79, 187, 55, 0.18);
-}
-
-.swipe-card.is-swipe-left {
-  border-color: rgba(229, 28, 111, 0.4);
-  box-shadow: 0 18px 40px rgba(229, 28, 111, 0.16);
-}
-
-.swipe-card.is-swipe-up {
+/* Neutral in every direction: the green and pink glows used to say "this flick
+   marks the student", which the gesture no longer does. */
+.swipe-card.is-swipe-next {
   border-color: rgba(34, 63, 107, 0.36);
   box-shadow: 0 18px 40px rgba(34, 63, 107, 0.16);
-}
-
-.swipe-card.is-swipe-down {
-  border-color: rgba(244, 159, 15, 0.42);
-  box-shadow: 0 18px 40px rgba(244, 159, 15, 0.16);
 }
 
 .swipe-card::before {
@@ -249,33 +236,12 @@
   transition: opacity 0.12s ease;
 }
 
-.swipe-card.is-swipe-right::before {
-  right: 18px;
-  color: #2f7d22;
-  content: "CAME";
-  opacity: 1;
-  transform: rotate(7deg);
-}
-
-.swipe-card.is-swipe-left::before {
-  left: 18px;
-  color: #a30e4e;
-  content: "ABSENT";
-  opacity: 1;
-  transform: rotate(-7deg);
-}
-
-.swipe-card.is-swipe-up::before {
+/* One hint for every direction: the swipe only ever moves to the next student,
+   so a per-direction label would promise something the gesture cannot do. */
+.swipe-card.is-swipe-next::before {
   right: 18px;
   color: var(--navy);
   content: "NEXT";
-  opacity: 1;
-}
-
-.swipe-card.is-swipe-down::before {
-  left: 18px;
-  color: #925b00;
-  content: "PREVIOUS";
   opacity: 1;
 }
 
@@ -308,6 +274,15 @@
   color: var(--muted);
   font-size: 0.74rem;
   font-weight: 700;
+}
+
+.swipe-card-school {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(34, 63, 107, 0.07);
+  color: var(--navy);
+  font-size: 0.68rem;
+  font-weight: 800;
 }
 
 .swipe-zone-empty {
@@ -438,6 +413,15 @@
   color: var(--muted);
   font-size: 0.66rem;
   font-weight: 700;
+}
+
+/* The school reads as a quieter second line - it is context for the name
+   above, not something the teacher is picking between. */
+.quick-row-school {
+  color: var(--muted);
+  font-size: 0.63rem;
+  font-weight: 700;
+  opacity: 0.85;
 }
 
 .quick-row-actions {
