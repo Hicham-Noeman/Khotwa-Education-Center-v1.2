@@ -801,17 +801,12 @@ try {
   <div class="admin-shell" data-admin-shell>
     <?php admin_render_sidebar($user, $view); ?>
     <div class="admin-stage">
-      <button class="mobile-panel-toggle" type="button" aria-label="Open navigation panel" aria-controls="admin-sidebar" aria-expanded="false" data-mobile-sidebar-toggle>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-      </button>
+      <?php portal_mobile_topbar(khotwa_url('admin/index.php'), 'Khotwa administration home'); ?>
       <main class="admin-content">
         <section class="content-heading">
           <div>
-            <span class="content-kicker"><?= $isManager ? 'Management center' : 'Control center' ?></span>
             <h1><?= e($pageTitle) ?></h1>
-            <p><?= e($pageDescription) ?></p>
           </div>
-          <div class="live-indicator"><span></span><?= $isManager ? 'Editable live data' : 'Live database' ?></div>
         </section>
 
         <?php if ($databaseError !== ''): ?>

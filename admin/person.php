@@ -168,9 +168,7 @@ try {
   <div class="admin-shell" data-admin-shell>
     <?php admin_render_sidebar($user, $activeView); ?>
     <div class="admin-stage">
-      <button class="mobile-panel-toggle" type="button" aria-label="Open navigation panel" aria-controls="admin-sidebar" aria-expanded="false" data-mobile-sidebar-toggle>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-      </button>
+      <?php portal_mobile_topbar(khotwa_url('admin/index.php'), 'Khotwa administration home'); ?>
       <main class="admin-content profile-content">
         <?php if (isset($databaseError)): ?>
           <div class="database-alert"><?= e($databaseError) ?></div>
@@ -184,7 +182,6 @@ try {
                 Back to <?= e(ucfirst($activeView)) ?>
               </a>
               <h1><?= e($personName) ?></h1>
-              <p>Complete <?= e($type) ?> profile with every directly linked database record.</p>
             </div>
             <div class="profile-heading-actions">
               <?php if ($type === 'student' && $studentQrPayloadJson !== null): ?>

@@ -19,14 +19,53 @@ const readChartData = (canvas) => {
   }
 };
 
-const setupCanvas = (canvas, height) => {
+/*
+ * The stylesheet stretches every canvas to fill its box, so the drawing surface
+ * has to be pinned to the same size or the picture is scaled unevenly on its way
+ * to the screen - which is what turned the enrollment ring into an oval. Setting
+ * the CSS size alongside the bitmap keeps the two in step.
+ *
+ * The transform is reset first because this runs again on every resize, and
+ * scale() would otherwise multiply on top of the last pass.
+ */
+const setupCanvas = (canvas, height, fixedWidth) => {
   const ratio = window.devicePixelRatio || 1;
-  const width = Math.max(280, canvas.clientWidth);
+  const width = fixedWidth || Math.max(280, canvas.clientWidth);
   canvas.width = Math.round(width * ratio);
   canvas.height = Math.round(height * ratio);
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
   const context = canvas.getContext("2d");
+  context.setTransform(1, 0, 0, 1, 0, 0);
   context.scale(ratio, ratio);
   return { context, width, height };
+};
+
+/*
+ * What a click landed on. Every chart records the shapes it drew, so a reader can
+ * tap a colour and be told what it stands for rather than guessing at a legend.
+ */
+const chartReadout = (canvas, text) => {
+  const card = canvas.closest(".manager-chart-card, .data-panel");
+  const slot = card && card.querySelector("[data-chart-readout]");
+  if (slot) slot.textContent = text;
+};
+
+const registerSegments = (canvas, segments, hitTest) => {
+  canvas.__segments = segments;
+  canvas.__hitTest = hitTest;
+  if (canvas.__inspectBound) return;
+  canvas.__inspectBound = true;
+  canvas.style.cursor = "pointer";
+  canvas.addEventListener("click", (event) => {
+    const box = canvas.getBoundingClientRect();
+    const hit = canvas.__hitTest(
+      event.clientX - box.left,
+      event.clientY - box.top,
+      canvas.__segments
+    );
+    chartReadout(canvas, hit || "Tap a colour to read its figure.");
+  });
 };
 
 const drawAttendanceChart = (canvas) => {
@@ -84,14 +123,30 @@ const drawAttendanceChart = (canvas) => {
 
 const drawDonutChart = (canvas, caption) => {
   const data = readChartData(canvas);
-  const size = Math.max(190, Math.min(230, canvas.clientWidth || 230));
-  const { context, width, height } = setupCanvas(canvas, size);
+  /*
+   * Square, so the ring is round whatever width the card happens to have.
+   *
+   * The width has to be read off the canvas itself rather than its parent: the
+   * ring shares a grid row with the legend, so the parent is far wider than the
+   * column the canvas actually gets. Clearing the inline size first lets the
+   * grid answer honestly, and squaring to that keeps `max-width: 100%` from
+   * later trimming the width while the height stays put - which is what pulled
+   * the ring into an oval.
+   */
+  canvas.style.width = "";
+  canvas.style.height = "";
+  const available = canvas.clientWidth || canvas.getBoundingClientRect().width || 230;
+  // Never larger than the column it sits in, or it would lap over the legend.
+  const size = Math.min(230, Math.max(90, Math.floor(available) || 230));
+  const { context, width, height } = setupCanvas(canvas, size, size);
   const values = data.values || [];
+  const labels = data.labels || [];
   const total = values.reduce((sum, value) => sum + value, 0);
   const centerX = width / 2;
   const centerY = height / 2;
   const radius = Math.min(width, height) * 0.39;
   const thickness = Math.max(22, radius * 0.32);
+  const segments = [];
   let angle = -Math.PI / 2;
 
   if (total === 0) {
@@ -108,9 +163,29 @@ const drawDonutChart = (canvas, caption) => {
       context.beginPath();
       context.arc(centerX, centerY, radius, angle, nextAngle);
       context.stroke();
+      segments.push({
+        label: labels[index] || `Slice ${index + 1}`,
+        value,
+        share: Math.round((value / total) * 100),
+        from: angle,
+        to: nextAngle,
+      });
       angle = nextAngle;
     });
   }
+
+  /* A click counts as a hit when it lands within the ring's band of radius. */
+  registerSegments(canvas, segments, (x, y, list) => {
+    const dx = x - centerX;
+    const dy = y - centerY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance < radius - thickness / 2 || distance > radius + thickness / 2) return null;
+    let theta = Math.atan2(dy, dx);
+    // The ring starts at twelve o'clock, so angles are measured from there.
+    if (theta < -Math.PI / 2) theta += Math.PI * 2;
+    const found = list.find((s) => theta >= s.from && theta < s.to);
+    return found ? `${found.label}: ${found.value.toLocaleString()} (${found.share}%)` : null;
+  });
 
   context.fillStyle = managerColors.navy;
   context.font = "800 26px Manrope, sans-serif";
@@ -157,6 +232,19 @@ const drawVerticalBars = (canvas, color = managerColors.blue) => {
 
   const slot = chartWidth / Math.max(1, labels.length);
   const barWidth = Math.max(14, Math.min(34, slot * 0.48));
+
+  /* The whole column answers to a tap, not just the painted bar. */
+  registerSegments(
+    canvas,
+    values.map((value, index) => ({ label: labels[index] || `#${index + 1}`, value, index })),
+    (x, y, list) => {
+      if (x < padding.left || x > width - padding.right) return null;
+      const index = Math.floor((x - padding.left) / slot);
+      const found = list[index];
+      return found ? `${found.label}: ${found.value.toLocaleString()}` : null;
+    }
+  );
+
   values.forEach((value, index) => {
     const barHeight = (chartHeight * value) / maximum;
     const x = padding.left + slot * index + (slot - barWidth) / 2;
@@ -191,6 +279,17 @@ const drawHorizontalBars = (canvas, color = managerColors.violet) => {
   const padding = { top: 14, right: 34, bottom: 15, left: 74 };
   const chartWidth = width - padding.left - padding.right;
   const rowHeight = (height - padding.top - padding.bottom) / Math.max(1, labels.length);
+
+  /* Each row answers to a tap across its full width. */
+  registerSegments(
+    canvas,
+    labels.map((label, index) => ({ label, value: values[index] ?? 0 })),
+    (x, y, list) => {
+      const index = Math.floor((y - padding.top) / rowHeight);
+      const found = index >= 0 ? list[index] : null;
+      return found ? `${found.label}: ${found.value.toLocaleString()}` : null;
+    }
+  );
   const maximum = Math.max(1, ...values);
 
   labels.forEach((label, index) => {
@@ -270,7 +369,49 @@ const renderManagerCharts = () => {
   if (gradeCanvas) drawHorizontalBars(gradeCanvas, managerColors.violet);
   if (paymentCanvas) drawPaymentChart(paymentCanvas);
   if (warningCanvas) drawVerticalBars(warningCanvas, managerColors.red);
+
+  const revenueCanvas = document.querySelector("[data-revenue-chart]");
+  const subjectRateCanvas = document.querySelector("[data-subject-rate-chart]");
+  const schoolCanvas = document.querySelector("[data-school-chart]");
+  const enrolmentCanvas = document.querySelector("[data-enrolment-chart]");
+  const trendCanvas = document.querySelector("[data-attendance-trend-chart]");
+  if (revenueCanvas) drawVerticalBars(revenueCanvas, managerColors.green);
+  if (subjectRateCanvas) drawHorizontalBars(subjectRateCanvas, managerColors.cyan);
+  if (schoolCanvas) drawDonutChart(schoolCanvas, "STUDENTS");
+  if (enrolmentCanvas) drawVerticalBars(enrolmentCanvas, managerColors.pink);
+  if (trendCanvas) drawVerticalBars(trendCanvas, managerColors.blue);
 };
+
+/*
+ * Day, week and month are three readings of the same register, all sent down
+ * with the page. Switching only swaps which one the canvas is holding and draws
+ * it again - no request, no wait.
+ */
+const setupAttendancePeriods = () => {
+  const canvas = document.querySelector("[data-attendance-trend-chart]");
+  const buttons = [...document.querySelectorAll("[data-attendance-period]")];
+  if (!canvas || buttons.length === 0) return;
+
+  let periods = {};
+  try {
+    periods = JSON.parse(canvas.dataset.periods || "{}");
+  } catch (error) {
+    return;
+  }
+
+  buttons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const key = button.dataset.attendancePeriod;
+      const next = periods[key];
+      if (!next) return;
+      canvas.dataset.chart = JSON.stringify(next);
+      buttons.forEach((other) => other.classList.toggle("is-active", other === button));
+      drawVerticalBars(canvas, managerColors.blue);
+    });
+  });
+};
+
+setupAttendancePeriods();
 
 let managerResizeFrame;
 window.addEventListener("resize", () => {

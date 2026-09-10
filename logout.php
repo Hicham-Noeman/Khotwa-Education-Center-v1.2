@@ -27,5 +27,9 @@ if (ini_get('session.use_cookies')) {
 }
 
 session_destroy();
-header('Location: ' . khotwa_url('login.php'));
+
+// Signing out lands on the public site rather than the login form: whoever
+// has just left the portal is a visitor again, and the way back in is one
+// tap away in the header.
+header('Location: ' . khotwa_url('index.php'));
 exit;

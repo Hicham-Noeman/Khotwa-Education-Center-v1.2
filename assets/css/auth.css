@@ -1460,13 +1460,121 @@ html[dir="rtl"] .auth-back svg {
     display: block;
   }
 
+  /*
+   * The photograph is not a desktop luxury: on a phone it becomes a band across
+   * the top, carrying the wordmark and the headline over the same scrim, and the
+   * form card lifts onto its lower edge. Hidden, the phone was left with a bare
+   * form on a flat ground and no wordmark at all.
+   */
+  /*
+   * Only the wordmark rides on the photograph, so the band is short. Everything
+   * on this screen is sized to land inside one phone height: the whole point of
+   * a login is the two fields and the button, and a reader should not have to
+   * scroll to reach them.
+   */
   .auth-visual {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    min-height: 0;
+    /*
+     * Everything under the photograph is a fixed 523px, and it overlaps the
+     * photograph by 30. Handing the photograph whatever is left over means the
+     * screen is filled at any phone height without the page ever scrolling -
+     * short screens get a slim band, tall ones a generous one, and there is
+     * never a pool of empty ground under the form.
+     */
+    height: clamp(120px, calc(100svh - 493px), 340px);
+    /*
+     * The public header changes size at 580px, so this follows it in two tiers.
+     * Above 580 its bar is 88px with 16px of padding and a 34px wordmark centred
+     * in the 56px row between - top edge 27px down. The narrow tier is below.
+     * The 44px foot clears the form card, which laps 30px over the photograph.
+     */
+    padding: 27px clamp(24px, 4.5vw, 72px) 44px;
+  }
+
+  /* The greeting is in the card below; up here it was said twice. */
+  .visual-copy,
+  .visual-note,
+  .shape {
     display: none;
   }
 
+  /* Larger than the public header's 34px: this band has the room for it. */
+  .auth-brand-logo {
+    height: 40px;
+  }
+
   .auth-main {
-    min-height: 100svh;
-    padding: 125px 28px 50px;
+    position: relative;
+    z-index: 2;
+    min-height: 0;
+    /* Lifts the card onto the foot of the photograph. */
+    margin-top: -30px;
+    padding: 0 18px 20px;
+    background: none;
+  }
+
+  .auth-card {
+    padding: 20px 18px 18px;
+    border-radius: 24px;
+    background: var(--paper);
+    box-shadow: 0 24px 60px rgba(14, 34, 60, 0.16);
+  }
+
+  /* The strapline only restated the heading above it. */
+  .auth-heading p {
+    display: none;
+  }
+
+  .auth-heading {
+    margin-bottom: 14px;
+  }
+
+  .auth-form {
+    gap: 18px;
+  }
+
+  .field {
+    gap: 12px;
+  }
+
+  .auth-actions {
+    gap: 16px;
+  }
+
+  /*
+   * Only the code is drawn, as on the public site. The long label stays in the
+   * markup for the script to write into.
+   */
+  .auth-language i,
+  .auth-language [data-language-label] {
+    display: none;
+  }
+
+  .input-wrap input {
+    height: 50px;
+  }
+
+  .legal-copy {
+    margin-top: 14px;
+  }
+
+  .auth-support {
+    margin-top: 10px;
+  }
+
+  /* Floats over the photograph rather than over the form. */
+  .auth-language {
+    position: fixed;
+    top: 30px;
+    inset-inline-end: 16px;
+    z-index: 5;
+    color: var(--paper);
+    border-color: rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(10px);
   }
 
   .auth-topbar {
@@ -1506,7 +1614,7 @@ html[dir="rtl"] .auth-back svg {
 @media (max-width: 620px) {
   .auth-main {
     align-content: start;
-    padding: 115px 20px 35px;
+    padding: 0 14px 20px;
   }
 
   .auth-topbar {
@@ -1560,11 +1668,11 @@ html[dir="rtl"] .auth-back svg {
   }
 
   .auth-card {
-    margin-top: 30px;
+    margin-top: 0;
   }
 
   .auth-heading {
-    margin-bottom: 28px;
+    margin-bottom: 14px;
   }
 
   .form-options {
@@ -1665,6 +1773,66 @@ html[dir="rtl"] .auth-back svg {
   .terms-footer {
     display: grid;
     gap: 15px;
+  }
+}
+
+/*
+ * A taller phone leaves the photograph enough room to say something under the
+ * wordmark. Kept to a height query rather than a width one: the band is sized
+ * from what is left after the form, so it is the height of the screen that
+ * decides whether there is space, not how wide it is. Two lines of a 2.6rem
+ * headline plus its supporting line need about 126px, which a screen shorter
+ * than 760px cannot spare - below that the wordmark has the band to itself.
+ */
+@media (max-width: 900px) and (min-height: 760px) {
+  .auth-visual {
+    justify-content: space-between;
+    /* Deeper foot than the 44px that merely clears the card, so the words sit
+       up in the photograph rather than against the edge of the form. */
+    padding-bottom: 60px;
+  }
+
+  .visual-copy {
+    display: block;
+    position: static;
+    max-width: none;
+    margin: 0;
+    padding-right: 0;
+  }
+
+  .visual-copy h1 {
+    margin: 0 0 8px;
+    font-size: clamp(1.9rem, 8.5vw, 2.6rem);
+    line-height: 1.12;
+  }
+
+  /* Wider measure keeps the supporting line to two rows at this size. */
+  .visual-copy p {
+    display: block;
+    max-width: 40ch;
+    font-size: 0.84rem;
+    line-height: 1.45;
+  }
+
+  /* The eyebrow was asked for earlier; the headline carries the line now. */
+  .mini-label {
+    display: none;
+  }
+}
+
+/*
+ * The narrow tier of the public header: at 580px its bar grows to 92px with
+ * 30px above and 12px below, and the wordmark drops to 22px - top edge 44px
+ * down, hard against a 16px margin. The login photograph follows it.
+ */
+@media (max-width: 580px) {
+  .auth-visual {
+    padding-top: 44px;
+    padding-inline: 16px;
+  }
+
+  .auth-brand-logo {
+    height: 40px;
   }
 }
 

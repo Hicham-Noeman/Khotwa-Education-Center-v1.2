@@ -666,12 +666,279 @@
     ,"Receipt Number": "رقم الإيصال"
     ,"Must Change Password": "يجب تغيير كلمة المرور"
     ,"Select an option": "اختر خياراً"
+    /*
+     * Behind the login. Everything above is the public site; these are the
+     * labels, empty states and helper lines of the four portals, with the
+     * parent portal covered end to end.
+     */
+    ,"Academic years": "السنوات الدراسية"
+    ,"Academic": "أكاديمي"
+    ,"Active assignments": "الإسنادات النشطة"
+    ,"Active subjects for selected child": "المواد النشطة للطالب المحدد"
+    ,"Active subjects": "المواد النشطة"
+    ,"Add any attendance notes, then save.": "أضف ملاحظات الحضور ثم احفظ."
+    ,"Add attendance and homework notes for students you already marked. Attendance status is shown read-only here.": "أضف ملاحظات الحضور والواجبات للطلاب الذين سجّلت حضورهم. حالة الحضور معروضة للقراءة فقط هنا."
+    ,"Add notes": "إضافة ملاحظات"
+    ,"Age": "العمر"
+    ,"All absent": "الجميع غائب"
+    ,"All at school": "الجميع في المدرسة"
+    ,"All came": "الجميع حضر"
+    ,"All grades": "كل الصفوف"
+    ,"All schools": "كل المدارس"
+    ,"All students marked": "تم تسجيل جميع الطلاب"
+    ,"Apply filters": "تطبيق عوامل التصفية"
+    ,"Approve the reviews families submit from the parent portal to publish them on the homepage.": "وافق على التقييمات التي ترسلها العائلات من بوابة أولياء الأمور لنشرها على الصفحة الرئيسية."
+    ,"Approve": "موافقة"
+    ,"Arabic content": "المحتوى بالعربية"
+    ,"Assigned Students": "الطلاب المسندون"
+    ,"Assigned students": "الطلاب المسندون"
+    ,"At the center since": "في المركز منذ"
+    ,"Attendance activity": "نشاط الحضور"
+    ,"Attendance note": "ملاحظة الحضور"
+    ,"Attendance rate": "نسبة الحضور"
+    ,"Back to attendance": "العودة إلى الحضور"
+    ,"Behavior": "السلوك"
+    ,"Behaviour": "السلوك"
+    ,"Both": "كلاهما"
+    ,"Came": "حضر"
+    ,"Certifications in Arabic": "الشهادات بالعربية"
+    ,"Choose an expiation for your child": "اختر إجراءً تصحيحياً لطفلك"
+    ,"Choose the group": "اختر المجموعة"
+    ,"Choose who to compare.": "اختر من تريد المقارنة بينهم."
+    ,"Chosen expiation": "الإجراء المختار"
+    ,"Close": "إغلاق"
+    ,"Content settings": "إعدادات المحتوى"
+    ,"Control where this block appears and whether it is visible on the homepage.": "تحكّم بمكان ظهور هذا القسم وبإظهاره على الصفحة الرئيسية."
+    ,"Current averages": "المعدلات الحالية"
+    ,"Daily attendance is managed by administration. Teachers submit subject attendance, lesson notes, and homework only.": "الحضور اليومي تديره الإدارة. يسجّل المعلّمون حضور المواد وملاحظات الدروس والواجبات فقط."
+    ,"Daily notes": "الملاحظات اليومية"
+    ,"Day": "يوم"
+    ,"Directory": "الدليل"
+    ,"Dismiss": "تجاهل"
+    ,"Download CSV": "تنزيل ملف CSV"
+    ,"Download JPG": "تنزيل JPG"
+    ,"Download PNG": "تنزيل PNG"
+    ,"Draft changes are saved automatically. Review them before committing to the database.": "تُحفظ التعديلات كمسودة تلقائياً. راجعها قبل اعتمادها في قاعدة البيانات."
+    ,"Each collection has its own visual language, while every edit stays connected to the same live homepage.": "لكل مجموعة طابعها البصري الخاص، بينما يبقى كل تعديل مرتبطاً بالصفحة الرئيسية نفسها."
+    ,"Edit content": "تعديل المحتوى"
+    ,"Edit image": "تعديل الصورة"
+    ,"Edit record": "تعديل السجل"
+    ,"Edit slide": "تعديل الشريحة"
+    ,"Edit": "تعديل"
+    ,"Edited in the Assigned subjects section.": "يُعدَّل من قسم المواد المسندة."
+    ,"English content": "المحتوى بالإنجليزية"
+    ,"Enrolments started": "التسجيلات المستجدة"
+    ,"Every stored field for this record is shown below.": "تظهر أدناه جميع الحقول المخزّنة لهذا السجل."
+    ,"Everyone free": "الجميع متفرّغ"
+    ,"Family dashboard": "لوحة العائلة"
+    ,"Family open balance": "الرصيد المستحق على العائلة"
+    ,"Filter by first letter": "التصفية بالحرف الأول"
+    ,"Filters": "عوامل التصفية"
+    ,"Final save all": "حفظ نهائي للكل"
+    ,"Final validation": "التحقق النهائي"
+    ,"Flags I raised": "التنبيهات التي رفعتها"
+    ,"Founding date": "تاريخ التأسيس"
+    ,"Full name (AR)": "الاسم الكامل (عربي)"
+    ,"Full name (EN)": "الاسم الكامل (إنجليزي)"
+    ,"Full record": "السجل الكامل"
+    ,"Grade": "الصف"
+    ,"Grade, school category and school all narrow the same list of active students.": "الصف وفئة المدرسة والمدرسة تُضيّق جميعها القائمة نفسها من الطلاب النشطين."
+    ,"Grades distribution": "توزيع المعدلات"
+    ,"Growth": "النمو"
+    ,"Homepage banner": "شريط الصفحة الرئيسية"
+    ,"Homepage studio": "استوديو الصفحة الرئيسية"
+    ,"Homework note": "ملاحظة الواجب"
+    ,"Homework": "الواجبات"
+    ,"Intake": "الالتحاق"
+    ,"Issue warning": "إصدار إنذار"
+    ,"JPEG, PNG, GIF, or WebP up to 8 MB. A new picture replaces the current one.": "JPEG أو PNG أو GIF أو WebP بحجم أقصاه 8 ميغابايت. الصورة الجديدة تستبدل الحالية."
+    ,"Last 14 days": "آخر 14 يوماً"
+    ,"Latest attendance": "آخر حضور"
+    ,"Linked children": "الأبناء المرتبطون"
+    ,"Logout": "تسجيل الخروج"
+    ,"Main daily attendance is not changed in this screen. This submission saves subject attendance entries only.": "لا يُعدَّل الحضور اليومي الأساسي في هذه الشاشة. هذا الإرسال يحفظ سجلات حضور المواد فقط."
+    ,"Mark attendance in Quick mark first, then come back here to add notes.": "سجّل الحضور من التسجيل السريع أولاً، ثم عد إلى هنا لإضافة الملاحظات."
+    ,"Mark completed & remove": "تحديد كمكتمل وإزالة"
+    ,"Matching students": "الطلاب المطابقون"
+    ,"Money collected": "المبالغ المحصّلة"
+    ,"Month": "شهر"
+    ,"My Children": "أبنائي"
+    ,"My Subjects": "موادي"
+    ,"My Workspace": "مساحة عملي"
+    ,"My flags": "تنبيهاتي"
+    ,"My roster": "قائمة طلابي"
+    ,"New flag": "تنبيه جديد"
+    ,"No active students are assigned to this teacher.": "لا يوجد طلاب نشطون مسندون إلى هذا المعلّم."
+    ,"No active students are assigned to your subjects yet.": "لا يوجد طلاب نشطون مسندون إلى موادك بعد."
+    ,"No active students match these filters.": "لا يوجد طلاب نشطون يطابقون عوامل التصفية هذه."
+    ,"No active subject enrollments.": "لا توجد تسجيلات مواد نشطة."
+    ,"No assigned students match this search.": "لا يوجد طلاب مسندون يطابقون هذا البحث."
+    ,"No attendance data has been recorded yet.": "لم تُسجَّل أي بيانات حضور بعد."
+    ,"No attendance has been recorded yet.": "لم يُسجَّل أي حضور بعد."
+    ,"No billing records yet.": "لا توجد سجلات فوترة بعد."
+    ,"No enrolment start dates are recorded yet.": "لم تُسجَّل تواريخ بدء التسجيل بعد."
+    ,"No expiations are available for this age group yet. Please contact the administration.": "لا تتوفر إجراءات تصحيحية لهذه الفئة العمرية بعد. يرجى التواصل مع الإدارة."
+    ,"No grade averages are available yet.": "لا تتوفر معدلات بعد."
+    ,"No homework notes yet.": "لا توجد ملاحظات واجبات بعد."
+    ,"No matching students.": "لا يوجد طلاب مطابقون."
+    ,"No payments have been recorded yet.": "لم تُسجَّل أي دفعات بعد."
+    ,"No records yet. Add the first one to this collection.": "لا توجد سجلات بعد. أضف أول سجل إلى هذه المجموعة."
+    ,"No schools are linked to students yet.": "لا توجد مدارس مرتبطة بالطلاب بعد."
+    ,"No subject sessions have been marked yet.": "لم تُسجَّل أي حصص مواد بعد."
+    ,"No subjects are assigned to this teacher.": "لا توجد مواد مسندة إلى هذا المعلّم."
+    ,"No subscription payment data is available yet.": "لا تتوفر بيانات دفعات الاشتراكات بعد."
+    ,"No teacher coverage data is available yet.": "لا تتوفر بيانات تغطية المعلّمين بعد."
+    ,"No warnings for this child. Great work!": "لا توجد إنذارات لهذا الطفل. عمل رائع!"
+    ,"No warnings have been recorded yet.": "لم تُسجَّل أي إنذارات بعد."
+    ,"No window with everyone free": "لا توجد فترة يكون فيها الجميع متفرّغاً"
+    ,"No yearly student data is available yet.": "لا تتوفر بيانات سنوية للطلاب بعد."
+    ,"Not done — back to issued": "لم يُنجز — إعادة إلى الصادرة"
+    ,"Not marked": "غير مسجَّل"
+    ,"Notes for administration (optional)": "ملاحظات للإدارة (اختياري)"
+    ,"Nothing here.": "لا شيء هنا."
+    ,"Open reviews": "فتح التقييمات"
+    ,"Open student profile": "فتح ملف الطالب"
+    ,"Opened on": "تاريخ الافتتاح"
+    ,"Parent Portal | Khotwa Education Center": "بوابة أولياء الأمور | مركز خطوة التعليمي"
+    ,"Parent access": "دخول ولي الأمر"
+    ,"Parent reviews": "تقييمات أولياء الأمور"
+    ,"Per subject": "حسب المادة"
+    ,"Phone number": "رقم الهاتف"
+    ,"Pick one or more grades, a school category, or one or more schools, then apply.\n                The shared availability is only meaningful for a group you have chosen.": "اختر صفاً أو أكثر، أو فئة مدرسة، أو مدرسة أو أكثر، ثم طبّق.\n                التفرّغ المشترك لا معنى له إلا لمجموعة اخترتها."
+    ,"Present over time": "الحضور عبر الزمن"
+    ,"Private": "خاصة"
+    ,"Profile note": "ملاحظة الملف"
+    ,"Profile picture": "الصورة الشخصية"
+    ,"Program points": "نقاط البرنامج"
+    ,"Public": "رسمية"
+    ,"Quick mark": "تسجيل سريع"
+    ,"Raise a behaviour flag": "رفع تنبيه سلوكي"
+    ,"Recent attendance rate": "نسبة الحضور الأخيرة"
+    ,"Recent billing": "الفوترة الأخيرة"
+    ,"Record information": "معلومات السجل"
+    ,"Refresh": "تحديث"
+    ,"Reject": "رفض"
+    ,"Review date": "تاريخ التقييم"
+    ,"Save banner": "حفظ الشريط"
+    ,"Save date": "حفظ التاريخ"
+    ,"Save details": "حفظ التفاصيل"
+    ,"Save expiation": "حفظ الإجراء"
+    ,"Save now to publish teacher notes/homework to parent and admin dashboards.": "احفظ الآن لنشر ملاحظات المعلّم والواجبات على لوحتي ولي الأمر والإدارة."
+    ,"Save subject attendance": "حفظ حضور المادة"
+    ,"Save website details": "حفظ تفاصيل الموقع"
+    ,"Save": "حفظ"
+    ,"Scan Student QR Code": "مسح رمز الطالب"
+    ,"Scan from image": "مسح من صورة"
+    ,"Scan to read student identity JSON": "امسح لقراءة بيانات هوية الطالب"
+    ,"Scan": "مسح"
+    ,"Schedule": "الجدول"
+    ,"School category": "فئة المدرسة"
+    ,"School": "المدرسة"
+    ,"Select a student…": "اختر طالباً…"
+    ,"Select an expiation…": "اختر إجراءً تصحيحياً…"
+    ,"Send flag to administration": "إرسال التنبيه إلى الإدارة"
+    ,"Shape the website from one place.": "شكّل الموقع من مكان واحد."
+    ,"Share your experience with Khotwa Education Center. You have one review, and you can rewrite it whenever you like — sending it again replaces what you wrote before. The administration reads every message before anything appears on the website.": "شارك تجربتك مع مركز خطوة التعليمي. لديك تقييم واحد، ويمكنك إعادة كتابته متى شئت — وإرساله مجدداً يستبدل ما كتبته سابقاً. تقرأ الإدارة كل رسالة قبل ظهور أي شيء على الموقع."
+    ,"Shared availability": "التفرّغ المشترك"
+    ,"Shortcuts": "اختصارات"
+    ,"Show or hide the announcement badge above the homepage headline.": "أظهر أو أخفِ شارة الإعلان فوق عنوان الصفحة الرئيسية."
+    ,"Shown on the public website in place of your initials.": "تظهر على الموقع العام بدلاً من الأحرف الأولى من اسمك."
+    ,"Some at school": "بعضهم في المدرسة"
+    ,"Student QR Code": "رمز الطالب"
+    ,"Student QR": "رمز الطالب"
+    ,"Student profile": "ملف الطالب"
+    ,"Students by year": "الطلاب حسب السنة"
+    ,"Students per school": "الطلاب حسب المدرسة"
+    ,"Subject mix": "توزيع المواد"
+    ,"Subjects and student coverage": "المواد وتغطية الطلاب"
+    ,"Subjects on the card": "المواد على البطاقة"
+    ,"Swipe any direction for the next student · tap Came or Absent to mark": "اسحب بأي اتجاه للطالب التالي · اضغط حضر أو غائب للتسجيل"
+    ,"System-managed identifiers and timestamps for this content block.": "معرّفات وطوابع زمنية يديرها النظام لهذا القسم."
+    ,"Tap a colour to read its figure.": "اضغط على لون لقراءة قيمته."
+    ,"Teacher homework notes": "ملاحظات واجبات المعلّم"
+    ,"Teaching assignment": "الإسناد التدريسي"
+    ,"Text shown when the website language is Arabic.": "النص الظاهر عندما تكون لغة الموقع العربية."
+    ,"Text shown when the website language is English.": "النص الظاهر عندما تكون لغة الموقع الإنجليزية."
+    ,"The homepage counter is calculated from this date, so it never needs editing again.": "يُحتسب عدّاد الصفحة الرئيسية من هذا التاريخ، فلا يحتاج إلى تعديل مرة أخرى."
+    ,"The three highlights displayed below this program in both languages.": "النقاط الثلاث المعروضة أسفل هذا البرنامج باللغتين."
+    ,"Time spent talking with the student, in minutes (optional)": "مدة الحديث مع الطالب بالدقائق (اختياري)"
+    ,"Tip: focus a row and press": "تلميح: حدّد صفاً ثم اضغط"
+    ,"Today's Subject Attendance Submission": "إرسال حضور المواد لليوم"
+    ,"Today's subject attendance": "حضور المواد لليوم"
+    ,"Use your camera to scan a student QR code on desktop or phone.": "استخدم الكاميرا لمسح رمز الطالب على الحاسوب أو الهاتف."
+    ,"Waiting for scan...": "بانتظار المسح..."
+    ,"Warnings & expiations": "الإنذارات والإجراءات التصحيحية"
+    ,"Warnings by year": "الإنذارات حسب السنة"
+    ,"Week": "أسبوع"
+    ,"What happened?": "ماذا حدث؟"
+    ,"Year": "السنة"
+    ,"You have not raised any behaviour flags yet.": "لم ترفع أي تنبيهات سلوكية بعد."
+    ,"Your teacher profile could not be loaded. Please contact an administrator.": "تعذّر تحميل ملف المعلّم. يرجى التواصل مع الإدارة."
+    ,"absent": "غائب"
+    ,"came": "حضر"
+    ,"for absent.": "للغياب."
+    ,"for came or": "للحضور أو"
+    ,"left": "اليسار"
+    ,"stored items": "عنصراً مخزّناً"
+    ,"“Admissions are now open”": "“التسجيل متاح الآن”"
+    ,"Active enrollment subject chart": "مخطط تسجيلات المواد النشطة"
+    ,"Additional center summaries": "ملخصات إضافية عن المركز"
+    ,"Attendance activity chart": "مخطط نشاط الحضور"
+    ,"Attendance period": "الفترة الزمنية للحضور"
+    ,"Attendance progress": "تقدّم الحضور"
+    ,"Attendance rate by subject": "نسبة الحضور حسب المادة"
+    ,"Attendance workflow": "مسار تسجيل الحضور"
+    ,"Enrolments started per month": "التسجيلات المستجدة شهرياً"
+    ,"Grade average distribution chart": "مخطط توزيع المعدلات"
+    ,"Manager navigation": "تنقّل الإدارة"
+    ,"Mark absent": "تسجيل غياب"
+    ,"Mark came": "تسجيل حضور"
+    ,"Money collected per month": "المبالغ المحصّلة شهرياً"
+    ,"Parent navigation": "تنقّل ولي الأمر"
+    ,"Primary center statistics": "إحصاءات المركز الأساسية"
+    ,"Profile sections": "أقسام الملف"
+    ,"Scan student QR code": "مسح رمز الطالب"
+    ,"Select all visible records": "تحديد كل السجلات الظاهرة"
+    ,"Student summary": "ملخص الطلاب"
+    ,"Students by academic year chart": "مخطط الطلاب حسب السنة الدراسية"
+    ,"Students present over time": "الطلاب الحاضرون عبر الزمن"
+    ,"Submission summary": "ملخص الإرسال"
+    ,"Subscription payment status chart": "مخطط حالة دفعات الاشتراكات"
+    ,"Teacher navigation": "تنقّل المعلّم"
+    ,"Teacher subject and student coverage chart": "مخطط تغطية المعلّمين للمواد والطلاب"
+    ,"Warning stages": "مراحل الإنذار"
+    ,"Warnings by year chart": "مخطط الإنذارات حسب السنة"
+    ,"Website content sections": "أقسام محتوى الموقع"
+    ,"Website content workspace": "مساحة عمل محتوى الموقع"
+    ,"Workspace sections": "أقسام مساحة العمل"
+    ,"Khotwa parent portal home": "الصفحة الرئيسية لبوابة أولياء الأمور"
+    ,"Khotwa teacher portal home": "الصفحة الرئيسية لبوابة المعلّم"
+    ,"Khotwa manager dashboard": "لوحة إدارة خطوة"
+    ,"Khotwa administration home": "الصفحة الرئيسية للإدارة"
+    ,"Dashboard": "لوحة المتابعة"
+    ,"Active-student attendance rate": "نسبة حضور الطلاب النشطين"
+    ,"Latest month payments": "دفعات الشهر الأخير"
+    ,"Warnings this year": "إنذارات هذه السنة"
+    ,"Oral warning": "إنذار شفهي"
+    ,"Written warning": "إنذار خطي"
+    ,"Warning": "إنذار"
+    ,"Age group:": "الفئة العمرية:"
+    ,"Not paid": "غير مدفوع"
+    ,"Partially paid": "مدفوع جزئياً"
+    ,"Fully paid": "مدفوع بالكامل"
   };
 
   const explicit = {
     heroLineOne: { en: "Every step builds", ar: "كلّ خطوة تبني" },
     heroArticle: { en: "a", ar: "مستقبلاً أكثر" },
     heroFuture: { en: "future.", ar: "" }
+  };
+
+  /* Month names, for the dashboard lines that name one. */
+  const months = {
+    January: "كانون الثاني", February: "شباط", March: "آذار", April: "نيسان",
+    May: "أيار", June: "حزيران", July: "تموز", August: "آب",
+    September: "أيلول", October: "تشرين الأول", November: "تشرين الثاني", December: "كانون الأول"
   };
 
   const preserveWhitespace = (value, translated) => {
@@ -691,6 +958,11 @@
     const idMatch = trimmed.match(/^ID\s+(\d+)$/);
     const recordNumberMatch = trimmed.match(/^Record\s+#?(\d+)$/);
     // Pager and record-count lines on a paginated table view.
+    // Dashboard tiles that carry a month or a figure inside the sentence.
+    // Grades are written "Grade 7" all the way up, so one rule covers them all.
+    const gradeMatch = trimmed.match(/^Grade\s+(\d{1,2})$/);
+    const collectedMatch = trimmed.match(/^Collected\s+·\s+([A-Za-z]+)\s+(\d{4})$/);
+    const netExpectedMatch = trimmed.match(/^Net expected this month:\s+(.+)$/);
     const pageOfMatch = trimmed.match(/^Page\s+(\d+)\s+of\s+(\d+)$/);
     const rangeMatch = trimmed.match(/^(\d+)\s*[–-]\s*(\d+)\s+of\s+(\d+)\s+records$/);
     const matchedMatch = trimmed.match(/^(\d+)\s+of\s+(\d+)\s+records$/);
@@ -702,6 +974,14 @@
     if (connectedMatch) return preserveWhitespace(value, `${connectedMatch[1]} جداول مرتبطة`);
     if (idMatch) return preserveWhitespace(value, `المعرّف ${idMatch[1]}`);
     if (recordNumberMatch) return preserveWhitespace(value, `السجل ${recordNumberMatch[1]}`);
+    if (gradeMatch) return preserveWhitespace(value, `الصف ${gradeMatch[1]}`);
+    if (collectedMatch) {
+      const month = months[collectedMatch[1]] || collectedMatch[1];
+      return preserveWhitespace(value, `المحصّل · ${month} ${collectedMatch[2]}`);
+    }
+    if (netExpectedMatch) {
+      return preserveWhitespace(value, `المتوقع صافياً هذا الشهر: ${netExpectedMatch[1]}`);
+    }
     if (pageOfMatch) return preserveWhitespace(value, `صفحة ${pageOfMatch[1]} من ${pageOfMatch[2]}`);
     if (rangeMatch) {
       return preserveWhitespace(value, `${rangeMatch[1]}–${rangeMatch[2]} من ${rangeMatch[3]} سجل`);
@@ -736,6 +1016,31 @@
       if (!textOriginals.has(node)) textOriginals.set(node, node.nodeValue);
       const original = textOriginals.get(node);
       node.nodeValue = language === "ar" ? translateValue(original, "ar") : original;
+    });
+  };
+
+  /*
+   * Content the database already holds in both languages - names of people,
+   * subjects, schools. There is nothing to look up: the page carries both
+   * readings on the element and the right one is put in place here, so a
+   * language switch needs no request and no page load.
+   *
+   * An empty Arabic value leaves the English standing rather than blanking the
+   * element, because a missing translation should never lose the name.
+   */
+  const translateBilingualNodes = (language) => {
+    document.querySelectorAll("[data-en][data-ar]").forEach((element) => {
+      const next = language === "ar" ? element.dataset.ar : element.dataset.en;
+      const fallback = element.dataset.en || "";
+      const text = (next || "").trim() !== "" ? next : fallback;
+      if (element.textContent !== text) element.textContent = text;
+    });
+
+    // The same pair, for a tooltip or a label that repeats the name.
+    document.querySelectorAll("[data-title-en][data-title-ar]").forEach((element) => {
+      const next = language === "ar" ? element.dataset.titleAr : element.dataset.titleEn;
+      const fallback = element.dataset.titleEn || "";
+      element.setAttribute("title", (next || "").trim() !== "" ? next : fallback);
     });
   };
 
@@ -799,6 +1104,7 @@
     document.body.classList.toggle("is-arabic", selected === "ar");
 
     translateTextNodes(selected);
+    translateBilingualNodes(selected);
     translateExplicitNodes(selected);
     translateAttributes(selected);
     updateLanguageControls(selected);

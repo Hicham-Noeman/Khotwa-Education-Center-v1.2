@@ -1350,6 +1350,7 @@ function admin_render_sidebar(array $user, string $activeView): void
           </section>
         <?php endforeach; ?>
       </nav>
+      <?php portal_sidebar_bottom(); ?>
     </aside>
     <?php
 }

@@ -264,3 +264,93 @@
     font-size: clamp(1.85rem, 11vw, 2.35rem);
   }
 }
+
+/*
+ * The balance is the question a parent opens this page to answer, so it gets a
+ * row of its own and a figure to match. The two below it describe the child
+ * named in the heading, and sit as a pair beneath.
+ */
+/*
+ * All four side by side. The balance keeps a wider column and a larger figure,
+ * so it still leads without being pushed onto a row of its own.
+ */
+.parent-metrics-grid {
+  grid-template-columns: 1.5fr 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.parent-metrics-grid .metric-card {
+  min-height: 0;
+  padding: 20px 16px;
+}
+
+.parent-metrics-grid .metric-card strong {
+  font-size: clamp(1.3rem, 3.4vw, 2rem);
+}
+
+.parent-metrics-grid .metric-card p {
+  font-size: 0.72rem;
+}
+
+.parent-balance-card strong {
+  font-size: clamp(1.8rem, 4.6vw, 2.9rem);
+}
+
+.parent-balance-card p {
+  font-size: 0.8rem;
+}
+
+/*
+ * Grade, teaching language and status, on one line under the child's name.
+ * They were a panel of their own until everything else in it had moved.
+ */
+.parent-heading-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.parent-heading-facts i {
+  color: var(--line);
+  font-style: normal;
+}
+
+/* The QR panel now stands alone where the profile used to sit beside it. */
+.parent-overview-grid {
+  grid-template-columns: 1fr;
+}
+
+/*
+ * Below this a date like 05/09/2026 needs more width than a quarter of the
+ * screen leaves, so the four pair off two by two rather than stacking.
+ */
+@media (max-width: 430px) {
+  .parent-metrics-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+}
+
+/*
+ * The code itself is not the point on this screen - a parent downloads it and
+ * shows it at the centre. It stays in the page because the download is taken
+ * from the drawn canvas, but it is not put on show.
+ */
+.student-qr-panel .student-qr-box,
+.student-qr-panel .student-qr-head {
+  display: none;
+}
+
+.qr-download-actions {
+  display: flex;
+}
+
+.qr-download-actions .primary-action {
+  width: 100%;
+  justify-content: center;
+}

@@ -27,6 +27,12 @@ $teacherCoverageChart = ['labels' => [], 'subjects' => [], 'students' => []];
 $gradeChart = ['labels' => [], 'values' => []];
 $paymentChart = ['labels' => [], 'values' => []];
 $warningChart = ['labels' => [], 'values' => []];
+$revenueChart = ['labels' => [], 'values' => []];
+$subjectRateChart = ['labels' => [], 'values' => []];
+$schoolChart = ['labels' => [], 'values' => []];
+$schoolRows = [];
+$enrolmentChart = ['labels' => [], 'values' => []];
+$attendanceTrendChart = ['day' => [], 'week' => [], 'month' => []];
 $subjectRows = [];
 $teacherCoverageRows = [];
 $paymentStatusRows = [];
@@ -93,6 +99,7 @@ function render_manager_sidebar(array $user, string $activeView): void
           </section>
           <?php endforeach; ?>
       </nav>
+      <?php portal_sidebar_bottom(); ?>
     </aside>
     <?php
 }
@@ -325,6 +332,149 @@ try {
             'values' => array_map('intval', array_column($warningRows, 'value')),
         ];
 
+        /*
+         * Money actually received, month by month. The subscription tables keep
+         * what is owed separately from what was paid; this reads the payments,
+         * so the line is cash in rather than invoices raised.
+         */
+        $revenueRows = $pdo->query(
+            "SELECT DATE_FORMAT(paid_at, '%Y-%m') period, SUM(paid_amount) value
+             FROM student_subscription_payments
+             WHERE paid_at IS NOT NULL
+               AND paid_at >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)
+             GROUP BY period
+             ORDER BY period"
+        )->fetchAll();
+        $revenueChart = [
+            'labels' => array_map(
+                static fn (array $row): string
+                    => (new DateTimeImmutable($row['period'] . '-01'))->format('M y'),
+                $revenueRows
+            ),
+            'values' => array_map(
+                static fn (array $row): int => (int) round((float) $row['value']),
+                $revenueRows
+            ),
+        ];
+
+        /*
+         * How reliably each subject is actually attended. Counted off the
+         * per-subject register rather than the daily one, so a student who came
+         * in but skipped a session still shows against that subject.
+         */
+        $subjectRateRows = $pdo->query(
+            "SELECT subjects.name_en label,
+                    ROUND(
+                        100 * SUM(CASE WHEN attendance.status = 'attended' THEN 1 ELSE 0 END)
+                        / NULLIF(COUNT(attendance.id), 0)
+                    ) value
+             FROM student_subject_attendance attendance
+             INNER JOIN subjects ON subjects.id = attendance.subject_id
+             GROUP BY subjects.id, subjects.name_en
+             HAVING COUNT(attendance.id) > 0
+             ORDER BY value DESC, subjects.name_en
+             LIMIT 8"
+        )->fetchAll();
+        $subjectRateChart = [
+            'labels' => array_column($subjectRateRows, 'label'),
+            'values' => array_map('intval', array_column($subjectRateRows, 'value')),
+        ];
+
+        /* Where the intake comes from: the current record decides the school. */
+        $schoolRows = $pdo->query(
+            "SELECT schools.name label, COUNT(DISTINCT students.id) value
+             FROM students
+             INNER JOIN student_academic_records record
+                     ON record.student_id = students.id AND record.is_current = 1
+             INNER JOIN schools ON schools.id = record.school_id
+             WHERE students.status = 'active'
+             GROUP BY schools.id, schools.name
+             ORDER BY value DESC, schools.name
+             LIMIT 8"
+        )->fetchAll();
+        $schoolChart = [
+            'labels' => array_column($schoolRows, 'label'),
+            'values' => array_map('intval', array_column($schoolRows, 'value')),
+        ];
+        $schoolRows = array_map(
+            static fn (array $row): array
+                => ['label' => (string) $row['label'], 'value' => (int) $row['value']],
+            $schoolRows
+        );
+
+        /*
+         * Enrolments started per month - growth, rather than the standing total.
+         * Two years back rather than one: every enrolment currently on file was
+         * seeded with the same start date, so a twelve-month window showed an
+         * empty chart. It will read as a trend once real dates accumulate.
+         */
+        $enrolmentRows = $pdo->query(
+            "SELECT DATE_FORMAT(start_date, '%Y-%m') period, COUNT(*) value
+             FROM student_subject_enrollments
+             WHERE start_date IS NOT NULL
+               AND start_date >= DATE_SUB(CURDATE(), INTERVAL 23 MONTH)
+             GROUP BY period
+             ORDER BY period"
+        )->fetchAll();
+        $enrolmentChart = [
+            'labels' => array_map(
+                static fn (array $row): string
+                    => (new DateTimeImmutable($row['period'] . '-01'))->format('M y'),
+                $enrolmentRows
+            ),
+            'values' => array_map('intval', array_column($enrolmentRows, 'value')),
+        ];
+
+        /*
+         * Attendance at three zoom levels from one register. The day view is the
+         * fortnight already charted above; week and month step back so a run of
+         * quiet days reads as a trend rather than noise.
+         */
+        $attendanceTrendChart = ['day' => [], 'week' => [], 'month' => []];
+        /*
+         * The day view counts back over the last fourteen days that were
+         * actually registered rather than the last fourteen on the calendar:
+         * the centre does not open every day, and a plain date window left most
+         * of the columns missing. Week and month aggregate, so a calendar
+         * window suits them.
+         */
+        $trendPeriods = [
+            'day' => [
+                "DATE_FORMAT(attendance_date, '%d/%m')",
+                'attendance_date IN (SELECT attendance_date FROM (
+                     SELECT DISTINCT attendance_date FROM student_daily_attendance
+                     ORDER BY attendance_date DESC LIMIT 14
+                 ) recent)',
+                'attendance_date',
+            ],
+            'week' => [
+                "CONCAT('W', WEEK(attendance_date, 3))",
+                'attendance_date >= DATE_SUB(CURDATE(), INTERVAL 11 WEEK)',
+                'YEARWEEK(attendance_date, 3)',
+            ],
+            'month' => [
+                "DATE_FORMAT(attendance_date, '%b %y')",
+                'attendance_date >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)',
+                "DATE_FORMAT(attendance_date, '%Y-%m')",
+            ],
+        ];
+        foreach ($trendPeriods as $key => [$labelSql, $whereSql, $groupSql]) {
+            $trendRows = $pdo->query(
+                "SELECT {$labelSql} label,
+                        SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) present_count,
+                        SUM(CASE WHEN status IN ('absent', 'excused') THEN 1 ELSE 0 END) absent_count
+                 FROM student_daily_attendance
+                 WHERE {$whereSql}
+                 GROUP BY {$groupSql}, label
+                 ORDER BY MIN(attendance_date)"
+            )->fetchAll();
+            $attendanceTrendChart[$key] = [
+                'labels' => array_column($trendRows, 'label'),
+                'values' => array_map('intval', array_column($trendRows, 'present_count')),
+                'absent' => array_map('intval', array_column($trendRows, 'absent_count')),
+            ];
+        }
+
         $recentAttendance = $pdo->query(
             "SELECT attendance_date, student_name_en, daily_status,
                     attended_subject_count, missed_subject_count
@@ -394,17 +544,12 @@ $page = $views[$view];
   <div class="admin-shell" data-admin-shell>
     <?php render_manager_sidebar($user, $view); ?>
     <div class="admin-stage">
-      <button class="mobile-panel-toggle" type="button" aria-label="Open navigation panel" aria-controls="admin-sidebar" aria-expanded="false" data-mobile-sidebar-toggle>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-      </button>
+      <?php portal_mobile_topbar(khotwa_url('manager/index.php'), 'Khotwa manager dashboard'); ?>
       <main class="admin-content">
         <section class="content-heading">
           <div>
-            <span class="content-kicker">Management overview</span>
             <h1><?= e($page['label']) ?></h1>
-            <p><?= e($page['description']) ?></p>
           </div>
-          <div class="live-indicator"><span></span>Editable management data</div>
         </section>
 
         <?php if ($databaseError !== ''): ?>
@@ -427,28 +572,6 @@ $page = $views[$view];
             <?php endforeach; ?>
           </section>
 
-          <section class="manager-action-strip" aria-label="Manager quick actions">
-            <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=students">
-              <?= admin_icon('students') ?>
-              <span><strong>Edit students</strong><small>Profiles, photos, grades, and linked records</small></span>
-            </a>
-            <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=teachers">
-              <?= admin_icon('teachers') ?>
-              <span><strong>Edit teachers</strong><small>Open a teacher to add subjects</small></span>
-            </a>
-            <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=students">
-              <?= admin_icon('enrollments') ?>
-              <span><strong>Assign student</strong><small>Open a student to add subject enrollments</small></span>
-            </a>
-            <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=payments&new=1">
-              <?= admin_icon('payments') ?>
-              <span><strong>Record payment</strong><small>Update subscriptions and receipts</small></span>
-            </a>
-            <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=website-content">
-              <?= admin_icon('website-content') ?>
-              <span><strong>Website content</strong><small>Homepage, contact, and social sections</small></span>
-            </a>
-          </section>
 
           <section class="manager-chart-grid">
             <article class="data-panel manager-chart-card manager-chart-wide">
@@ -467,6 +590,7 @@ $page = $views[$view];
                   ></canvas>
                 <?php endif; ?>
               </div>
+              <p class="manager-chart-readout" data-chart-readout>Tap a colour to read its figure.</p>
             </article>
 
             <article class="data-panel manager-chart-card">
@@ -485,6 +609,7 @@ $page = $views[$view];
                   <?php endforeach; ?>
                 </div>
               </div>
+              <p class="manager-chart-readout" data-chart-readout>Tap a colour to read its figure.</p>
             </article>
 
             <article class="data-panel manager-chart-card">
@@ -502,6 +627,7 @@ $page = $views[$view];
                   ></canvas>
                 <?php endif; ?>
               </div>
+              <p class="manager-chart-readout" data-chart-readout>Tap a colour to read its figure.</p>
             </article>
 
             <article class="data-panel manager-chart-card manager-chart-wide">
@@ -520,6 +646,7 @@ $page = $views[$view];
                   ></canvas>
                 <?php endif; ?>
               </div>
+              <p class="manager-chart-readout" data-chart-readout>Tap a colour to read its figure.</p>
             </article>
 
             <article class="data-panel manager-chart-card">
@@ -537,6 +664,7 @@ $page = $views[$view];
                   ></canvas>
                 <?php endif; ?>
               </div>
+              <p class="manager-chart-readout" data-chart-readout>Tap a colour to read its figure.</p>
             </article>
 
             <article class="data-panel manager-chart-card">
@@ -559,6 +687,7 @@ $page = $views[$view];
                   </div>
                 <?php endif; ?>
               </div>
+              <p class="manager-chart-readout" data-chart-readout>Tap a colour to read its figure.</p>
             </article>
 
             <article class="data-panel manager-chart-card">
@@ -576,42 +705,112 @@ $page = $views[$view];
                   ></canvas>
                 <?php endif; ?>
               </div>
+              <p class="manager-chart-readout" data-chart-readout>Tap a colour to read its figure.</p>
             </article>
+            <?php /* One register, three zoom levels - the buttons swap the data underneath. */ ?>
+            <article class="data-panel manager-chart-card manager-chart-wide">
+              <div class="panel-heading">
+                <div><span>Attendance</span><h2>Present over time</h2></div>
+                <div class="manager-period-switch" role="group" aria-label="Attendance period">
+                  <button type="button" data-attendance-period="day" class="is-active">Day</button>
+                  <button type="button" data-attendance-period="week">Week</button>
+                  <button type="button" data-attendance-period="month">Month</button>
+                </div>
+              </div>
+              <div class="manager-canvas-wrap manager-canvas-compact">
+                <?php if (($attendanceTrendChart['day']['labels'] ?? []) === []): ?>
+                  <p class="manager-chart-empty">No attendance has been recorded yet.</p>
+                <?php else: ?>
+                  <canvas
+                    data-attendance-trend-chart
+                    data-chart="<?= e(json_encode($attendanceTrendChart['day'], JSON_UNESCAPED_SLASHES)) ?>"
+                    data-periods="<?= e(json_encode($attendanceTrendChart, JSON_UNESCAPED_SLASHES)) ?>"
+                    aria-label="Students present over time"
+                  ></canvas>
+                <?php endif; ?>
+              </div>
+              <p class="manager-chart-readout" data-chart-readout>Tap a colour to read its figure.</p>
+            </article>
+
+            <article class="data-panel manager-chart-card">
+              <div class="panel-heading">
+                <div><span>Subscriptions</span><h2>Money collected</h2></div>
+              </div>
+              <div class="manager-canvas-wrap manager-canvas-compact">
+                <?php if ($revenueChart['labels'] === []): ?>
+                  <p class="manager-chart-empty">No payments have been recorded yet.</p>
+                <?php else: ?>
+                  <canvas
+                    data-revenue-chart
+                    data-chart="<?= e(json_encode($revenueChart, JSON_UNESCAPED_SLASHES)) ?>"
+                    aria-label="Money collected per month"
+                  ></canvas>
+                <?php endif; ?>
+              </div>
+              <p class="manager-chart-readout" data-chart-readout>Tap a colour to read its figure.</p>
+            </article>
+
+            <article class="data-panel manager-chart-card">
+              <div class="panel-heading">
+                <div><span>Per subject</span><h2>Attendance rate</h2></div>
+              </div>
+              <div class="manager-canvas-wrap manager-canvas-compact">
+                <?php if ($subjectRateChart['labels'] === []): ?>
+                  <p class="manager-chart-empty">No subject sessions have been marked yet.</p>
+                <?php else: ?>
+                  <canvas
+                    data-subject-rate-chart
+                    data-chart="<?= e(json_encode($subjectRateChart, JSON_UNESCAPED_SLASHES)) ?>"
+                    aria-label="Attendance rate by subject"
+                  ></canvas>
+                <?php endif; ?>
+              </div>
+              <p class="manager-chart-readout" data-chart-readout>Tap a colour to read its figure.</p>
+            </article>
+
+            <article class="data-panel manager-chart-card">
+              <div class="panel-heading">
+                <div><span>Intake</span><h2>Students per school</h2></div>
+              </div>
+              <div class="manager-donut-layout">
+                <?php if ($schoolChart['labels'] === []): ?>
+                  <p class="manager-chart-empty">No schools are linked to students yet.</p>
+                <?php else: ?>
+                  <canvas
+                    data-school-chart
+                    data-chart="<?= e(json_encode($schoolChart, JSON_UNESCAPED_SLASHES)) ?>"
+                    aria-label="Students per school"
+                  ></canvas>
+                  <div class="manager-donut-legend">
+                    <?php foreach ($schoolRows as $index => $school): ?>
+                      <span><i style="--legend-index: <?= e((string) $index) ?>"></i><?= e((string) $school['label']) ?><strong><?= e((string) $school['value']) ?></strong></span>
+                    <?php endforeach; ?>
+                  </div>
+                <?php endif; ?>
+              </div>
+              <p class="manager-chart-readout" data-chart-readout>Tap a colour to read its figure.</p>
+            </article>
+
+            <article class="data-panel manager-chart-card">
+              <div class="panel-heading">
+                <div><span>Growth</span><h2>Enrolments started</h2></div>
+              </div>
+              <div class="manager-canvas-wrap manager-canvas-compact">
+                <?php if ($enrolmentChart['labels'] === []): ?>
+                  <p class="manager-chart-empty">No enrolment start dates are recorded yet.</p>
+                <?php else: ?>
+                  <canvas
+                    data-enrolment-chart
+                    data-chart="<?= e(json_encode($enrolmentChart, JSON_UNESCAPED_SLASHES)) ?>"
+                    aria-label="Enrolments started per month"
+                  ></canvas>
+                <?php endif; ?>
+              </div>
+              <p class="manager-chart-readout" data-chart-readout>Tap a colour to read its figure.</p>
+            </article>
+
           </section>
 
-          <section class="overview-grid manager-overview-bottom">
-            <article class="data-panel overview-attendance">
-              <div class="panel-heading">
-                <div><span>Latest records</span><h2>Recent attendance</h2></div>
-              </div>
-              <div class="table-scroll">
-                <table>
-                  <thead><tr><th>Date</th><th>Student</th><th>Status</th><th>Attended</th><th>Missed</th></tr></thead>
-                  <tbody>
-                    <?php if ($recentAttendance === []): ?>
-                      <tr><td class="empty-row" colspan="5">No attendance records yet.</td></tr>
-                    <?php else: ?>
-                      <?php foreach ($recentAttendance as $attendance): ?>
-                        <tr>
-                          <td><?= e(fmt_date((string) $attendance['attendance_date'])) ?></td>
-                          <td><strong><?= e((string) $attendance['student_name_en']) ?></strong></td>
-                          <td><?= manager_value('daily_status', $attendance['daily_status']) ?></td>
-                          <td><?= e((string) $attendance['attended_subject_count']) ?></td>
-                          <td><?= e((string) $attendance['missed_subject_count']) ?></td>
-                        </tr>
-                      <?php endforeach; ?>
-                    <?php endif; ?>
-                  </tbody>
-                </table>
-              </div>
-            </article>
-            <aside class="quick-panel">
-              <span>Editable records</span><h2>Double-click any row in these sections to open full information.</h2>
-              <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=students"><?= admin_icon('students') ?><span><strong>Students</strong><small>Profiles, photos, grades, and status</small></span></a>
-              <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=teachers"><?= admin_icon('teachers') ?><span><strong>Teachers</strong><small>Subjects and student coverage</small></span></a>
-              <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=website-contacts"><?= admin_icon('website-contacts') ?><span><strong>Contact & social</strong><small>Phone, email, links, and maps</small></span></a>
-            </aside>
-          </section>
         <?php else: ?>
           <section class="data-panel">
             <div class="panel-heading table-panel-heading">

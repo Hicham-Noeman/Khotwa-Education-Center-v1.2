@@ -52,6 +52,9 @@ if (isset($_GET['flagged'])) {
 if (isset($_GET['photo'])) {
     $message = 'Your profile picture has been updated.';
 }
+if (isset($_GET['details'])) {
+    $message = 'Your details have been updated.';
+}
 $error = '';
 $studentRows = [];
 $attendanceRows = [];
@@ -91,6 +94,7 @@ function render_teacher_sidebar(array $user, string $activeView): void
           <?php endforeach; ?>
         </section>
       </nav>
+      <?php portal_sidebar_bottom(); ?>
     </aside>
     <?php
 }
@@ -126,7 +130,52 @@ try {
      * only for a teacher who never uploaded one, and removing a photo is an
      * administration decision.
      */
-    if ($view === 'profile' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    /*
+     * The details a teacher owns: the number to reach them on and the
+     * qualifications shown beside their name. Everything else on this screen is
+     * the administration's to set, so it stays read-only here.
+     */
+    if ($view === 'profile'
+        && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST'
+        && isset($_POST['profile_details'])
+    ) {
+        try {
+            verify_app_csrf();
+
+            $phone = trim((string) ($_POST['phone_number'] ?? ''));
+            $certificationsEn = trim((string) ($_POST['certifications_en'] ?? ''));
+            $certificationsAr = trim((string) ($_POST['certifications_ar'] ?? ''));
+
+            // The columns hold 30 and 255; refuse rather than silently truncate.
+            if (mb_strlen($phone) > 30) {
+                throw new RuntimeException('A phone number cannot be longer than 30 characters.');
+            }
+            if (mb_strlen($certificationsEn) > 255 || mb_strlen($certificationsAr) > 255) {
+                throw new RuntimeException('Certifications cannot be longer than 255 characters.');
+            }
+
+            $detailsStatement = $pdo->prepare(
+                'UPDATE teachers SET phone_number = ?, certifications_en = ?, certifications_ar = ?
+                 WHERE id = ? LIMIT 1'
+            );
+            $detailsStatement->execute([
+                $phone === '' ? null : $phone,
+                $certificationsEn === '' ? null : $certificationsEn,
+                $certificationsAr === '' ? null : $certificationsAr,
+                $teacherId,
+            ]);
+
+            header('Location: ' . khotwa_url('teacher/index.php') . '?view=profile&details=1');
+            exit;
+        } catch (Throwable $exception) {
+            $error = $exception->getMessage();
+        }
+    }
+
+    if ($view === 'profile'
+        && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST'
+        && !isset($_POST['profile_details'])
+    ) {
         $uploadedPaths = [];
         try {
             verify_app_csrf();
@@ -438,17 +487,12 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
   <div class="admin-shell" data-admin-shell>
     <?php render_teacher_sidebar($user, $view); ?>
     <div class="admin-stage">
-      <button class="mobile-panel-toggle" type="button" aria-label="Open navigation panel" aria-controls="admin-sidebar" aria-expanded="false" data-mobile-sidebar-toggle>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-      </button>
+      <?php portal_mobile_topbar(khotwa_url('teacher/index.php'), 'Khotwa teacher portal home'); ?>
       <main class="admin-content">
         <section class="content-heading">
           <div>
-            <span class="content-kicker">Teacher workspace</span>
             <h1><?= e($views[$view]['label']) ?></h1>
-            <p><?= e($views[$view]['description']) ?></p>
           </div>
-          <div class="live-indicator"><span></span><?= e($teacherName) ?></div>
         </section>
 
 
@@ -840,12 +884,10 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
               <div class="teacher-profile-fields">
                 <div><span>First name</span><strong><?= e((string) $teacherProfile['first_name']) ?></strong></div>
                 <div><span>Last name</span><strong><?= e((string) $teacherProfile['last_name']) ?></strong></div>
-                <div><span>Phone number</span><strong><?= e((string) ($teacherProfile['phone_number'] ?: 'Not provided')) ?></strong></div>
-                <div><span>Teacher email</span><strong><?= e((string) $teacherProfile['teacher_email']) ?></strong></div>
-                <div><span>Portal account</span><strong><?= e((string) $teacherProfile['account_email']) ?></strong></div>
-                <div><span>Status</span><strong><span class="status-pill status-active">Active</span></strong></div>
-                <div><span>Last login</span><strong><?= e(fmt_datetime((string) $teacherProfile['last_login_at'], 'First login')) ?></strong></div>
-                <div><span>Member since</span><strong><?= e(fmt_datetime((string) $teacherProfile['created_at'])) ?></strong></div>
+                <?php // The teacher record and the portal account carry the same
+                      // address, so it is shown once. ?>
+                <div><span>Email</span><strong><?= e((string) $teacherProfile['teacher_email']) ?></strong></div>
+                <div><span>Member since</span><strong><?= e(fmt_date((string) $teacherProfile['created_at'])) ?></strong></div>
                 <?php
                 $teachingSince = (string) ($teacherProfile['teaching_since'] ?? '');
                 $teachingYears = teacher_years_since($teachingSince);
@@ -899,16 +941,6 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                     <?php endif; ?>
                   </strong>
                 </div>
-                <div>
-                  <span>Teacher of the month</span>
-                  <strong>
-                    <?php if ((int) ($teacherProfile['is_teacher_of_the_month'] ?? 0) === 1): ?>
-                      <span class="status-pill status-active">Yes</span>
-                    <?php else: ?>
-                      No
-                    <?php endif; ?>
-                  </strong>
-                </div>
                 <?php $videoUrl = trim((string) ($teacherProfile['video_url'] ?? '')); ?>
                 <div>
                   <span>Video</span>
@@ -925,13 +957,28 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
               $certifications = trim((string) ($teacherProfile['certifications_en'] ?? ''));
               $certificationsAr = trim((string) ($teacherProfile['certifications_ar'] ?? ''));
               ?>
-              <?php if ($certifications !== '' || $certificationsAr !== ''): ?>
-                <div class="teacher-profile-note">
-                  <span>Certifications</span>
-                  <?php if ($certifications !== ''): ?><p><?= e($certifications) ?></p><?php endif; ?>
-                  <?php if ($certificationsAr !== ''): ?><p lang="ar" dir="rtl" data-i18n-skip><?= e($certificationsAr) ?></p><?php endif; ?>
+              <?php // The two things a teacher keeps up to date themselves. ?>
+              <form class="teacher-details-form" method="post">
+                <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
+                <input type="hidden" name="profile_details" value="1">
+                <div class="teacher-details-fields">
+                  <label>
+                    <span>Phone number</span>
+                    <input type="tel" name="phone_number" maxlength="30" placeholder="Not provided" value="<?= e((string) ($teacherProfile['phone_number'] ?? '')) ?>">
+                  </label>
+                  <label>
+                    <span>Certifications</span>
+                    <input type="text" name="certifications_en" maxlength="255" placeholder="Degrees, training, memberships" value="<?= e($certifications) ?>">
+                  </label>
+                  <label>
+                    <span>Certifications in Arabic</span>
+                    <input type="text" name="certifications_ar" maxlength="255" lang="ar" dir="rtl" data-i18n-skip value="<?= e($certificationsAr) ?>">
+                  </label>
                 </div>
-              <?php endif; ?>
+                <div class="teacher-details-actions">
+                  <button class="primary-action" type="submit">Save details</button>
+                </div>
+              </form>
               <?php if ($teacherProfile['notes']): ?><div class="teacher-profile-note"><span>Profile note</span><p><?= e((string) $teacherProfile['notes']) ?></p></div><?php endif; ?>
             </article>
 

@@ -75,7 +75,7 @@ svg {
   z-index: 30;
   display: grid;
   grid-template-rows: auto 1fr auto;
-  width: 286px;
+  width: 244px;
   height: 100svh;
   padding: 22px 17px;
   color: var(--paper);
@@ -94,6 +94,11 @@ svg {
   gap: 10px;
   padding: 0 3px 19px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* The buttons that used to hold this edge now live in the foot of the panel. */
+.sidebar-top .sidebar-toggle {
+  margin-inline-start: auto;
 }
 
 .admin-brand {
@@ -158,43 +163,81 @@ svg {
   text-transform: uppercase;
 }
 
-.sidebar-top-actions {
+/*
+ * The foot of the panel. It lands in the third row the sidebar grid reserves,
+ * so it sits against the bottom however short the navigation above it is, and
+ * carries a rule along its top to match the one under the brand.
+ */
+.sidebar-footer {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
+  padding: 16px 3px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.sidebar-top-action {
-  display: grid;
-  width: 38px;
-  height: 38px;
+/*
+ * Language and logout wear the pills the public site uses in its header: a
+ * rounded outline over a translucent ground. The language one is squeezed down
+ * to hold just the two-letter code, the way it is there.
+ */
+.portal-language,
+.portal-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   flex: 0 0 auto;
-  place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.055);
+  padding: 10px 15px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.8rem;
+  font-weight: 700;
   cursor: pointer;
   transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
 }
 
-.sidebar-top-action:hover {
-  color: var(--paper);
-  border-color: rgba(255, 255, 255, 0.24);
-  background: rgba(255, 255, 255, 0.11);
-}
-
-.sidebar-top-action svg {
-  width: 18px;
-  height: 18px;
-}
-
-.sidebar-language-compact strong {
+.portal-language {
+  min-width: 36px;
+  min-height: 36px;
+  justify-content: center;
+  padding: 0 11px;
   color: var(--orange);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.04em;
+}
+
+/* The long label is kept for the script to write into, but never drawn. */
+.portal-language i,
+.portal-language [data-language-label] {
+  display: none;
+}
+
+.portal-language:hover,
+.portal-logout:hover {
+  color: var(--paper);
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.portal-language:hover {
+  color: var(--orange);
+}
+
+.portal-logout svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+}
+
+/*
+ * The phone top bar. Off by default: above the drawer breakpoint the panel is
+ * always on show and carries the wordmark at its own head.
+ */
+.portal-topbar {
+  display: none;
 }
 
 .sidebar-toggle,
@@ -303,11 +346,6 @@ svg {
   gap: 10px;
   padding: 15px 4px 1px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.sidebar-footer {
-  display: grid;
-  gap: 10px;
 }
 
 .sidebar-language {
@@ -2124,7 +2162,7 @@ a.profile-tab {
 }
 
 .admin-shell.is-sidebar-collapsed .admin-brand,
-.admin-shell.is-sidebar-collapsed .sidebar-top-actions,
+.admin-shell.is-sidebar-collapsed .sidebar-footer,
 .admin-shell.is-sidebar-collapsed .admin-brand-copy,
 .admin-shell.is-sidebar-collapsed .nav-group h2,
 .admin-shell.is-sidebar-collapsed .nav-group a span,
@@ -3025,16 +3063,37 @@ html[dir="rtl"] th:last-child {
     display: block;
   }
 
+  /*
+   * The panel opens the way the menu on the public site does: the whole screen,
+   * the same deep navy with a pink and a green bloom in opposite corners, and
+   * the same drop-and-fade rather than a slide in from the edge. The bar stays
+   * above it, so the button that opened it is the button that closes it.
+   */
   .admin-sidebar,
   .admin-shell.is-sidebar-collapsed .admin-sidebar {
     position: fixed;
-    width: min(310px, 86vw);
-    padding: 22px 17px;
-    transform: translateX(-105%);
+    inset: 0;
+    width: auto;
+    height: 100svh;
+    /* Head and foot are hidden here, so the nav is the only row and it takes
+       the whole height - otherwise it lands in the first `auto` track, hugs its
+       own content, and has no room left to centre itself in. */
+    grid-template-rows: minmax(0, 1fr);
+    padding: 110px 32px 40px;
+    background:
+      radial-gradient(circle at 85% 15%, rgba(229, 28, 111, 0.3), transparent 30%),
+      radial-gradient(circle at 10% 90%, rgba(79, 187, 55, 0.2), transparent 30%),
+      var(--navy-deep);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-20px);
+    transition: opacity 0.35s ease, transform 0.35s ease, visibility 0.35s ease;
   }
 
   .admin-shell.is-mobile-sidebar-open .admin-sidebar {
-    transform: translateX(0);
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
   }
 
   .admin-shell.is-sidebar-collapsed .admin-brand-copy,
@@ -3048,15 +3107,16 @@ html[dir="rtl"] th:last-child {
     display: inline-grid;
   }
 
-  .admin-shell.is-sidebar-collapsed .sidebar-top-actions {
-    display: flex;
+  /* The bar carries these now, so the foot of the panel stands down here. */
+  .sidebar-footer,
+  .admin-shell.is-sidebar-collapsed .sidebar-footer {
+    display: none;
   }
 
   .admin-shell.is-sidebar-collapsed .sidebar-language span {
     display: flex;
   }
 
-  .admin-shell.is-sidebar-collapsed .nav-group h2,
   .admin-shell.is-sidebar-collapsed .nav-group a i,
   .admin-shell.is-sidebar-collapsed .collapse-icon {
     display: block;
@@ -3074,10 +3134,6 @@ html[dir="rtl"] th:last-child {
     display: none;
   }
 
-  .admin-shell.is-sidebar-collapsed .sidebar-top {
-    display: flex;
-  }
-
   .admin-shell.is-sidebar-collapsed .nav-group a {
     justify-content: flex-start;
     padding: 0 13px;
@@ -3092,54 +3148,227 @@ html[dir="rtl"] th:last-child {
     display: none;
   }
 
-  .mobile-panel-toggle {
+  /*
+   * Pinned to the top of the screen, laid out like the bar on the public site:
+   * wordmark at the leading edge, panel button at the trailing one, on a pale
+   * blurred strip. It sits under the open drawer, which is z-index 30.
+   */
+  .portal-topbar {
     position: fixed;
-    top: 14px;
-    left: 14px;
-    z-index: 22;
+    top: 0;
+    right: 0;
+    left: 0;
+    /* Above the panel (30), so the button that opened it also closes it. */
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 92px;
+    padding: 30px 16px 12px;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 8px 30px rgba(14, 34, 60, 0.1);
+    backdrop-filter: blur(18px);
+  }
+
+  .portal-topbar-brand {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+  }
+
+  .portal-topbar-brand {
+    position: relative;
+  }
+
+  .portal-topbar-logo {
+    display: block;
+    width: auto;
+    height: 22px;
+    transition: opacity 0.3s ease;
+  }
+
+  /* The white cut waits on top of the colour one and fades in with the panel. */
+  .portal-topbar-logo-white {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .admin-shell.is-mobile-sidebar-open .portal-topbar-logo-white {
+    opacity: 1;
+  }
+
+  .admin-shell.is-mobile-sidebar-open .portal-topbar-logo-color {
+    opacity: 0;
+  }
+
+  .portal-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /*
+   * The bar is pale where the panel is dark, so the pills take the ink the
+   * public site gives them once its own header has a background behind it.
+   */
+  .portal-topbar .portal-language,
+  .portal-topbar .portal-logout {
+    color: var(--navy);
+    border-color: rgba(34, 63, 107, 0.18);
+    background: rgba(34, 63, 107, 0.05);
+  }
+
+  .portal-topbar .portal-logout {
+    padding: 9px 13px;
+    font-size: 0.76rem;
+  }
+
+  /*
+   * Open, the panel is the ground behind the bar, so the bar stops painting one
+   * of its own and everything on it turns light - exactly how the public header
+   * sits over its own menu.
+   */
+  .admin-shell.is-mobile-sidebar-open .portal-topbar {
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .admin-shell.is-mobile-sidebar-open .portal-topbar .portal-language,
+  .admin-shell.is-mobile-sidebar-open .portal-topbar .portal-logout,
+  .admin-shell.is-mobile-sidebar-open .mobile-panel-toggle {
+    color: var(--paper);
+    border-color: rgba(255, 255, 255, 0.24);
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  /* No longer floating over the page: the bar holds it now. */
+  .mobile-panel-toggle {
+    position: static;
     display: grid;
+    flex: 0 0 auto;
     color: var(--navy);
     border-color: var(--line);
     background: var(--paper);
-    box-shadow: 0 10px 30px rgba(20, 42, 73, 0.13);
   }
 
-  .sidebar-scrim {
-    position: fixed;
-    inset: 0;
-    z-index: 25;
+  /* The bars become a cross while the panel is open, as on the public site. */
+  .panel-close-icon,
+  .admin-shell.is-mobile-sidebar-open .panel-open-icon {
+    display: none;
+  }
+
+  .admin-shell.is-mobile-sidebar-open .panel-close-icon {
     display: block;
+  }
+
+  /*
+   * The head of the panel goes entirely - the bar overhead already carries the
+   * wordmark, and the word naming the portal was repeating what the bar says.
+   * Hiding the wrapper beats the rules that would otherwise put the brand back
+   * while the panel counts as collapsed.
+   */
+  .sidebar-top,
+  .admin-shell.is-sidebar-collapsed .sidebar-top {
+    display: none;
+  }
+
+  /* The public menu labels no groups, so neither does this one. */
+  .nav-group h2 {
+    display: none;
+  }
+
+  .nav-group + .nav-group {
+    margin-top: 0;
+  }
+
+  /* The panel covers the screen, so there is nothing left behind it to dim. */
+  .sidebar-scrim {
+    display: none;
+  }
+
+  /*
+   * With the whole screen to work in, the links take the scale the public menu
+   * uses - display face, generous rows, a hairline between each. Smaller than
+   * the 3rem there, because these lists run to seven or eight entries under
+   * their own headings rather than six flat ones.
+   */
+  /* Centred in the panel like the public menu; "safe" so a long list that
+     outgrows the screen still scrolls from its first item rather than clipping. */
+  .admin-nav {
+    display: grid;
+    align-content: center;
     padding: 0;
-    border: 0;
-    background: rgba(5, 15, 29, 0.54);
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.25s ease, visibility 0.25s ease;
+    counter-reset: portal-nav;
   }
 
-  .admin-shell.is-mobile-sidebar-open .sidebar-scrim {
-    opacity: 1;
-    visibility: visible;
+  .nav-group a {
+    min-height: 0;
+    margin: 0;
+    align-items: baseline;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0;
+    color: var(--paper);
+    font-family: var(--display);
+    font-size: clamp(1.8rem, 8vw, 3rem);
+    font-weight: 700;
+    /* At this size a long label like "Website Content" will not sit on one
+       line of a narrow phone, and the row is nowrap by default further up. */
+    white-space: normal;
   }
 
-  html[dir="rtl"] .admin-sidebar,
-  html[dir="rtl"] .admin-shell.is-sidebar-collapsed .admin-sidebar {
-    right: 0;
-    left: auto;
-    transform: translateX(105%);
+  /*
+   * The public menu counts its entries off in small orange figures. The count
+   * is drawn by the stylesheet rather than written into every portal's markup,
+   * so it stays right however the lists are ordered or added to.
+   */
+  .nav-group a::before {
+    counter-increment: portal-nav;
+    content: counter(portal-nav, decimal-leading-zero);
+    color: var(--orange);
+    font-family: var(--body);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.15em;
   }
 
-  html[dir="rtl"] .admin-shell.is-mobile-sidebar-open .admin-sidebar {
-    transform: translateX(0);
+  /* The figure takes the place the icon and the active dot held. */
+  .nav-group a svg,
+  .nav-group a i {
+    display: none;
   }
 
-  html[dir="rtl"] .mobile-panel-toggle {
-    right: 14px;
-    left: auto;
+  /* No pill and no slide: the public menu marks its place in colour alone. */
+  .nav-group a:hover,
+  .nav-group a.is-active {
+    color: var(--orange);
+    background: none;
+    box-shadow: none;
+    transform: none;
   }
+
 
   .admin-content {
-    padding: 74px 18px 55px;
+    /*
+     * Clear of the bar (92px) with room to breathe under it, so the page title
+     * is not tucked against the underside of the strip.
+     */
+    padding: 120px 18px 55px;
+  }
+
+  /*
+   * The parent portal keeps a sticky header of its own. It has to come to rest
+   * under the bar rather than at the top of the screen, or it slides in behind
+   * it and disappears.
+   */
+  .admin-header {
+    top: 92px;
   }
 
   .content-heading {
@@ -4570,4 +4799,15 @@ html[dir="rtl"] .qr-download-menu button {
   .schedule-check-actions .secondary-action {
     flex: 1 1 auto;
   }
+}
+
+/*
+ * A row, a cell or a column that belongs to one language only. Reading in
+ * Arabic should mean Arabic throughout, not Arabic beside its English source,
+ * so each half is marked and the other is put away. The engine sets is-arabic
+ * on the body, so this follows the language without any script of its own.
+ */
+body.is-arabic [data-lang="en"],
+body:not(.is-arabic) [data-lang="ar"] {
+  display: none;
 }

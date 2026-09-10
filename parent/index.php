@@ -214,6 +214,7 @@ try {
             subjects.name_en AS subject_name,
             subjects.name_ar AS subject_name_ar,
             TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))) AS teacher_name,
+            TRIM(CONCAT(COALESCE(teachers.first_name_ar, ''), ' ', COALESCE(teachers.last_name_ar, ''))) AS teacher_name_ar,
             student_subject_enrollments.academic_year,
             student_subject_enrollments.status
          FROM student_subject_enrollments
@@ -244,6 +245,7 @@ try {
             subjects.name_en AS subject_name,
             subjects.name_ar AS subject_name_ar,
             TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))) AS teacher_name,
+            TRIM(CONCAT(COALESCE(teachers.first_name_ar, ''), ' ', COALESCE(teachers.last_name_ar, ''))) AS teacher_name_ar,
             student_subject_attendance.homework_note,
             student_subject_attendance.status AS subject_attendance_status
          FROM student_subject_attendance
@@ -329,6 +331,42 @@ try {
     $error = $exception->getMessage();
 }
 
+/**
+ * A stored TIME as hours and minutes.
+ *
+ * The column keeps seconds, which nobody reads off an attendance list, and an
+ * empty time shows a dash rather than a run of zeros.
+ */
+function parent_clock(string $value): string
+{
+    $value = trim($value);
+    if ($value === '' || $value === '00:00:00') {
+        return '-';
+    }
+
+    return substr($value, 0, 5);
+}
+
+/**
+ * The payment status in words a parent would use.
+ *
+ * The stored enum reads "paid" and "partial_paid"; spelled out here as fully
+ * and partially paid. "Paid" on its own is already the heading of the amount
+ * column elsewhere, so re-using it for the status would translate to the wrong
+ * sense of the word.
+ */
+function parent_payment_label(string $status): string
+{
+    return [
+        'not_paid' => 'Not paid',
+        'partial_paid' => 'Partially paid',
+        'paid' => 'Fully paid',
+        'overpaid' => 'Overpaid',
+        'paused' => 'Paused',
+        'unsubscribed' => 'Unsubscribed',
+    ][$status] ?? ucwords(str_replace('_', ' ', $status));
+}
+
 function parent_status_class(string $value): string
 {
     return 'status-' . trim((string) preg_replace('/[^a-z0-9_-]+/', '-', strtolower($value)), '-');
@@ -407,9 +445,14 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
             $childId = (int) $child['id'];
             $isActiveChild = $childId === $selectedStudentId;
             $label = (string) $child['student_name'];
+            // The row carries both readings so the panel can switch language
+            // without another request; data-i18n-skip keeps the dictionary out
+            // of a proper name it would only leave alone anyway.
+            $labelAr = trim((string) ($child['student_name_ar'] ?? ''));
             ?>
-            <a class="<?= $isActiveChild ? 'is-active' : '' ?>" href="<?= e(khotwa_url('parent/index.php')) ?>?student_id=<?= e((string) $childId) ?>" title="<?= e($label) ?>">
-              <?= parent_icon('children') ?><span><?= e($label) ?></span>
+            <a class="<?= $isActiveChild ? 'is-active' : '' ?>" href="<?= e(khotwa_url('parent/index.php')) ?>?student_id=<?= e((string) $childId) ?>"
+               title="<?= e($label) ?>" data-title-en="<?= e($label) ?>" data-title-ar="<?= e($labelAr) ?>">
+              <?= parent_icon('children') ?><span data-i18n-skip data-en="<?= e($label) ?>" data-ar="<?= e($labelAr) ?>"><?= e($label) ?></span>
               <?php if ($isActiveChild): ?><i></i><?php endif; ?>
             </a>
           <?php endforeach; ?>
@@ -423,51 +466,39 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
         </section>
       </nav>
 
+      <?php portal_sidebar_bottom(); ?>
     </aside>
 
     <div class="admin-stage">
-      <button class="mobile-panel-toggle" type="button" aria-label="Open navigation panel" aria-controls="admin-sidebar" aria-expanded="false" data-mobile-sidebar-toggle>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-      </button>
+      <?php portal_mobile_topbar(khotwa_url('parent/index.php'), 'Khotwa parent portal home'); ?>
 
-      <header class="admin-header">
-        <div>
-          <span class="header-context">Parent access</span>
-        </div>
-        <div class="header-actions">
-          <button class="language-switch" type="button" data-language-toggle>
-            <span data-language-current>EN</span>
-            <i></i>
-            <span data-language-label>AR</span>
-          </button>
-          <a class="website-link" href="<?= e(khotwa_url('index.php')) ?>">
-            <?= parent_icon('website') ?>
-            <span>Website</span>
-          </a>
-          <a class="logout-link" href="<?= e(khotwa_url('logout.php')) ?>">Logout</a>
-        </div>
-      </header>
 
       <main class="admin-content">
         <?php if ($error !== ''): ?>
           <div class="database-alert"><?= e($error) ?></div>
         <?php else: ?>
+          <?php // The page is about one child, so the child names the page. ?>
           <section class="content-heading">
             <div>
-              <span class="content-kicker">Parent Portal</span>
-              <h1>Family dashboard</h1>
-              <p>Track attendance, subject enrollments, and payments for your child with the same secure Khotwa workspace experience.</p>
+              <h1 data-i18n-skip data-en="<?= e($selectedChildName) ?>" data-ar="<?= e((string) ($studentOverview['student_name_ar'] ?? '')) ?>"><?= e($selectedChildName) ?></h1>
+              <?php if ($studentOverview !== null): ?>
+                <?php // The facts that used to need a panel of their own. ?>
+                <p class="parent-heading-facts">
+                  <span><?= e((string) $studentOverview['grade_name']) ?></span>
+                  <i aria-hidden="true">·</i>
+                  <span><?= e((string) $studentOverview['current_teaching_language']) ?></span>
+                </p>
+              <?php endif; ?>
             </div>
-            <span class="live-indicator"><span></span>Student view is live</span>
           </section>
 
-          <section class="metrics-grid">
-            <article class="metric-card metric-orange">
-              <span class="metric-dot"></span>
-              <strong><?= e((string) count($children)) ?></strong>
-              <p>Linked children</p>
-            </article>
-            <article class="metric-card metric-green">
+          <?php /*
+                 * What is owed leads, at the size of the question it answers.
+                 * The two figures under it belong to the child named above, so
+                 * they read as that child's row rather than four equal tiles.
+                 */ ?>
+          <section class="metrics-grid parent-metrics-grid">
+            <article class="metric-card metric-green parent-balance-card">
               <span class="metric-dot"></span>
               <strong><?= e(number_format($familyOpenBalance, 2)) ?></strong>
               <p>Family open balance</p>
@@ -475,34 +506,21 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
             <article class="metric-card metric-pink">
               <span class="metric-dot"></span>
               <strong><?= e((string) $selectedStudentSubjects) ?></strong>
-              <p>Active subjects for selected child</p>
+              <p>Active subjects</p>
             </article>
             <article class="metric-card metric-navy">
               <span class="metric-dot"></span>
               <strong><?= e(number_format($recentAttendanceRate, 1)) ?>%</strong>
               <p>Recent attendance rate</p>
             </article>
+            <article class="metric-card metric-orange">
+              <span class="metric-dot"></span>
+              <strong data-i18n-skip><?= e(fmt_date((string) ($studentOverview['latest_attendance_date'] ?? ''), '—')) ?></strong>
+              <p>Latest attendance</p>
+            </article>
           </section>
 
           <section class="overview-grid parent-overview-grid">
-            <article class="data-panel">
-              <div class="panel-heading">
-                <div><span>Student profile</span><h2><?= e($selectedChildName) ?></h2></div>
-                <a href="<?= e(khotwa_url('parent/index.php')) ?>?student_id=<?= e((string) $selectedStudentId) ?>">Refresh</a>
-              </div>
-              <?php if ($studentOverview !== null): ?>
-                <div class="parent-kv-grid">
-                  <div><strong>Arabic name</strong><span><?= e((string) $studentOverview['student_name_ar']) ?></span></div>
-                  <div><strong>Full name (EN)</strong><span><?= e($selectedChildFullNameEn) ?></span></div>
-                  <div><strong>Full name (AR)</strong><span><?= e($selectedChildFullNameAr) ?></span></div>
-                  <div><strong>Grade</strong><span><?= e((string) $studentOverview['grade_name']) ?></span></div>
-                  <div><strong>Language</strong><span><?= e((string) $studentOverview['current_teaching_language']) ?></span></div>
-                  <div><strong>Status</strong><span class="status-pill <?= e(parent_status_class($selectedChildStatus)) ?>"><?= e(ucfirst($selectedChildStatus)) ?></span></div>
-                  <div><strong>Latest attendance</strong><span><?= e(fmt_date((string) ($studentOverview['latest_attendance_date'] ?? ''), 'No records yet')) ?></span></div>
-                </div>
-              <?php endif; ?>
-            </article>
-
             <aside class="data-panel">
               <div class="panel-heading">
                 <div><span>Student QR</span><h2>Student QR Code</h2></div>
@@ -513,8 +531,8 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                 </div>
                 <div class="student-qr-box" data-qr-canvas></div>
                 <div class="qr-download-actions">
-                  <button class="secondary-action" type="button" data-qr-download="png">Download PNG</button>
-                  <button class="secondary-action" type="button" data-qr-download="jpg">Download JPG</button>
+                  <?php // One format is enough; PNG keeps the code crisp. ?>
+                  <button class="primary-action" type="button" data-qr-download="png">Download QR code</button>
                 </div>
               </div>
             </aside>
@@ -528,18 +546,17 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
               <div class="table-scroll">
                 <table>
                   <thead>
-                    <tr><th>Subject</th><th>Arabic</th><th>Teacher</th><th>Year</th></tr>
+                    <tr><th data-lang="en">Subject</th><th data-lang="ar">Subject</th><th>Teacher</th></tr>
                   </thead>
                   <tbody>
                     <?php if ($subjects === []): ?>
-                      <tr><td colspan="4" class="empty-row">No active subject enrollments.</td></tr>
+                      <tr><td colspan="3" class="empty-row">No active subject enrollments.</td></tr>
                     <?php else: ?>
                       <?php foreach ($subjects as $row): ?>
                         <tr>
-                          <td><?= e((string) $row['subject_name']) ?></td>
-                          <td><?= e((string) $row['subject_name_ar']) ?></td>
-                          <td><?= e((string) $row['teacher_name']) ?></td>
-                          <td><?= e((string) $row['academic_year']) ?></td>
+                          <td data-lang="en"><?= e((string) $row['subject_name']) ?></td>
+                          <td data-lang="ar" lang="ar" dir="rtl" data-i18n-skip><?= e((string) $row['subject_name_ar']) ?></td>
+                          <td data-i18n-skip data-en="<?= e((string) $row['teacher_name']) ?>" data-ar="<?= e((string) ($row['teacher_name_ar'] ?? '')) ?>"><?= e((string) $row['teacher_name']) ?></td>
                         </tr>
                       <?php endforeach; ?>
                     <?php endif; ?>
@@ -565,8 +582,9 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                         <tr>
                           <td><?= e(fmt_date((string) $row['attendance_date'])) ?></td>
                           <td><span class="status-pill <?= e(parent_status_class((string) $row['status'])) ?>"><?= e(ucwords(str_replace('_', ' ', (string) $row['status']))) ?></span></td>
-                          <td><?= e((string) ($row['check_in_time'] ?? '-')) ?></td>
-                          <td><?= e((string) ($row['check_out_time'] ?? '-')) ?></td>
+                          <?php // The stored TIME carries seconds; nobody reads them. ?>
+                          <td data-i18n-skip><?= e(parent_clock((string) ($row['check_in_time'] ?? ''))) ?></td>
+                          <td data-i18n-skip><?= e(parent_clock((string) ($row['check_out_time'] ?? ''))) ?></td>
                         </tr>
                       <?php endforeach; ?>
                     <?php endif; ?>
@@ -592,10 +610,10 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                         <tr>
                           <td><?= e(fmt_date((string) $row['attendance_date'])) ?></td>
                           <td>
-                            <strong><?= e((string) $row['subject_name']) ?></strong>
-                            <small class="table-cell-detail" lang="ar" dir="rtl"><?= e((string) $row['subject_name_ar']) ?></small>
+                            <?php // Swapped in place rather than stacked, so only one is read. ?>
+                            <strong data-i18n-skip data-en="<?= e((string) $row['subject_name']) ?>" data-ar="<?= e((string) $row['subject_name_ar']) ?>"><?= e((string) $row['subject_name']) ?></strong>
                           </td>
-                          <td><?= e((string) $row['teacher_name']) ?></td>
+                          <td data-i18n-skip data-en="<?= e((string) $row['teacher_name']) ?>" data-ar="<?= e((string) ($row['teacher_name_ar'] ?? '')) ?>"><?= e((string) $row['teacher_name']) ?></td>
                           <td><span class="status-pill <?= e(parent_status_class((string) $row['subject_attendance_status'])) ?>"><?= e(ucwords(str_replace('_', ' ', (string) $row['subject_attendance_status']))) ?></span></td>
                           <td><?= e((string) $row['homework_note']) ?></td>
                         </tr>
@@ -613,19 +631,18 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
               <div class="table-scroll">
                 <table>
                   <thead>
-                    <tr><th>Month</th><th>Expected</th><th>Paid</th><th>Balance</th><th>Status</th></tr>
+                    <tr><th>Month</th><th>Expected</th><th>Balance</th><th>Status</th></tr>
                   </thead>
                   <tbody>
                     <?php if ($billing === []): ?>
-                      <tr><td colspan="5" class="empty-row">No billing records yet.</td></tr>
+                      <tr><td colspan="4" class="empty-row">No billing records yet.</td></tr>
                     <?php else: ?>
                       <?php foreach ($billing as $row): ?>
                         <tr>
                           <td><?= e((string) $row['billing_year']) ?>-<?= e(str_pad((string) $row['billing_month'], 2, '0', STR_PAD_LEFT)) ?></td>
                           <td><?= e(number_format((float) $row['expected_amount'], 2)) ?></td>
-                          <td><?= e(number_format((float) $row['paid_amount'], 2)) ?></td>
                           <td><?= e(number_format((float) $row['balance_amount'], 2)) ?></td>
-                          <td><span class="status-pill <?= e(parent_status_class((string) $row['payment_status'])) ?>"><?= e(ucwords(str_replace('_', ' ', (string) $row['payment_status']))) ?></span></td>
+                          <td><span class="status-pill <?= e(parent_status_class((string) $row['payment_status'])) ?>"><?= e(parent_payment_label((string) $row['payment_status'])) ?></span></td>
                         </tr>
                       <?php endforeach; ?>
                     <?php endif; ?>
@@ -643,7 +660,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                   <h2>Warnings &amp; expiations</h2>
                 </div>
                 <?php if ($childAgeGroup !== null): ?>
-                  <strong class="record-count">Age group: <?= e((string) $childAgeGroup['name_en']) ?></strong>
+                  <strong class="record-count">Age group: <span data-i18n-skip data-en="<?= e((string) $childAgeGroup['name_en']) ?>" data-ar="<?= e((string) ($childAgeGroup['name_ar'] ?? '')) ?>"><?= e((string) $childAgeGroup['name_en']) ?></span></strong>
                 <?php endif; ?>
               </div>
               <?php if ($parentWarnings === []): ?>
@@ -677,7 +694,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                                 <?php foreach ($expiationsByCategory as $categoryName => $options): ?>
                                   <optgroup label="<?= e((string) $categoryName) ?>">
                                     <?php foreach ($options as $option): ?>
-                                      <option value="<?= e((string) $option['id']) ?>"><?= e((string) $option['title_en']) ?></option>
+                                      <option value="<?= e((string) $option['id']) ?>" data-i18n-skip data-en="<?= e((string) $option['title_en']) ?>" data-ar="<?= e((string) ($option['title_ar'] ?? '')) ?>"><?= e((string) $option['title_en']) ?></option>
                                     <?php endforeach; ?>
                                   </optgroup>
                                 <?php endforeach; ?>

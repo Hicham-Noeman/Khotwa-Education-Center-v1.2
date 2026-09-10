@@ -800,6 +800,57 @@
   line-height: 1.4;
 }
 
+/*
+ * The two details a teacher keeps themselves. Laid out like the read-only
+ * fields above it so the panel reads as one list rather than two.
+ */
+.teacher-details-form {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.teacher-details-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.teacher-details-fields label {
+  display: grid;
+  gap: 6px;
+}
+
+.teacher-details-fields span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.teacher-details-fields input {
+  min-height: 44px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--ink);
+  background: var(--paper);
+  font-family: inherit;
+  font-size: 0.88rem;
+}
+
+.teacher-details-fields input:focus-visible {
+  border-color: var(--navy);
+  outline: none;
+}
+
+.teacher-details-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
 @media (max-width: 520px) {
   .profile-photo-form {
     display: grid;
@@ -962,8 +1013,29 @@
 
 
 @media (max-width: 580px) {
+  /* The three counts stay side by side even on the narrowest phone. */
   .teacher-admin-page .teacher-summary-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  /*
+   * Three to a row leaves roughly 90px each, so the cards lose the height
+   * and padding they carry when there is a whole row to themselves.
+   */
+  .teacher-admin-page .teacher-summary-grid .metric-card {
+    min-height: 0;
+    padding: 14px 12px;
+  }
+
+  .teacher-admin-page .teacher-summary-grid .metric-card strong {
+    font-size: 1.6rem;
+  }
+
+  .teacher-admin-page .teacher-summary-grid .metric-card p {
+    margin-top: 5px;
+    font-size: 0.66rem;
+    line-height: 1.25;
   }
 
   .notes-row-fields,

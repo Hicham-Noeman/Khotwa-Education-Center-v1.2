@@ -2076,12 +2076,13 @@ html[dir="rtl"] .star-meter-fill {
   text-transform: uppercase;
 }
 
+/*
+ * Plain paper. The faint 70px grid that used to sit here met the tinted band of
+ * the reviews above it as a hard edge, and the ruled panel read as a stray
+ * rectangle pasted under the last review rather than the top of a new section.
+ */
 .team-section {
-  background:
-    linear-gradient(90deg, rgba(34, 63, 107, 0.035) 1px, transparent 1px),
-    linear-gradient(rgba(34, 63, 107, 0.035) 1px, transparent 1px),
-    var(--paper);
-  background-size: 70px 70px;
+  background: var(--paper);
 }
 
 .team-grid {
