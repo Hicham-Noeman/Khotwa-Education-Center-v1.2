@@ -191,7 +191,6 @@ $homepageRating = $homepageRatingCount > 0
       <a href="#team"><span>04</span>Team</a>
       <a href="#gallery"><span>05</span>Gallery</a>
       <a href="#faq"><span>06</span>FAQ</a>
-      <a class="mobile-terms-link" href="<?= homepage_e(khotwa_url('terms.php')) ?>"><span>07</span>Terms</a>
     </nav>
   </div>
 

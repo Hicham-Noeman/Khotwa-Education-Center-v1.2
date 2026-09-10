@@ -356,23 +356,36 @@ const PARTNER_MARQUEE_SPEED = 55; // px per second
 const setupPartnerMarquee = () => {
   const track = document.querySelector("[data-homepage-partners]");
   const viewport = track?.closest(".partner-marquee");
-  if (!track || !viewport) return;
+  if (!track || !viewport) return false;
+
+  /*
+   * content-visibility lets the browser skip this whole section while it is far
+   * below the fold, and everything inside it measures zero while it does.
+   * Rebuilding on a zero measurement would strip the loop out and leave the row
+   * standing still, so nothing is touched until there is a real width to work
+   * from. Reporting the failure lets the caller come back once there is one.
+   */
+  const viewportWidth = viewport.getBoundingClientRect().width;
+  if (viewportWidth < 1) return false;
 
   track.querySelectorAll("[data-marquee-clone]").forEach((clone) => clone.remove());
   track.classList.remove("is-marquee");
   track.style.removeProperty("--marquee-duration");
 
   const originals = [...track.children];
-  if (originals.length === 0 || reduceMotion) return;
+  if (originals.length === 0 || reduceMotion) return true;
 
   const gap = parseFloat(getComputedStyle(track).columnGap) || 0;
   const runWidth = originals.reduce((total, item) => total + item.getBoundingClientRect().width + gap, 0);
-  if (runWidth < 1) return;
+  if (runWidth < 1) return false;
 
-  const viewportWidth = viewport.getBoundingClientRect().width;
-  // Nothing to loop through if the logos do not even fill their window.
-  if (runWidth <= viewportWidth) return;
-
+  /*
+   * How many times the strip must be repeated to overflow its window. With
+   * only a handful of partners one run is narrower than the screen, and the
+   * row used to be left standing still in that case - which is most screens,
+   * and why the logos did not move at all. Repeating it instead keeps the
+   * strip travelling however few partners there are.
+   */
   const runs = Math.max(1, Math.ceil(viewportWidth / runWidth));
   const frame = document.createDocumentFragment();
   for (let copy = 0; copy < runs * 2 - 1; copy += 1) {
@@ -389,6 +402,7 @@ const setupPartnerMarquee = () => {
 
   track.style.setProperty("--marquee-duration", `${(runWidth * runs) / PARTNER_MARQUEE_SPEED}s`);
   track.classList.add("is-marquee");
+  return true;
 };
 
 /*
@@ -1050,10 +1064,116 @@ document.querySelector("#year").textContent = new Date().getFullYear();
  */
 (() => {
   let resizeTimer = 0;
+  let lastWidth = window.innerWidth;
 
   window.addEventListener("load", setupPartnerMarquee);
+
   window.addEventListener("resize", () => {
+    /*
+     * A phone fires resize every time its address bar slides in or out, which
+     * happens constantly while scrolling. That is a change of height, not of
+     * layout, and rebuilding on it restarts the animation from its first frame,
+     * so the strip visibly jumps or stalls under the reader's thumb. Only a
+     * real change of width can alter how many copies the loop needs.
+     */
+    if (window.innerWidth === lastWidth) return;
+    lastWidth = window.innerWidth;
     window.clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(setupPartnerMarquee, 200);
+  });
+
+  /*
+   * The strip sits far below the fold, so on a phone the section is usually
+   * still skipped by content-visibility when load fires and there is nothing to
+   * measure yet. Watch for it approaching the viewport and set the loop up at
+   * the first moment it can be measured honestly.
+   */
+  const section = document.querySelector(".partners-section");
+  if (section && "IntersectionObserver" in window) {
+    const watcher = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      if (setupPartnerMarquee()) watcher.disconnect();
+    }, { rootMargin: "300px" });
+    watcher.observe(section);
+  }
+})();
+
+// ── Programs carousel ─────────────────────────────────────────────────────
+/*
+ * On a phone the three programme cards are one swipeable row, resting in the
+ * middle of the screen with the card either side showing at the margins.
+ *
+ * The row opens on the middle card, so all three are in view at once. It does
+ * not wrap around: swiping left or right walks to the ends and stops there,
+ * which is why the row carries a gutter of its own - without it the outer two
+ * cards could never reach the middle of the screen and the first would sit
+ * jammed against the edge.
+ */
+(() => {
+  const grid = document.querySelector(".program-grid");
+  if (!grid) return;
+
+  const cards = [...grid.querySelectorAll(".program-card")];
+  if (cards.length < 3) return;
+
+  const middle = Math.floor(cards.length / 2);
+
+  // The row is only a scroller below this width; above it the cards are a
+  // plain grid and there is nothing to position.
+  const wide = window.matchMedia("(min-width: 821px)");
+
+  let resizeTimer = 0;
+  let lastWidth = window.innerWidth;
+
+  /*
+   * Puts the middle card in the middle of the screen. Reports false when the
+   * row cannot be measured yet, so the caller knows to come back later.
+   */
+  const centreMiddleCard = () => {
+    if (wide.matches) return true;
+
+    const style = getComputedStyle(grid);
+    const gutter = parseFloat(style.paddingInlineStart) || 0;
+    const stride = Math.abs(cards[1].offsetLeft - cards[0].offsetLeft);
+    const width = cards[0].getBoundingClientRect().width;
+    if (stride <= 0 || width <= 0 || grid.clientWidth <= 0) return false;
+
+    // How far along the row the middle card's centre sits, less half a screen.
+    const position = gutter + middle * stride + width / 2 - grid.clientWidth / 2;
+    // scrollLeft runs away from zero in opposite directions: positive to the
+    // right in English, negative to the left in Arabic.
+    grid.scrollLeft = style.direction === "rtl" ? -position : position;
+    return true;
+  };
+
+  window.addEventListener("load", centreMiddleCard);
+
+  /*
+   * content-visibility lets the browser skip this section entirely while it is
+   * far below the fold, and everything inside measures zero while it does. On a
+   * phone the programmes sit well down the page, so that is still true when
+   * load fires. Waiting for the section to come near the viewport is the only
+   * way to get an honest measurement to position from.
+   */
+  const section = grid.closest("section");
+  if (section && "IntersectionObserver" in window) {
+    const watcher = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      if (centreMiddleCard()) watcher.disconnect();
+    }, { rootMargin: "300px" });
+    watcher.observe(section);
+  }
+
+  window.addEventListener("resize", () => {
+    /*
+     * A phone fires resize constantly as its address bar slides in and out.
+     * That is a change of height, not of layout, and acting on it would yank
+     * the row back to the middle card while the reader is looking at another
+     * one. Only a real change of width moves where a card has to sit.
+     */
+    if (window.innerWidth === lastWidth) return;
+    lastWidth = window.innerWidth;
+    window.clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(centreMiddleCard, 200);
   });
 })();
