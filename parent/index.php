@@ -494,7 +494,6 @@ function parent_icon(string $name): string
     'attendance' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18m-5 5 2 2 4-4"/>',
     'billing' => '<circle cx="12" cy="12" r="9"/><path d="M16 8h-5a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4H8m4-10v12"/>',
     'review' => '<path d="M12 3.6 14.3 9l5.7.4-4.4 3.7 1.4 5.6L12 15.7 7 18.7l1.4-5.6L4 9.4 9.7 9Z"/>',
-    'website' => '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
     'logout' => '<path d="M10 17l5-5-5-5M15 12H3"/><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/>',
   ];
 
@@ -566,7 +565,6 @@ $selectedChildStatus = (string) ($studentOverview['status'] ?? 'inactive');
         <section class="nav-group">
           <h2>Shortcuts</h2>
           <a class="<?= $view === 'review' ? 'is-active' : '' ?>" href="<?= e(khotwa_url('parent/index.php')) ?>?view=review"><?= parent_icon('review') ?><span>Review the center</span><?php if ($view === 'review'): ?><i></i><?php endif; ?></a>
-          <a href="<?= e(khotwa_url('index.php')) ?>"><?= parent_icon('website') ?><span>Website</span></a>
           <a href="<?= e(khotwa_url('logout.php')) ?>"><?= parent_icon('logout') ?><span>Logout</span></a>
         </section>
       </nav>
