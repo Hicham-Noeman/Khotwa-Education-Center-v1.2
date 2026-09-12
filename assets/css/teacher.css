@@ -735,22 +735,21 @@
   gap: 18px;
 }
 
-/* The teacher's own picture: add or replace, never clear. */
-.profile-photo-form {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 14px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--soft);
+/*
+ * The teacher's picture, shown but not managed: the administration sets it. It
+ * sits beside the name instead of in a panel of its own, which is a row of
+ * height saved on a phone.
+ */
+.profile-card-head {
+  justify-content: flex-start;
+  gap: 14px;
 }
 
 .profile-photo-preview {
   display: grid;
-  width: 84px;
-  height: 84px;
+  padding: 0;
+  width: 66px;
+  height: 66px;
   flex: 0 0 auto;
   place-items: center;
   border: 2px solid var(--paper);
@@ -764,98 +763,96 @@
 }
 
 .profile-photo-preview img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.profile-photo-controls {
-  display: grid;
-  gap: 7px;
-  min-width: 0;
+/* Tapping the picture opens it full size - the pointer says so. */
+.profile-photo-preview.is-zoomable {
+  cursor: zoom-in;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.profile-photo-controls > span {
-  color: var(--navy);
-  font-size: 0.8rem;
-  font-weight: 800;
-}
-
-.profile-photo-controls p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.7rem;
-}
-
-.profile-photo-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.profile-photo-actions small {
-  color: var(--muted);
-  font-size: 0.63rem;
-  line-height: 1.4;
-}
-
-/*
- * The two details a teacher keeps themselves. Laid out like the read-only
- * fields above it so the panel reads as one list rather than two.
- */
-.teacher-details-form {
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
-}
-
-.teacher-details-fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
-}
-
-.teacher-details-fields label {
-  display: grid;
-  gap: 6px;
-}
-
-.teacher-details-fields span {
-  color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.teacher-details-fields input {
-  min-height: 44px;
-  padding: 0 13px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  color: var(--ink);
-  background: var(--paper);
-  font-family: inherit;
-  font-size: 0.88rem;
-}
-
-.teacher-details-fields input:focus-visible {
-  border-color: var(--navy);
+.profile-photo-preview.is-zoomable:hover,
+.profile-photo-preview.is-zoomable:focus-visible {
   outline: none;
-}
-
-.teacher-details-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 14px;
+  transform: scale(1.04);
+  box-shadow: 0 10px 24px rgba(34, 63, 107, 0.28);
 }
 
 @media (max-width: 520px) {
-  .profile-photo-form {
-    display: grid;
-    justify-items: start;
+  .profile-photo-preview {
+    width: 56px;
+    height: 56px;
+    font-size: 1.15rem;
   }
+}
+
+/* The picture at full size, over the page. */
+.photo-zoom {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.photo-zoom[hidden] {
+  display: none;
+}
+
+.photo-zoom-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(11, 28, 52, 0.78);
+  backdrop-filter: blur(6px);
+  cursor: zoom-out;
+}
+
+.photo-zoom-frame {
+  position: relative;
+  margin: 0;
+  max-width: min(560px, 100%);
+  max-height: calc(100svh - 48px);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 30px 70px rgba(10, 27, 51, 0.45);
+}
+
+.photo-zoom-frame img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100svh - 48px);
+  object-fit: contain;
+  background: var(--paper);
+}
+
+.photo-zoom-close {
+  position: absolute;
+  top: 10px;
+  inset-inline-end: 10px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: var(--paper);
+  background: rgba(11, 28, 52, 0.62);
+  cursor: pointer;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.photo-zoom-close:hover,
+.photo-zoom-close:focus-visible {
+  outline: none;
+  background: rgba(11, 28, 52, 0.85);
 }
 
 .teacher-profile-fields {
@@ -873,8 +870,15 @@
   background: var(--soft);
 }
 
-.teacher-profile-fields span,
-.teacher-profile-note > span {
+/*
+ * A long value - an address, the stage chips, a list of qualifications - takes
+ * the whole row instead of being squeezed into half of it.
+ */
+.teacher-profile-fields > div.is-wide {
+  grid-column: 1 / -1;
+}
+
+.teacher-profile-fields span {
   color: var(--muted);
   font-size: 0.65rem;
   font-weight: 800;
@@ -916,30 +920,22 @@
   text-decoration: underline;
 }
 
-.teacher-profile-note {
-  margin-top: 12px;
-  padding: 14px;
-  border-radius: 12px;
-  background: rgba(244, 159, 15, 0.08);
-}
-
-.teacher-profile-note p {
-  margin: 6px 0 0;
-  color: var(--ink);
-  font-size: 0.78rem;
-  line-height: 1.55;
-}
-
+/*
+ * Subjects read as a board of cards rather than one full-width row each: a
+ * dozen subjects used to be a dozen screens of scrolling, and every card only
+ * carries a name, its Arabic name and a status.
+ */
 .teacher-subject-list {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
   gap: 9px;
 }
 
 .teacher-subject-list > div {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
+  grid-template-columns: 34px minmax(0, 1fr);
   align-items: center;
-  gap: 11px;
+  gap: 6px 10px;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -948,21 +944,28 @@
 
 .teacher-subject-list > div > span {
   display: grid;
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   place-items: center;
-  border-radius: 11px;
+  border-radius: 10px;
   color: var(--paper);
   background: var(--navy);
 }
 
 .teacher-subject-list svg {
-  width: 19px;
+  width: 17px;
 }
 
 .teacher-subject-list > div > div {
   display: grid;
-  gap: 3px;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* The status sits under the name, where there is room for it at this width. */
+.teacher-subject-list > div > .status-pill {
+  grid-column: 1 / -1;
+  justify-self: start;
 }
 
 .teacher-subject-list strong {
@@ -1038,9 +1041,31 @@
     line-height: 1.25;
   }
 
-  .notes-row-fields,
-  .teacher-profile-fields {
+  .notes-row-fields {
     grid-template-columns: 1fr;
+  }
+
+  /*
+   * The profile fields stay two-per-row on a phone - first name beside last
+   * name, and so on. Collapsing them to one column turned a short card into a
+   * long scroll for no gain, since each value is only a word or a date.
+   */
+  .teacher-profile-fields {
+    gap: 8px;
+  }
+
+  .teacher-profile-fields > div {
+    padding: 11px;
+  }
+
+  /* Two subjects per row on a phone, however narrow the panel gets. */
+  .teacher-subject-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .teacher-subject-list > div {
+    padding: 10px;
   }
 
   .teacher-save-bar,

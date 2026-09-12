@@ -2,9 +2,6 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../src/auth.php';
-// The teacher photo upload reuses the same validation, folder, and cleanup the
-// admin panel uses, so a photo added here is identical to one added there.
-require_once __DIR__ . '/../src/admin-data.php';
 require_once __DIR__ . '/../src/portal-ui.php';
 
 $user = require_roles(['teacher']);
@@ -48,12 +45,6 @@ $message = isset($_GET['saved'])
     : '';
 if (isset($_GET['flagged'])) {
     $message = 'Behaviour flag sent to the administration.';
-}
-if (isset($_GET['photo'])) {
-    $message = 'Your profile picture has been updated.';
-}
-if (isset($_GET['details'])) {
-    $message = 'Your details have been updated.';
 }
 $error = '';
 $studentRows = [];
@@ -107,7 +98,7 @@ try {
     $pdo = khotwa_db();
     $profileStatement = $pdo->prepare(
         "SELECT teachers.id, teachers.first_name, teachers.last_name, teachers.phone_number,
-                teachers.email AS teacher_email, teachers.status, teachers.notes,
+                teachers.email AS teacher_email, teachers.status,
                 teachers.created_at, users.email AS account_email, users.last_login_at,
                 teachers.teaches_primary, teachers.teaches_intermediate, teachers.teaches_secondary,
                 teachers.teaching_since, teachers.joined_center_on,
@@ -125,86 +116,11 @@ try {
     }
 
     /*
-     * A teacher owns their own picture: they can add one and replace it later, but
-     * there is deliberately no way to clear it - the website falls back to initials
-     * only for a teacher who never uploaded one, and removing a photo is an
-     * administration decision.
+     * Everything on the profile screen is the administration's to set - the
+     * picture, the phone number and the certifications included. This screen
+     * only shows a teacher their own record, so there is no write path here at
+     * all and nothing to post to.
      */
-    /*
-     * The details a teacher owns: the number to reach them on and the
-     * qualifications shown beside their name. Everything else on this screen is
-     * the administration's to set, so it stays read-only here.
-     */
-    if ($view === 'profile'
-        && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST'
-        && isset($_POST['profile_details'])
-    ) {
-        try {
-            verify_app_csrf();
-
-            $phone = trim((string) ($_POST['phone_number'] ?? ''));
-            $certificationsEn = trim((string) ($_POST['certifications_en'] ?? ''));
-            $certificationsAr = trim((string) ($_POST['certifications_ar'] ?? ''));
-
-            // The columns hold 30 and 255; refuse rather than silently truncate.
-            if (mb_strlen($phone) > 30) {
-                throw new RuntimeException('A phone number cannot be longer than 30 characters.');
-            }
-            if (mb_strlen($certificationsEn) > 255 || mb_strlen($certificationsAr) > 255) {
-                throw new RuntimeException('Certifications cannot be longer than 255 characters.');
-            }
-
-            $detailsStatement = $pdo->prepare(
-                'UPDATE teachers SET phone_number = ?, certifications_en = ?, certifications_ar = ?
-                 WHERE id = ? LIMIT 1'
-            );
-            $detailsStatement->execute([
-                $phone === '' ? null : $phone,
-                $certificationsEn === '' ? null : $certificationsEn,
-                $certificationsAr === '' ? null : $certificationsAr,
-                $teacherId,
-            ]);
-
-            header('Location: ' . khotwa_url('teacher/index.php') . '?view=profile&details=1');
-            exit;
-        } catch (Throwable $exception) {
-            $error = $exception->getMessage();
-        }
-    }
-
-    if ($view === 'profile'
-        && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST'
-        && !isset($_POST['profile_details'])
-    ) {
-        $uploadedPaths = [];
-        try {
-            verify_app_csrf();
-
-            $uploadResult = admin_prepare_uploads(
-                'teachers',
-                ['photo_path' => (string) ($teacherProfile['photo_path'] ?? '')],
-                (array) ($_FILES['uploads'] ?? [])
-            );
-            $uploadedPaths = $uploadResult['created'];
-            $newPath = (string) ($uploadResult['fields']['photo_path'] ?? '');
-
-            if ($uploadedPaths === [] || $newPath === '') {
-                throw new RuntimeException('Choose a picture to upload.');
-            }
-
-            $photoStatement = $pdo->prepare('UPDATE teachers SET photo_path = ? WHERE id = ? LIMIT 1');
-            $photoStatement->execute([$newPath, $teacherId]);
-
-            // Only once the new path is safely stored does the old file go.
-            admin_remove_uploaded_files($uploadResult['replaced']);
-
-            header('Location: ' . khotwa_url('teacher/index.php') . '?view=profile&photo=1');
-            exit;
-        } catch (Throwable $exception) {
-            admin_remove_uploaded_files($uploadedPaths);
-            $error = $exception->getMessage();
-        }
-    }
 
     if (in_array($view, ['attendance', 'submission'], true) && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         try {
@@ -848,7 +764,6 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
         <?php elseif ($teacherProfile !== []): ?>
           <section class="profile-overview-grid">
             <article class="data-panel teacher-profile-card">
-              <div class="panel-heading"><div><span>Teacher profile</span><h2><?= e($teacherName) ?></h2></div><span class="profile-id">ID <?= e((string) $teacherId) ?></span></div>
               <?php
               $photoPath = trim((string) ($teacherProfile['photo_path'] ?? ''));
               $photoInitials = strtoupper(
@@ -856,38 +771,28 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                   . mb_substr((string) ($teacherProfile['last_name'] ?? ''), 0, 1)
               );
               ?>
-              <form class="profile-photo-form" method="post" enctype="multipart/form-data">
-                <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
-                <div class="profile-photo-preview">
-                  <?php if ($photoPath !== ''): ?>
+              <?php // The picture sits with the name rather than in a panel of
+                    // its own: it is only shown here, never managed. A tap opens
+                    // it full size. ?>
+              <div class="panel-heading profile-card-head">
+                <?php if ($photoPath !== ''): ?>
+                  <button class="profile-photo-preview is-zoomable" type="button" data-photo-zoom data-photo-src="<?= e(khotwa_url($photoPath)) ?>" data-photo-alt="<?= e($teacherName) ?>">
                     <img src="<?= e(khotwa_url($photoPath)) ?>" alt="<?= e($teacherName) ?>">
-                  <?php else: ?>
-                    <span><?= e($photoInitials !== '' ? $photoInitials : 'K') ?></span>
-                  <?php endif; ?>
-                </div>
-                <div class="profile-photo-controls">
-                  <span>Profile picture</span>
-                  <p>Shown on the public website in place of your initials.</p>
-                  <input
-                    class="admin-file-input"
-                    type="file"
-                    name="uploads[photo_path]"
-                    accept="image/jpeg,image/png,image/gif,image/webp"
-                    required
-                  >
-                  <div class="profile-photo-actions">
-                    <button class="primary-action" type="submit"><?= $photoPath === '' ? 'Upload picture' : 'Replace picture' ?></button>
-                    <small>JPEG, PNG, GIF, or WebP up to 8 MB. A new picture replaces the current one.</small>
-                  </div>
-                </div>
-              </form>
+                  </button>
+                <?php else: ?>
+                  <span class="profile-photo-preview"><?= e($photoInitials !== '' ? $photoInitials : 'K') ?></span>
+                <?php endif; ?>
+                <div><span>Teacher profile</span><h2><?= e($teacherName) ?></h2></div>
+              </div>
               <div class="teacher-profile-fields">
                 <div><span>First name</span><strong><?= e((string) $teacherProfile['first_name']) ?></strong></div>
                 <div><span>Last name</span><strong><?= e((string) $teacherProfile['last_name']) ?></strong></div>
                 <?php // The teacher record and the portal account carry the same
                       // address, so it is shown once. ?>
-                <div><span>Email</span><strong><?= e((string) $teacherProfile['teacher_email']) ?></strong></div>
-                <div><span>Member since</span><strong><?= e(fmt_date((string) $teacherProfile['created_at'])) ?></strong></div>
+                <div class="is-wide"><span>Email</span><strong><?= e((string) $teacherProfile['teacher_email']) ?></strong></div>
+                <?php $phoneNumber = trim((string) ($teacherProfile['phone_number'] ?? '')); ?>
+                <div><span>Phone number</span><strong><?= $phoneNumber === '' ? 'Not set' : '<span data-i18n-skip>' . e($phoneNumber) . '</span>' ?></strong></div>
+                <div><span>Member since</span><strong><span data-i18n-skip><?= e(fmt_date((string) $teacherProfile['created_at'])) ?></span></strong></div>
                 <?php
                 $teachingSince = (string) ($teacherProfile['teaching_since'] ?? '');
                 $teachingYears = teacher_years_since($teachingSince);
@@ -899,7 +804,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                     'Secondary (Sanawi)' => (int) ($teacherProfile['teaches_secondary'] ?? 0) === 1,
                 ]));
                 ?>
-                <div>
+                <div class="is-wide">
                   <span>Educational levels</span>
                   <strong>
                     <?php if ($stages === []): ?>
@@ -941,8 +846,22 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                     <?php endif; ?>
                   </strong>
                 </div>
+                <?php
+                $certifications = trim((string) ($teacherProfile['certifications_en'] ?? ''));
+                $certificationsAr = trim((string) ($teacherProfile['certifications_ar'] ?? ''));
+                ?>
+                <div class="is-wide">
+                  <span>Certifications</span>
+                  <strong><?= $certifications === '' ? 'Not set' : e($certifications) ?></strong>
+                </div>
+                <?php if ($certificationsAr !== ''): ?>
+                  <div class="is-wide">
+                    <span>Certifications in Arabic</span>
+                    <strong lang="ar" dir="rtl" data-i18n-skip><?= e($certificationsAr) ?></strong>
+                  </div>
+                <?php endif; ?>
                 <?php $videoUrl = trim((string) ($teacherProfile['video_url'] ?? '')); ?>
-                <div>
+                <div class="is-wide">
                   <span>Video</span>
                   <strong>
                     <?php if ($videoUrl === ''): ?>
@@ -953,33 +872,6 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                   </strong>
                 </div>
               </div>
-              <?php
-              $certifications = trim((string) ($teacherProfile['certifications_en'] ?? ''));
-              $certificationsAr = trim((string) ($teacherProfile['certifications_ar'] ?? ''));
-              ?>
-              <?php // The two things a teacher keeps up to date themselves. ?>
-              <form class="teacher-details-form" method="post">
-                <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
-                <input type="hidden" name="profile_details" value="1">
-                <div class="teacher-details-fields">
-                  <label>
-                    <span>Phone number</span>
-                    <input type="tel" name="phone_number" maxlength="30" placeholder="Not provided" value="<?= e((string) ($teacherProfile['phone_number'] ?? '')) ?>">
-                  </label>
-                  <label>
-                    <span>Certifications</span>
-                    <input type="text" name="certifications_en" maxlength="255" placeholder="Degrees, training, memberships" value="<?= e($certifications) ?>">
-                  </label>
-                  <label>
-                    <span>Certifications in Arabic</span>
-                    <input type="text" name="certifications_ar" maxlength="255" lang="ar" dir="rtl" data-i18n-skip value="<?= e($certificationsAr) ?>">
-                  </label>
-                </div>
-                <div class="teacher-details-actions">
-                  <button class="primary-action" type="submit">Save details</button>
-                </div>
-              </form>
-              <?php if ($teacherProfile['notes']): ?><div class="teacher-profile-note"><span>Profile note</span><p><?= e((string) $teacherProfile['notes']) ?></p></div><?php endif; ?>
             </article>
 
             <article class="data-panel">
@@ -1003,6 +895,14 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
       </main>
     </div>
     <button class="sidebar-scrim" type="button" aria-label="Close navigation panel" data-sidebar-scrim></button>
+  </div>
+  <?php // The full-size view of the profile picture, opened by tapping it. ?>
+  <div class="photo-zoom" data-photo-zoom-modal hidden>
+    <button class="photo-zoom-backdrop" type="button" aria-label="Close picture" data-photo-zoom-close></button>
+    <figure class="photo-zoom-frame" role="dialog" aria-modal="true" aria-label="Profile picture">
+      <img src="" alt="" data-photo-zoom-image>
+      <button class="photo-zoom-close" type="button" aria-label="Close picture" data-photo-zoom-close>&times;</button>
+    </figure>
   </div>
   <?php render_toasts([
       ['type' => 'success', 'text' => $message ?? ''],

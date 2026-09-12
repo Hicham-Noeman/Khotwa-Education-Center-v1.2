@@ -394,6 +394,12 @@
     // The endpoint is supplied by the page so the modal works from any folder.
     const attendanceUrl = modal?.getAttribute("data-qr-scan-url") || "qr-attendance.php";
     const studentUrl = modal?.getAttribute("data-qr-student-url") || "person.php";
+    // "lookup" on the overview: read the student's day and change nothing.
+    // "attendance" on the attendance page: mark them in, as it always did.
+    const scanMode = modal?.getAttribute("data-qr-scan-mode") === "lookup" ? "lookup" : "attendance";
+    const lookupUrl = modal?.getAttribute("data-qr-lookup-url") || "student-day.php";
+    const dossier = document.querySelector("[data-qr-dossier]");
+    const dossierEmpty = document.querySelector("[data-qr-dossier-empty]");
 
     if (!modal || !openButton || !reader || !result || !openStudentLink || !imageButton || !imageInput || !toast) {
       return;
@@ -431,8 +437,19 @@
       await stopScanner();
     };
 
+    /*
+     * Status lines are written after the page has been translated, so they are
+     * looked up as they are set. Anything missing from the dictionary comes
+     * back unchanged, which is the right outcome for a message that ends in a
+     * detail string from the decoder.
+     */
+    const localize = (message) => {
+      const i18n = window.KhotwaI18n;
+      return i18n && typeof i18n.t === "function" ? i18n.t(String(message)) : String(message);
+    };
+
     const setScanResult = (message, isError = false) => {
-      result.textContent = message;
+      result.textContent = localize(message);
       result.classList.toggle("is-error", isError);
     };
 
@@ -517,6 +534,266 @@
       return payload;
     };
 
+    /*
+     * The dossier is built out of real nodes rather than an HTML string: every
+     * value in it - a teacher's note, a warning reason - is free text typed by
+     * a person, and textContent is what keeps that text from becoming markup.
+     */
+    const el = (tag, className, text) => {
+      const node = document.createElement(tag);
+      if (className) {
+        node.className = className;
+      }
+      if (text !== undefined && text !== null && text !== "") {
+        node.textContent = String(text);
+      }
+      return node;
+    };
+
+    /*
+     * Status words arrive as enum keys ("not_recorded"). The Arabic dictionary
+     * is keyed on the title-cased reading ("Not recorded"), so the label is
+     * built in that shape rather than lower-cased and left untranslatable.
+     */
+    const humanize = (value) => {
+      const text = String(value || "").replace(/_/g, " ").trim();
+      return text === "" ? "" : text.charAt(0).toUpperCase() + text.slice(1);
+    };
+
+    /*
+     * Names of people and subjects are already held in both languages, so they
+     * carry both readings and let language.js swap them without a request.
+     */
+    const bilingual = (tag, className, en, ar) => {
+      const node = el(tag, className, en);
+      node.dataset.en = en || "";
+      node.dataset.ar = (ar || "").trim() !== "" ? ar : (en || "");
+      return node;
+    };
+
+    const dossierSection = (title, count) => {
+      const section = el("section", "dossier-section");
+      const head = el("h3", "dossier-section-head", title);
+      if (typeof count === "number") {
+        head.append(el("span", "dossier-count", String(count)));
+      }
+      section.append(head);
+      return section;
+    };
+
+    const renderDossier = (data) => {
+      if (!dossier) {
+        return;
+      }
+
+      dossier.textContent = "";
+
+      const student = data.student || {};
+      const totals = data.totals || {};
+
+      // Identity first, so whoever is holding the phone can confirm the right
+      // card was scanned before reading anything below it.
+      const head = el("header", "dossier-head");
+      if (student.photo_url) {
+        const photo = document.createElement("img");
+        photo.className = "dossier-photo";
+        photo.src = student.photo_url;
+        photo.alt = "";
+        head.append(photo);
+      }
+      const identity = el("div", "dossier-identity");
+      identity.append(bilingual("strong", null, student.name_en || "Student #" + student.id, student.name_ar));
+
+      // Each fragment is its own node so the translator can reach the ID and the
+      // status word; a single joined string would match nothing.
+      const meta = el("span", "dossier-meta");
+      meta.append(el("span", null, "ID " + student.id));
+      meta.append(el("span", null, humanize(student.status)));
+      meta.append(el("span", null, formatDisplayDate(data.date)));
+      identity.append(meta);
+      head.append(identity);
+      dossier.append(head);
+
+      // Arrival at the centre. A missing row is not an absence - nobody has
+      // marked the student either way - so it is labelled as unmarked.
+      const daily = data.daily;
+      const dailyBadge = el("div", "dossier-daily status-" + (daily ? String(daily.status) : "unmarked"));
+      if (daily) {
+        const times = [
+          daily.check_in_time ? "in " + daily.check_in_time : "",
+          daily.check_out_time ? "out " + daily.check_out_time : "",
+        ].filter(Boolean).join(" · ");
+        dailyBadge.append(el("strong", null, humanize(daily.status)));
+        if (times) {
+          dailyBadge.append(el("span", null, times));
+        }
+        if (daily.notes) {
+          dailyBadge.append(el("p", "dossier-daily-note", daily.notes));
+        }
+      } else {
+        dailyBadge.append(el("strong", null, "Not marked today"));
+        dailyBadge.append(el("span", null, "No daily attendance record yet"));
+      }
+      dossier.append(dailyBadge);
+
+      // Subjects. Every active enrolment appears, including ones with no session
+      // recorded - that gap is the thing worth seeing.
+      const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+      const subjectsSection = dossierSection("Subjects today", sessions.length);
+      // Number and label are separate nodes: the label is what the dictionary
+      // can translate, and the number must survive untouched either way.
+      const tally = el("p", "dossier-tally");
+      [
+        ["Attended", totals.attended || 0],
+        ["Missed", totals.missed || 0],
+        ["Not recorded", totals.not_recorded || 0],
+      ].forEach(([label, count]) => {
+        const part = el("span", "dossier-tally-part");
+        part.append(el("b", null, String(count)));
+        part.append(el("span", null, label));
+        tally.append(part);
+      });
+      subjectsSection.append(tally);
+      if (sessions.length === 0) {
+        subjectsSection.append(el("p", "dossier-empty", "No active enrollments."));
+      } else {
+        const list = el("ul", "dossier-list");
+        sessions.forEach((row) => {
+          const item = el("li", "dossier-row status-" + row.status);
+          const main = el("div", "dossier-row-main");
+          main.append(bilingual("strong", null, row.subject_en, row.subject_ar));
+          if (row.teacher_en) {
+            main.append(bilingual("span", "dossier-row-sub", row.teacher_en, row.teacher_ar));
+          }
+          item.append(main);
+          item.append(el("span", "dossier-pill pill-" + row.status, humanize(row.status)));
+          list.append(item);
+        });
+        subjectsSection.append(list);
+      }
+      dossier.append(subjectsSection);
+
+      const noteList = (title, rows, emptyText) => {
+        const section = dossierSection(title, rows.length);
+        if (rows.length === 0) {
+          section.append(el("p", "dossier-empty", emptyText));
+        } else {
+          const list = el("ul", "dossier-notes");
+          rows.forEach((row) => {
+            const item = el("li");
+            const label = el("strong", null);
+            label.append(bilingual("span", null, row.subject_en, row.subject_ar));
+            if (row.teacher_en) {
+              label.append(bilingual("span", null, row.teacher_en, row.teacher_ar));
+            }
+            item.append(label);
+            item.append(el("p", null, row.note));
+            list.append(item);
+          });
+          section.append(list);
+        }
+        return section;
+      };
+
+      dossier.append(noteList(
+        "Homework",
+        Array.isArray(data.homework) ? data.homework : [],
+        "No homework recorded for today."
+      ));
+      dossier.append(noteList(
+        "Teacher notes",
+        Array.isArray(data.notes) ? data.notes : [],
+        "No notes recorded for today."
+      ));
+
+      // Warnings are not day-scoped: an open one from last week still stands.
+      const warnings = Array.isArray(data.warnings) ? data.warnings : [];
+      const warningSection = dossierSection("Open warnings", warnings.length);
+      if (warnings.length === 0) {
+        warningSection.append(el("p", "dossier-empty", "No open warnings."));
+      } else {
+        warningSection.classList.add("has-warnings");
+        const list = el("ul", "dossier-notes dossier-warnings");
+        warnings.forEach((row) => {
+          const item = el("li");
+          const label = el("strong", null);
+          [
+            formatDisplayDate(row.date),
+            row.type ? humanize(row.type) : "",
+            row.number ? "#" + row.number : "",
+            humanize(row.status),
+          ].filter(Boolean).forEach((part) => label.append(el("span", null, part)));
+          item.append(label);
+          item.append(el("p", null, row.reason));
+
+          const trail = el("span", "dossier-row-sub");
+          if (row.teacher_en) {
+            trail.append(bilingual("span", null, row.teacher_en, row.teacher_ar));
+          }
+          trail.append(el("span", null, row.parent_notified ? "Parent notified" : "Parent not notified"));
+          item.append(trail);
+          list.append(item);
+        });
+        warningSection.append(list);
+      }
+      dossier.append(warningSection);
+
+      dossier.hidden = false;
+      if (dossierEmpty) {
+        dossierEmpty.hidden = true;
+      }
+
+      /*
+       * The card is built after the page has already been translated, and the
+       * translator does not watch for new nodes - so it is run again over the
+       * document now that the card is in it. Without this the whole card would
+       * stay English while the rest of the page is Arabic.
+       */
+      const i18n = window.KhotwaI18n;
+      if (i18n && typeof i18n.apply === "function") {
+        i18n.apply(i18n.current(), false);
+      }
+    };
+
+    const lookupStudentDay = async (studentId) => {
+      const body = new URLSearchParams();
+      body.set("csrf", csrf);
+      body.set("student_id", String(studentId));
+
+      const response = await fetch(lookupUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+          "X-Requested-With": "XMLHttpRequest",
+        },
+        body: body.toString(),
+      });
+
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch (error) {
+        throw new Error("Lookup service returned an invalid response.");
+      }
+
+      if (!response.ok || !payload?.success) {
+        throw new Error(String(payload?.error || "Could not load this student."));
+      }
+
+      return payload;
+    };
+
+    const applyLookupForStudent = async (parsed) => {
+      const data = await lookupStudentDay(parsed.id);
+      const studentIdValue = Number(data?.student?.id || parsed.id);
+      renderDossier(data);
+
+      const label = data?.student?.name_en || "Student #" + studentIdValue;
+      setScanResult("Loaded " + label + " (ID: " + studentIdValue + ")");
+      openStudentLink.href = studentUrl + "?type=student&id=" + studentIdValue;
+      openStudentLink.hidden = false;
+    };
+
     const applyScanForStudent = async (parsed) => {
       const studentId = parsed.id;
       const qrName = parsed.names.en || `Student #${studentId}`;
@@ -575,8 +852,21 @@
 
       isHandlingScan = true;
       try {
-        await applyScanForStudent(parsed);
-        if (source === "camera") {
+        if (scanMode === "lookup") {
+          await applyLookupForStudent(parsed);
+        } else {
+          await applyScanForStudent(parsed);
+        }
+        /*
+         * In lookup mode the answer is the card, and the card is on the page
+         * behind this dialog - so the dialog has to get out of the way however
+         * the code was read. Closing only after a camera scan left anyone who
+         * picked a photo staring at the unchanged dialog, with the student's
+         * day rendered out of sight behind it.
+         */
+        if (scanMode === "lookup") {
+          await closeModal();
+        } else if (source === "camera") {
           await stopScanner();
         }
       } catch (error) {
@@ -592,10 +882,35 @@
       openStudentLink.hidden = true;
       openStudentLink.removeAttribute("href");
       clearMatchedRows();
+
+      // Drop the previous student's card before scanning the next one, so a
+      // failed scan can never leave the wrong person's day on screen.
+      if (dossier) {
+        dossier.textContent = "";
+        dossier.hidden = true;
+      }
+      if (dossierEmpty) {
+        dossierEmpty.hidden = false;
+      }
+
       setScanResult("Starting camera...");
 
       if (!window.Html5Qrcode) {
         setScanResult("QR scanner library failed to load. Refresh and try again.", true);
+        return;
+      }
+
+      /*
+       * Browsers hand out a camera only to a secure context, so over plain HTTP
+       * on the LAN address there is nothing to grant and no permission prompt
+       * to accept. Saying so is the difference between a dead end and reaching
+       * for the picture option, which works on any origin.
+       */
+      if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+        setScanResult(
+          "The camera needs a secure (https) connection, so it cannot start on this address. Use “Scan from image” below - take a photo of the code, then pick it.",
+          true
+        );
         return;
       }
 
@@ -648,35 +963,108 @@
       imageInput.click();
     });
 
-    imageInput.addEventListener("change", async () => {
-      const file = imageInput.files && imageInput.files[0] ? imageInput.files[0] : null;
+    /*
+     * Reading a QR out of a picture always starts from a brand new decoder.
+     *
+     * The old code reused whatever instance openModal() had built. Over plain
+     * HTTP the camera can never start - getUserMedia is refused outside a
+     * secure context - so that instance was left half-initialised by a failed
+     * start(), and handing it a file threw. Picking a photo appeared to do
+     * nothing at all, which is exactly the path someone falls back to when the
+     * camera is unavailable.
+     */
+    const scanImageFile = async (file) => {
       if (!file) {
         return;
       }
 
       if (!window.Html5Qrcode) {
         setScanResult("QR scanner library failed to load. Refresh and try again.", true);
-        imageInput.value = "";
+        return;
+      }
+
+      if (!/^image\//i.test(file.type || "")) {
+        setScanResult("That file is not an image.", true);
         return;
       }
 
       setScanResult("Reading QR from selected image...");
       try {
-        if (isRunning) {
-          await stopScanner();
+        await stopScanner();
+        // start() may have left a video node behind; scanFile needs the box bare.
+        reader.textContent = "";
+        if (!reader.id) {
+          reader.id = "qr-reader-box";
         }
-        if (!html5Qr) {
-          if (!reader.id) {
-            reader.id = "qr-reader-box";
-          }
-          html5Qr = new window.Html5Qrcode(reader.id);
-        }
+        html5Qr = new window.Html5Qrcode(reader.id);
+
         const decodedText = await html5Qr.scanFile(file, true);
         await handleDecodedText(decodedText, "image");
       } catch (error) {
-        setScanResult("Could not read QR from image. Try a clearer screenshot.", true);
+        /*
+         * The library's own message says whether it found no code at all or
+         * choked on the file, which is the difference worth reporting. It can
+         * also reject with the image element's error Event - the picture never
+         * loaded at all - and "[object Event]" tells nobody anything, so that
+         * case gets named instead.
+         */
+        const detail = error instanceof Event
+          ? "The browser could not open that picture."
+          : String(error?.message || error || "").trim();
+        setScanResult(
+          detail === ""
+            ? "Could not read a QR code from that image."
+            : "Could not read a QR code from that image. " + detail,
+          true
+        );
+      }
+    };
+
+    imageInput.addEventListener("change", async () => {
+      const file = imageInput.files && imageInput.files[0] ? imageInput.files[0] : null;
+      try {
+        await scanImageFile(file);
       } finally {
         imageInput.value = "";
+      }
+    });
+
+    // Dropping a picture onto the dialog, or pasting one into it, does the same
+    // thing as choosing it from the picker.
+    const firstImageFrom = (list) => {
+      const files = Array.from(list || []);
+      return files.find((entry) => /^image\//i.test(entry.type || "")) || files[0] || null;
+    };
+
+    ["dragenter", "dragover"].forEach((type) => {
+      modal.addEventListener(type, (event) => {
+        event.preventDefault();
+        modal.classList.add("is-dropping");
+      });
+    });
+
+    ["dragleave", "dragend"].forEach((type) => {
+      modal.addEventListener(type, (event) => {
+        if (event.target === modal || !modal.contains(event.relatedTarget)) {
+          modal.classList.remove("is-dropping");
+        }
+      });
+    });
+
+    modal.addEventListener("drop", async (event) => {
+      event.preventDefault();
+      modal.classList.remove("is-dropping");
+      await scanImageFile(firstImageFrom(event.dataTransfer?.files));
+    });
+
+    document.addEventListener("paste", async (event) => {
+      if (modal.hidden) {
+        return;
+      }
+      const file = firstImageFrom(event.clipboardData?.files);
+      if (file) {
+        event.preventDefault();
+        await scanImageFile(file);
       }
     });
 

@@ -926,6 +926,68 @@
     ,"Not paid": "غير مدفوع"
     ,"Partially paid": "مدفوع جزئياً"
     ,"Fully paid": "مدفوع بالكامل"
+
+    // The overview scanning station and the day card a scan produces.
+    ,"Scan student QR code": "امسح رمز الطالب"
+    ,"Viewing only — scanning here never changes attendance.": "للعرض فقط — المسح هنا لا يغيّر الحضور إطلاقاً."
+    ,"Scan a student card to see today’s attendance, their subjects, homework, teacher notes, and any open warnings.": "امسح بطاقة الطالب لعرض حضور اليوم، وموادّه، وواجباته، وملاحظات المعلّمين، وأي إنذارات مفتوحة."
+    ,"Look up a student’s day. Nothing is saved.": "اعرض يوم الطالب. لا يُحفظ أي شيء."
+    ,"Scan a student QR code to see their day: attendance, subjects, homework, notes, and open warnings.": "امسح رمز الطالب لعرض يومه: الحضور، والمواد، والواجبات، والملاحظات، والإنذارات المفتوحة."
+    ,"Subjects today": "مواد اليوم"
+    ,"Teacher notes": "ملاحظات المعلّمين"
+    ,"Open warnings": "إنذارات مفتوحة"
+    ,"Not marked today": "لم يُسجَّل اليوم"
+    ,"No daily attendance record yet": "لا يوجد سجل حضور يومي بعد"
+    ,"No active enrollments.": "لا توجد تسجيلات نشطة."
+    ,"No homework recorded for today.": "لا واجبات مسجّلة لليوم."
+    ,"No notes recorded for today.": "لا ملاحظات مسجّلة لليوم."
+    ,"No open warnings.": "لا إنذارات مفتوحة."
+    ,"Missed": "فاتته"
+    ,"Not recorded": "غير مسجّل"
+    ,"Parent notified": "أُبلغ ولي الأمر"
+    ,"Parent not notified": "لم يُبلَّغ ولي الأمر"
+    ,"Left early": "غادر مبكراً"
+    ,"Excused": "بعذر"
+    ,"Oral": "شفهي"
+    ,"Written": "خطي"
+    ,"Flagged": "مُعلَّم"
+    ,"Issued": "صادر"
+    ,"Assigned": "مُسند"
+
+    // Reading a code from a picture - the only route the browser allows on a
+    // plain-HTTP address, so its wording carries real weight.
+    ,"Scan from image": "امسح من صورة"
+    ,"Or drop a picture of the code anywhere on this box — pasting one works too.": "أو أفلِت صورة الرمز في أي مكان من هذا المربّع — واللصق يعمل أيضاً."
+    ,"The camera needs a secure (https) connection, so it cannot start on this address. Use “Scan from image” below - take a photo of the code, then pick it.": "تحتاج الكاميرا إلى اتصال آمن (https)، لذلك لا يمكن تشغيلها على هذا العنوان. استخدم «امسح من صورة» في الأسفل — صوّر الرمز ثم اخترْ الصورة."
+    ,"Reading QR from selected image...": "جارٍ قراءة الرمز من الصورة المختارة..."
+    ,"Could not read a QR code from that image.": "تعذّرت قراءة رمز من تلك الصورة."
+    ,"That file is not an image.": "هذا الملف ليس صورة."
+    ,"Camera started. Point at a student QR code (or use Scan from image).": "بدأت الكاميرا. وجّهها إلى رمز الطالب (أو استخدم المسح من صورة)."
+
+    // The parent portal's panels, reworked around what a parent actually asks:
+    // did my child come, to which class, and what were they given to do.
+    ,"Subject attendance": "حضور المواد"
+    ,"Daily attendance": "الحضور اليومي"
+    ,"Sessions attended": "الحصص التي حضرها"
+    ,"Last session": "آخر حصة"
+    ,"No sessions yet": "لا توجد حصص بعد"
+    ,"Homework": "الواجبات"
+    ,"Paid on": "دُفع في"
+    ,"You have one review, and sending it again replaces it. The administration reads it before anything appears on the website.": "لديك مراجعة واحدة، وإرسالها مرة أخرى يستبدلها. تقرأها الإدارة قبل أن يظهر أي شيء على الموقع."
+    ,"One review per family, for the whole center": "مراجعة واحدة لكل عائلة، عن المركز كله"
+
+    // Behaviour: only written warnings reach a parent, and each one is answered
+    // with an expiation of its own.
+    ,"Written warning": "إنذار خطي"
+    ,"Written warnings": "إنذارات خطية"
+    ,"Warning": "إنذار"
+    ,"Expiation needed": "بحاجة إلى كفّارة"
+    ,"Expiation chosen": "تم اختيار الكفّارة"
+    ,"awaiting an expiation": "بانتظار اختيار كفّارة"
+    ,"of these warnings still needs an expiation. Choose one below.": "من هذه الإنذارات ما زال بحاجة إلى كفّارة. اختر واحدة أدناه."
+    ,"of these warnings still need an expiation. Choose one for each.": "من هذه الإنذارات ما زالت بحاجة إلى كفّارة. اختر واحدة لكل منها."
+    ,"Choose an expiation for this warning": "اختر كفّارة لهذا الإنذار"
+    ,"Only a written warning carries an expiation.": "الإنذار الخطي وحده يحمل كفّارة."
   };
 
   const explicit = {

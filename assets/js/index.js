@@ -826,13 +826,18 @@ document.querySelectorAll(".magnetic").forEach((element) => {
 
 document.querySelector("#year").textContent = new Date().getFullYear();
 
-// ── Approach steps: auto-cycle animation ──────────────────────────────────
-// Sequence: step 1 on → 2s → step 2 on → 2s → step 3 on → 2s → step 4 on → 2s → step 1 on …
+// ── Approach steps: highlight animation ───────────────────────────────────
+// Wide screens: auto-cycle 1 → 2 → 3 → 4 every 2s.
+// Phone (single column): whichever step sits closest to the middle of the
+// screen lights up, so the highlight follows the reader as they scroll.
 (() => {
   const steps = [...document.querySelectorAll(".approach-step")];
   if (steps.length === 0 || reduceMotion) return;
 
+  const phone = window.matchMedia("(max-width: 580px)");
   let currentIndex = 0;
+  let cycleTimer = null;
+  let scrollFrame = null;
 
   const activateStep = (index) => {
     steps.forEach((step, i) => {
@@ -840,12 +845,73 @@ document.querySelector("#year").textContent = new Date().getFullYear();
     });
   };
 
+  // ── Scroll mode ─────────────────────────────────────────────────────────
+  const highlightNearestToCenter = () => {
+    scrollFrame = null;
+    const viewportCenter = window.innerHeight / 2;
+    let nearest = 0;
+    let smallestDistance = Infinity;
+
+    steps.forEach((step, i) => {
+      const bounds = step.getBoundingClientRect();
+      const distance = Math.abs(bounds.top + bounds.height / 2 - viewportCenter);
+      if (distance < smallestDistance) {
+        smallestDistance = distance;
+        nearest = i;
+      }
+    });
+
+    if (nearest !== currentIndex || !steps[nearest].classList.contains("is-auto-active")) {
+      currentIndex = nearest;
+      activateStep(nearest);
+    }
+  };
+
+  const onScroll = () => {
+    if (scrollFrame !== null) return;
+    scrollFrame = window.requestAnimationFrame(highlightNearestToCenter);
+  };
+
+  const startScrollMode = () => {
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    highlightNearestToCenter();
+  };
+
+  const stopScrollMode = () => {
+    window.removeEventListener("scroll", onScroll);
+    window.removeEventListener("resize", onScroll);
+    if (scrollFrame !== null) {
+      window.cancelAnimationFrame(scrollFrame);
+      scrollFrame = null;
+    }
+  };
+
+  // ── Auto-cycle mode ─────────────────────────────────────────────────────
   const startCycle = () => {
     activateStep(currentIndex);
-    window.setInterval(() => {
+    cycleTimer = window.setInterval(() => {
       currentIndex = (currentIndex + 1) % steps.length;
       activateStep(currentIndex);
     }, 2000);
+  };
+
+  const stopCycle = () => {
+    if (cycleTimer !== null) {
+      window.clearInterval(cycleTimer);
+      cycleTimer = null;
+    }
+  };
+
+  const start = () => {
+    if (phone.matches) startScrollMode();
+    else startCycle();
+  };
+
+  const applyMode = () => {
+    stopCycle();
+    stopScrollMode();
+    start();
   };
 
   // Start once the approach section enters the viewport
@@ -856,14 +922,23 @@ document.querySelector("#year").textContent = new Date().getFullYear();
         (entries) => {
           if (!entries[0].isIntersecting) return;
           observer.disconnect();
-          startCycle();
+          start();
         },
         { threshold: 0.25 }
       );
       observer.observe(approachSection);
+    } else {
+      start();
     }
   } else {
-    startCycle();
+    start();
+  }
+
+  // Swap modes if the viewport crosses the phone breakpoint (rotation, resize).
+  if (typeof phone.addEventListener === "function") {
+    phone.addEventListener("change", applyMode);
+  } else if (typeof phone.addListener === "function") {
+    phone.addListener(applyMode);
   }
 })();
 

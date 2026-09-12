@@ -56,8 +56,6 @@ $pageTitle = $navigation[$view]['label'];
 $pageDescription = '';
 $columns = [];
 $rows = [];
-$metrics = [];
-$recentAttendance = [];
 $warningGroups = [];
 $scheduleFilters = ['grades' => [], 'school_category' => '', 'schools' => []];
 $scheduleFilterOptions = ['grades' => [], 'schools' => []];
@@ -346,24 +344,12 @@ try {
     }
 
     if ($view === 'overview') {
-        $metrics = [
-            ['value' => (string) $pdo->query("SELECT COUNT(*) FROM students WHERE status = 'active'")->fetchColumn(), 'label' => 'Active students', 'color' => 'orange'],
-            ['value' => (string) $pdo->query("SELECT COUNT(*) FROM teachers WHERE status = 'active'")->fetchColumn(), 'label' => 'Active teachers', 'color' => 'green'],
-            ['value' => (string) $pdo->query("SELECT COUNT(*) FROM student_subject_enrollments WHERE status = 'active'")->fetchColumn(), 'label' => 'Active enrollments', 'color' => 'pink'],
-        ];
-        $cashMetric = admin_month_cash_metric($pdo);
-        $metrics[] = [
-            'value' => number_format($cashMetric['collected'], 2),
-            'label' => 'Collected · ' . $cashMetric['label'],
-            'sub' => 'Net expected this month: ' . number_format($cashMetric['expected'], 2),
-            'color' => 'navy',
-        ];
-        $recentAttendance = $pdo->query(
-            "SELECT attendance_date, student_name_en, daily_status, attended_subject_count, missed_subject_count
-             FROM " . khotwa_daily_attendance_summary_sql() . "
-             ORDER BY attendance_date DESC, student_name_en LIMIT 8"
-        )->fetchAll();
-        $pageDescription = 'A live view of students, educators, attendance, enrollments, and financial activity.';
+        /*
+         * The overview is a scanning station, not a dashboard: it carries no
+         * counters and no recent-activity table, so it needs no data of its own.
+         * Everything on it arrives from student-day.php after a scan.
+         */
+        $pageDescription = 'Scan a student QR code to see their day: attendance, subjects, homework, notes, and open warnings.';
     } elseif ($view === 'students') {
         $pageDescription = 'Student profiles and their current academic placement. Double-click a student to open every linked record.';
         $columns = [
@@ -812,34 +798,19 @@ try {
         <?php if ($databaseError !== ''): ?>
           <div class="database-alert"><?= e($databaseError) ?></div>
         <?php elseif ($view === 'overview'): ?>
-          <section class="metrics-grid" aria-label="Dashboard statistics">
-            <?php foreach ($metrics as $metric): ?>
-              <article class="metric-card metric-<?= e($metric['color']) ?>">
-                <span class="metric-dot"></span><strong><?= e($metric['value']) ?></strong><p><?= e($metric['label']) ?></p><?php if (!empty($metric['sub'])): ?><small class="metric-sub"><?= e($metric['sub']) ?></small><?php endif; ?>
-              </article>
-            <?php endforeach; ?>
-          </section>
-          <section class="overview-grid is-single">
-            <article class="data-panel overview-attendance">
-              <div class="panel-heading">
-                <div><span>Latest records</span><h2>Recent attendance</h2></div>
-                <a href="<?= e(khotwa_url('admin/index.php')) ?>?view=attendance">View all</a>
-              </div>
-              <div class="table-scroll">
-                <table>
-                  <thead><tr><th>Date</th><th>Student</th><th>Status</th><th>Attended</th><th>Missed</th></tr></thead>
-                  <tbody>
-                    <?php if ($recentAttendance === []): ?>
-                      <tr><td class="empty-row" colspan="5">No attendance records yet.</td></tr>
-                    <?php else: ?>
-                      <?php foreach ($recentAttendance as $row): ?>
-                        <tr><td><?= e(fmt_date((string) $row['attendance_date'])) ?></td><td><strong><?= e($row['student_name_en']) ?></strong></td><td><?= render_value('daily_status', $row['daily_status']) ?></td><td><?= e((string) $row['attended_subject_count']) ?></td><td><?= e((string) $row['missed_subject_count']) ?></td></tr>
-                      <?php endforeach; ?>
-                    <?php endif; ?>
-                  </tbody>
-                </table>
-              </div>
-            </article>
+          <?php // A scanning station: one button, and the scanned student's day
+                // underneath it. Nothing here writes - the card is a view. ?>
+          <section class="scan-station" aria-label="Student lookup">
+            <div class="scan-station-cta">
+              <button class="primary-action scan-station-button" type="button" data-qr-scan-open>
+                Scan student QR code
+              </button>
+              <p class="scan-station-hint">Viewing only &mdash; scanning here never changes attendance.</p>
+            </div>
+            <div class="scan-dossier" data-qr-dossier hidden></div>
+            <p class="scan-station-empty" data-qr-dossier-empty>
+              Scan a student card to see today&rsquo;s attendance, their subjects, homework, teacher notes, and any open warnings.
+            </p>
           </section>
         <?php elseif ($view === 'schedule-check'): ?>
           <?php $scheduleCheckDays = admin_schedule_days(); ?>
@@ -1759,20 +1730,30 @@ try {
       </main>
     </div>
 
-    <?php if ($view === 'attendance'): ?>
-      <div class="qr-scan-modal" data-qr-scan-modal data-qr-scan-csrf="<?= e(admin_csrf_token()) ?>" data-qr-scan-url="<?= e(khotwa_url('admin/qr-attendance.php')) ?>" data-qr-student-url="<?= e(khotwa_url('admin/person.php')) ?>" hidden>
+    <?php // The same scanner serves two pages with two different jobs: on the
+          // attendance page it marks the student in, on the overview it only
+          // looks them up. The mode attribute is what tells them apart. ?>
+    <?php $scanViews = ['attendance', 'overview']; ?>
+    <?php if (in_array($view, $scanViews, true)): ?>
+      <?php $scanMode = $view === 'overview' ? 'lookup' : 'attendance'; ?>
+      <div class="qr-scan-modal" data-qr-scan-modal data-qr-scan-mode="<?= e($scanMode) ?>" data-qr-scan-csrf="<?= e(admin_csrf_token()) ?>" data-qr-scan-url="<?= e(khotwa_url('admin/qr-attendance.php')) ?>" data-qr-lookup-url="<?= e(khotwa_url('admin/student-day.php')) ?>" data-qr-student-url="<?= e(khotwa_url('admin/person.php')) ?>" hidden>
         <div class="qr-scan-backdrop" data-qr-scan-close></div>
         <section class="qr-scan-dialog" role="dialog" aria-modal="true" aria-label="Scan student QR code">
           <header class="qr-scan-head">
             <div>
               <strong>Scan Student QR Code</strong>
-              <p>Use your camera to scan a student QR code on desktop or phone.</p>
+              <p><?= $scanMode === 'lookup'
+                    ? 'Look up a student&rsquo;s day. Nothing is saved.'
+                    : 'Use your camera to scan a student QR code on desktop or phone.' ?></p>
             </div>
             <button class="secondary-action" type="button" data-qr-scan-close>Close</button>
           </header>
           <div class="qr-scan-reader" data-qr-reader></div>
           <div class="qr-scan-upload">
             <button class="secondary-action" type="button" data-qr-image-button>Scan from image</button>
+            <?php // Over plain HTTP this is the only route that works, so it
+                  // says outright that a picture is a first-class way in. ?>
+            <small class="qr-scan-drop-hint">Or drop a picture of the code anywhere on this box &mdash; pasting one works too.</small>
             <input type="file" accept="image/*" data-qr-image-input hidden>
           </div>
           <div class="qr-scan-result" data-qr-scan-result>Waiting for scan...</div>
@@ -1786,7 +1767,7 @@ try {
 
     <button class="sidebar-scrim" type="button" aria-label="Close navigation panel" data-sidebar-scrim></button>
   </div>
-  <?php if ($view === 'attendance'): ?>
+  <?php if (in_array($view, $scanViews, true)): ?>
     <script src="<?= e(khotwa_asset('vendor/html5-qrcode.min.js')) ?>" defer></script>
   <?php endif; ?>
   <script src="<?= e(khotwa_asset('vendor/qrcode.min.js')) ?>" defer></script>

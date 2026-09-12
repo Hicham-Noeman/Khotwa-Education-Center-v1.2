@@ -762,4 +762,50 @@ if (flagForm) {
   // dropping it here would lose the text if the request fails on the way.
   flagForm.addEventListener("submit", saveFlagDraft);
 }
+
+// ── Profile picture: full-size view ───────────────────────────────────────
+// The picture is read-only on this screen, so the one thing a tap can do is
+// show it bigger.
+{
+  const zoomModal = document.querySelector("[data-photo-zoom-modal]");
+  const zoomImage = zoomModal?.querySelector("[data-photo-zoom-image]");
+
+  if (zoomModal && zoomImage) {
+    let lastTrigger = null;
+
+    const closeZoom = () => {
+      zoomModal.hidden = true;
+      zoomImage.removeAttribute("src");
+      document.body.style.removeProperty("overflow");
+      lastTrigger?.focus();
+      lastTrigger = null;
+    };
+
+    document.querySelectorAll("[data-photo-zoom]").forEach((trigger) => {
+      trigger.addEventListener("click", () => {
+        const source = trigger.getAttribute("data-photo-src");
+        if (!source) return;
+
+        lastTrigger = trigger;
+        zoomImage.src = source;
+        zoomImage.alt = trigger.getAttribute("data-photo-alt") || "";
+        zoomModal.hidden = false;
+        // The page behind must not scroll under the picture.
+        document.body.style.overflow = "hidden";
+        zoomModal.querySelector("[data-photo-zoom-close]")?.focus();
+      });
+    });
+
+    zoomModal.querySelectorAll("[data-photo-zoom-close]").forEach((button) => {
+      button.addEventListener("click", closeZoom);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !zoomModal.hidden) {
+        closeZoom();
+      }
+    });
+  }
+}
+
 })();

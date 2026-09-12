@@ -57,8 +57,9 @@ ServerSignature Off
   Header always set X-Frame-Options "SAMEORIGIN"
   # Do not leak the full admin URL to third parties.
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
-  # Nothing here needs the camera, microphone or location.
-  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+  # The admin scan station reads student QR codes, so this origin keeps the
+  # camera. Nothing here needs the microphone or location.
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(self)"
   # Hide the exact PHP build.
   Header always unset X-Powered-By
 
@@ -69,7 +70,12 @@ ServerSignature Off
   # frame-src carries the YouTube player the approach steps open. Without it the
   # default-src rule blocks the iframe and the browser shows "This content is
   # blocked" in place of the video.
-  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; img-src 'self' data: https://api.qrserver.com; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://api.qrserver.com; frame-src https://www.youtube-nocookie.com https://www.youtube.com"
+  #
+  # blob: on img-src and media-src is what lets the QR scanner work: it reads a
+  # picked photo through URL.createObjectURL(file), and the camera preview can
+  # fall back to the same kind of URL. Without it the image load is blocked and
+  # the scanner can only report that it could not read the code.
+  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; img-src 'self' data: blob: https://api.qrserver.com; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://api.qrserver.com; frame-src https://www.youtube-nocookie.com https://www.youtube.com"
 </IfModule>
 
 # ---------------------------------------------------------------------------

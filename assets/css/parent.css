@@ -14,10 +14,6 @@
   text-overflow: ellipsis;
 }
 
-.parent-overview-grid {
-  margin-bottom: 18px;
-}
-
 .parent-kv-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -48,23 +44,91 @@
   font-weight: 700;
 }
 
-.parent-page .student-qr-panel {
-  margin-top: 14px;
-}
-
-.parent-page .student-qr-box {
-  width: min(176px, 100%);
-  min-height: 176px;
-}
-
+/*
+ * Four panels in two columns rather than three: each one is a table of four or
+ * five columns, and a third of a screen is not enough for a date, a subject and
+ * a line of homework to sit on one row.
+ */
 .parent-table-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
 
 .parent-table-grid .data-panel {
   min-width: 0;
+}
+
+/*
+ * Sessions attended, as a figure and as a bar. The bar is the part a parent
+ * reads without stopping: a short bar on a subject is the thing worth asking
+ * the child about, whatever the exact count says.
+ */
+.parent-session-count {
+  display: block;
+  color: var(--navy);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.parent-session-bar {
+  display: block;
+  width: 100%;
+  min-width: 54px;
+  height: 5px;
+  margin-top: 5px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(34, 63, 107, 0.12);
+}
+
+.parent-session-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--navy);
+}
+
+.parent-session-empty {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+/* The date of the last session, under its status. */
+.parent-session-date {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+/* Homework is a sentence, not a label: it gets room to be one. */
+.parent-homework-cell {
+  min-width: 180px;
+  color: var(--ink);
+  line-height: 1.55;
+  white-space: normal;
+}
+
+.parent-billing-paid-on {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+/* What is still owed: red while it stands, quiet once it is cleared. */
+.parent-billing-balance {
+  font-weight: 800;
+}
+
+.parent-billing-balance.is-owing {
+  color: #C2334D;
+}
+
+.parent-billing-balance.is-clear {
+  color: var(--muted);
 }
 
 .parent-page .quick-panel h2 {
@@ -129,6 +193,69 @@
   outline: none;
 }
 
+/* Read by a screen reader, never drawn. */
+.parent-review-form .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/*
+ * The name is the account's, shown the way the rest of the page shows a fact:
+ * a label, the value, and a line saying who to ask to change it.
+ */
+.parent-review-signature {
+  display: grid;
+  gap: 5px;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+}
+
+/*
+ * One row per reading, wrapping to a column when there is no width for two.
+ * A parent with more than one child can have more than one Arabic name on
+ * file, so this is a list rather than a fixed pair.
+ */
+.parent-review-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 26px;
+  margin: 2px 0 3px;
+}
+
+.parent-review-names > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.parent-review-names small {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.parent-review-signature strong {
+  color: var(--navy);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.parent-review-signature small {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
 .parent-review-rating {
   margin: 0;
   padding: 0;
@@ -144,22 +271,21 @@
   text-transform: uppercase;
 }
 
+/*
+ * One row of five stars that fills up to the chosen one. The inputs are
+ * rendered 5 first and the row is reversed, so "every star below the chosen
+ * one" is just the general sibling combinator - no script involved.
+ */
 .rating-options {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.rating-options label {
-  display: inline-flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
   align-items: center;
-  gap: 7px;
-  padding: 9px 13px;
+  gap: 6px;
+  padding: 10px 14px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 14px;
   background: var(--soft);
-  cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease;
 }
 
 .rating-options input {
@@ -167,28 +293,70 @@
   width: 1px;
   height: 1px;
   opacity: 0;
+  pointer-events: none;
 }
 
-.rating-options span {
+.rating-options label {
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  border-radius: 10px;
+  color: rgba(34, 63, 107, 0.18);
+  cursor: pointer;
+  transition: color 0.18s ease, transform 0.18s ease;
+}
+
+.rating-options svg {
+  width: 30px;
+  height: 30px;
+  fill: currentColor;
+  stroke: none;
+  pointer-events: none;
+}
+
+/* Filled: the chosen star and every one below it. */
+.rating-options input:checked ~ label {
   color: var(--orange);
-  font-size: 0.85rem;
-  letter-spacing: 0.05em;
 }
 
-.rating-options small {
-  color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 800;
+/* While a pointer is over the row, the hover reading replaces the stored one. */
+@media (hover: hover) {
+  .rating-options:hover input:checked ~ label {
+    color: rgba(34, 63, 107, 0.18);
+  }
+
+  .rating-options label:hover,
+  .rating-options label:hover ~ label {
+    color: var(--orange);
+  }
+
+  .rating-options label:hover {
+    transform: scale(1.12);
+  }
 }
 
-.rating-options label:has(input:checked) {
-  border-color: var(--orange);
-  background: rgba(244, 159, 15, 0.12);
-}
-
-.rating-options label:has(input:focus-visible) {
+/* Keyboard focus has to be visible even though the radio itself is not. */
+.rating-options input:focus-visible + label {
   outline: 2px solid var(--orange);
   outline-offset: 2px;
+}
+
+/* A thumb needs a bigger target than a mouse pointer does. */
+@media (max-width: 600px) {
+  .rating-options {
+    gap: 2px;
+    padding: 10px;
+    justify-content: center;
+  }
+
+  .rating-options label {
+    padding: 6px;
+  }
+
+  .rating-options svg {
+    width: 34px;
+    height: 34px;
+  }
 }
 
 .parent-review-form .primary-action {
@@ -240,16 +408,6 @@
   color: var(--navy);
   font-size: 0.85rem;
   line-height: 1.7;
-}
-
-@media (max-width: 1380px) {
-  .parent-table-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .parent-table-grid .data-panel:last-child {
-    grid-column: 1 / -1;
-  }
 }
 
 @media (max-width: 980px) {
@@ -320,11 +478,6 @@
   font-style: normal;
 }
 
-/* The QR panel now stands alone where the profile used to sit beside it. */
-.parent-overview-grid {
-  grid-template-columns: 1fr;
-}
-
 /*
  * Below this a date like 05/09/2026 needs more width than a quarter of the
  * screen leaves, so the four pair off two by two rather than stacking.
@@ -337,20 +490,60 @@
 }
 
 /*
- * The code itself is not the point on this screen - a parent downloads it and
- * shows it at the centre. It stays in the page because the download is taken
- * from the drawn canvas, but it is not put on show.
+ * The behaviour tile. Red because it is the one figure on the row a parent is
+ * meant to stop at, and a link because the panel it counts is further down.
  */
-.student-qr-panel .student-qr-box,
-.student-qr-panel .student-qr-head {
-  display: none;
+.parent-warning-metric {
+  color: #C2334D;
+  text-decoration: none;
 }
 
-.qr-download-actions {
+.parent-warning-metric small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.parent-warning-metric:hover,
+.parent-warning-metric:focus-visible {
+  outline: none;
+  transform: translateY(-2px);
+}
+
+/* How many warnings still need an expiation, said once above the cards. */
+.parent-behaviour-lead {
+  margin: 0 0 14px;
+  color: var(--navy);
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+/*
+ * A warning waiting on the family is bordered and tinted; one already answered
+ * sits quiet, so a list of several shows at a glance which still need a choice.
+ */
+.parent-warning-card.is-open {
+  border-left-color: #C2334D;
+  background: rgba(194, 51, 77, 0.04);
+}
+
+/* "Warning 2" - the card names itself when there is more than one. */
+.parent-warning-label {
   display: flex;
+  gap: 4px;
+  color: var(--navy);
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
-.qr-download-actions .primary-action {
-  width: 100%;
-  justify-content: center;
+.parent-warning-top {
+  flex-wrap: wrap;
 }
+
+.parent-warning-top small {
+  margin-inline-start: auto;
+}
+

@@ -7,6 +7,14 @@ require_once __DIR__ . '/../src/portal-ui.php';
 $user = require_roles(['parent']);
 $parentUserId = (int) ($user['id'] ?? 0);
 $selectedStudentId = (int) ($_GET['student_id'] ?? 0);
+/*
+ * The review belongs to the parent account, not to any one child, so it has a
+ * screen of its own rather than a panel repeated under every child.
+ */
+$view = (string) ($_GET['view'] ?? 'child');
+if (!in_array($view, ['child', 'review'], true)) {
+    $view = 'child';
+}
 
 $children = [];
 $studentOverview = null;
@@ -100,6 +108,7 @@ try {
         // The warning must belong to one of this parent's children and still be awaiting an expiation.
         $warningStatement = $pdo->prepare(
             "SELECT student_warnings.student_id, student_warnings.status,
+                    student_warnings.warning_type,
                     TIMESTAMPDIFF(YEAR, students.date_of_birth, CURDATE()) AS student_age
              FROM student_warnings
              INNER JOIN students ON students.id = student_warnings.student_id
@@ -111,6 +120,9 @@ try {
 
         if (!$warningRow || !in_array((int) $warningRow['student_id'], $allowedStudentIds, true)) {
             throw new RuntimeException('That warning could not be found for your children.');
+        }
+        if ((string) $warningRow['warning_type'] !== 'written') {
+            throw new RuntimeException('Only a written warning carries an expiation.');
         }
         if ((string) $warningRow['status'] !== 'issued') {
             throw new RuntimeException('An expiation has already been chosen for this warning.');
@@ -150,11 +162,19 @@ try {
             verify_app_csrf();
             $rating = (int) ($_POST['rating'] ?? 0);
             $reviewText = trim((string) ($_POST['review_text'] ?? ''));
-            $displayName = trim((string) ($_POST['display_name'] ?? ''));
-            $displayNameAr = trim((string) ($_POST['display_name_ar'] ?? ''));
-            if ($displayName === '') {
-                $displayName = trim((string) $user['first_name'] . ' ' . (string) ($user['last_name'] ?? ''));
-            }
+            /*
+             * The name is read-only on the form, so it is taken from the account
+             * rather than from the request - a posted display_name is ignored.
+             */
+            $existingReview = null;
+            $existingStatement = $pdo->prepare(
+                'SELECT display_name, display_name_ar FROM homepage_reviews WHERE parent_user_id = ? LIMIT 1'
+            );
+            $existingStatement->execute([$parentUserId]);
+            $existingReview = $existingStatement->fetch() ?: null;
+            $reviewNames = parent_review_names($user, $children, $existingReview);
+            $displayName = $reviewNames['en'];
+            $displayNameAr = $reviewNames['ar'];
 
             if ($rating < 1 || $rating > 5) {
                 throw new RuntimeException('Choose a rating between 1 and 5 stars.');
@@ -170,6 +190,10 @@ try {
             // again replaces the words they wrote instead of adding another entry.
             // Edited text goes back to the administration for a fresh look, which is why
             // the moderation fields are cleared -- the parent is never shown any of this.
+            /*
+             * Both readings are stored, so the website can sign the review in
+             * whichever language a visitor is reading it in.
+             */
             $saveReview = $pdo->prepare(
                 "INSERT INTO homepage_reviews
                     (parent_user_id, display_name, display_name_ar, relationship_label, rating, review_text, status)
@@ -186,12 +210,12 @@ try {
             $saveReview->execute([
                 $parentUserId,
                 mb_substr($displayName, 0, 120),
-                $displayNameAr === '' ? null : mb_substr($displayNameAr, 0, 120),
+                mb_substr($displayNameAr, 0, 120),
                 $rating,
                 $reviewText,
             ]);
 
-            header('Location: ' . khotwa_url('parent/index.php') . '?student_id=' . $selectedStudentId . '&review=1#reviews-panel');
+            header('Location: ' . khotwa_url('parent/index.php') . '?view=review&review=1');
             exit;
         } catch (Throwable $reviewException) {
             $reviewError = $reviewException->getMessage();
@@ -209,6 +233,12 @@ try {
     $parentReviews = $parentReviewsStatement->fetchAll();
     $parentReview = $parentReviews[0] ?? null;
 
+    /*
+     * Every subject the child is enrolled in, with how many of its sessions
+     * they actually attended. A parent asks "is my child going to their
+     * classes?" - a list of subject names alone cannot answer that, so the
+     * count of sessions and the last one sit on the same row as the subject.
+     */
     $subjectsStatement = $pdo->prepare(
         "SELECT
             subjects.name_en AS subject_name,
@@ -216,7 +246,28 @@ try {
             TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))) AS teacher_name,
             TRIM(CONCAT(COALESCE(teachers.first_name_ar, ''), ' ', COALESCE(teachers.last_name_ar, ''))) AS teacher_name_ar,
             student_subject_enrollments.academic_year,
-            student_subject_enrollments.status
+            student_subject_enrollments.status,
+            (SELECT COUNT(*)
+               FROM student_subject_attendance session_row
+              WHERE session_row.student_id = student_subject_enrollments.student_id
+                AND session_row.subject_id = student_subject_enrollments.subject_id) AS total_sessions,
+            (SELECT COUNT(*)
+               FROM student_subject_attendance session_row
+              WHERE session_row.student_id = student_subject_enrollments.student_id
+                AND session_row.subject_id = student_subject_enrollments.subject_id
+                AND session_row.status = 'attended') AS attended_sessions,
+            (SELECT session_row.attendance_date
+               FROM student_subject_attendance session_row
+              WHERE session_row.student_id = student_subject_enrollments.student_id
+                AND session_row.subject_id = student_subject_enrollments.subject_id
+              ORDER BY session_row.attendance_date DESC, session_row.id DESC
+              LIMIT 1) AS last_session_date,
+            (SELECT session_row.status
+               FROM student_subject_attendance session_row
+              WHERE session_row.student_id = student_subject_enrollments.student_id
+                AND session_row.subject_id = student_subject_enrollments.subject_id
+              ORDER BY session_row.attendance_date DESC, session_row.id DESC
+              LIMIT 1) AS last_session_status
          FROM student_subject_enrollments
          INNER JOIN subjects
            ON subjects.id = student_subject_enrollments.subject_id
@@ -234,7 +285,7 @@ try {
          FROM student_daily_attendance
          WHERE student_id = ?
          ORDER BY attendance_date DESC
-         LIMIT 12"
+         LIMIT 30"
     );
     $attendanceStatement->execute([$selectedStudentId]);
     $attendance = $attendanceStatement->fetchAll();
@@ -281,6 +332,7 @@ try {
 
     $warningsStatement = $pdo->prepare(
         "SELECT student_warnings.id, student_warnings.warning_date, student_warnings.warning_type,
+                student_warnings.warning_number,
                 student_warnings.parent_message, student_warnings.status,
                 student_warnings.expiation_selected_at,
                 expiations.title_en AS expiation_title, expiations.title_ar AS expiation_title_ar,
@@ -289,6 +341,7 @@ try {
          LEFT JOIN expiations ON expiations.id = student_warnings.expiation_id
          LEFT JOIN expiation_categories ON expiation_categories.id = expiations.category_id
          WHERE student_warnings.student_id = ?
+           AND student_warnings.warning_type = 'written'
            AND student_warnings.status IN ('issued', 'assigned')
          ORDER BY FIELD(student_warnings.status, 'issued', 'assigned'),
                   student_warnings.warning_date DESC, student_warnings.id DESC"
@@ -367,6 +420,66 @@ function parent_payment_label(string $status): string
     ][$status] ?? ucwords(str_replace('_', ' ', $status));
 }
 
+/**
+ * A billing row's month as a name and a year.
+ *
+ * The table stores the two numbers apart, and "2026-09" reads as a code rather
+ * than a month - which is all a parent is looking for in a billing list.
+ */
+function parent_billing_month(int $year, int $month): string
+{
+    $month = max(1, min(12, $month));
+
+    return date('F', mktime(0, 0, 0, $month, 1)) . ' ' . $year;
+}
+
+/**
+ * The name a review is signed with, in both languages.
+ *
+ * It is not the parent's to type: English is the name on their account, and
+ * Arabic has no column there, so it comes from a child's record - the father's
+ * given name with the family name is exactly the parent's own name in Arabic.
+ * A name the administration set by hand wins over both.
+ *
+ * A parent with more than one child can have more than one Arabic reading on
+ * file - a second family name, a different spelling - so every distinct one is
+ * returned and all of them are shown. The first is the one that gets saved.
+ *
+ * @param array<string, mixed>      $user
+ * @param array<int, array<string, mixed>> $children
+ * @param array<string, mixed>|null $existingReview
+ * @return array{en: string, ar: string, ar_all: array<int, string>}
+ */
+function parent_review_names(array $user, array $children, ?array $existingReview): array
+{
+    $nameEn = trim((string) ($existingReview['display_name'] ?? ''));
+    if ($nameEn === '') {
+        $nameEn = trim((string) ($user['first_name'] ?? '') . ' ' . (string) ($user['last_name'] ?? ''));
+    }
+
+    $arabicNames = [];
+    $setByAdministration = trim((string) ($existingReview['display_name_ar'] ?? ''));
+    if ($setByAdministration !== '') {
+        $arabicNames[] = $setByAdministration;
+    }
+
+    foreach ($children as $child) {
+        $childReading = trim(
+            (string) ($child['father_name_ar'] ?? '') . ' '
+            . (string) ($child['last_name_ar'] ?? '')
+        );
+        if ($childReading !== '' && !in_array($childReading, $arabicNames, true)) {
+            $arabicNames[] = $childReading;
+        }
+    }
+
+    if ($arabicNames === []) {
+        $arabicNames[] = $nameEn;
+    }
+
+    return ['en' => $nameEn, 'ar' => $arabicNames[0], 'ar_all' => $arabicNames];
+}
+
 function parent_status_class(string $value): string
 {
     return 'status-' . trim((string) preg_replace('/[^a-z0-9_-]+/', '-', strtolower($value)), '-');
@@ -401,25 +514,17 @@ $familyOpenBalance = (float) array_sum(array_map(
   static fn (array $row): float => (float) ($row['open_balance'] ?? 0),
   $children
 ));
+/*
+ * Written warnings only, so both figures speak about something a parent can act
+ * on: how many stand, and how many still need an expiation chosen.
+ */
+$writtenWarningCount = count($parentWarnings);
+$openWarningCount = count(array_filter(
+  $parentWarnings,
+  static fn (array $row): bool => (string) ($row['status'] ?? '') === 'issued'
+));
 $selectedChildName = (string) ($studentOverview['student_name'] ?? '-');
 $selectedChildStatus = (string) ($studentOverview['status'] ?? 'inactive');
-$selectedChildFullNameEn = trim((string) (
-  ($studentOverview['first_name_en'] ?? '') . ' '
-  . ($studentOverview['father_name_en'] ?? '') . ' '
-  . ($studentOverview['last_name_en'] ?? '')
-));
-$selectedChildFullNameAr = trim((string) (
-  ($studentOverview['first_name_ar'] ?? '') . ' '
-  . ($studentOverview['father_name_ar'] ?? '') . ' '
-  . ($studentOverview['last_name_ar'] ?? '')
-));
-$selectedChildQrPayload = [
-  'Full Name in EN' => $selectedChildFullNameEn,
-  'Full Name in AR' => $selectedChildFullNameAr,
-  'ID' => $selectedStudentId,
-];
-$selectedChildQrPayloadJson = json_encode($selectedChildQrPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-$selectedChildQrFileBase = 'student-' . $selectedStudentId;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -443,7 +548,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
           <?php foreach ($children as $child): ?>
             <?php
             $childId = (int) $child['id'];
-            $isActiveChild = $childId === $selectedStudentId;
+            $isActiveChild = $view === 'child' && $childId === $selectedStudentId;
             $label = (string) $child['student_name'];
             // The row carries both readings so the panel can switch language
             // without another request; data-i18n-skip keeps the dictionary out
@@ -460,7 +565,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
 
         <section class="nav-group">
           <h2>Shortcuts</h2>
-          <a href="<?= e(khotwa_url('parent/index.php')) ?>?student_id=<?= e((string) $selectedStudentId) ?>#reviews-panel"><?= parent_icon('review') ?><span>Review the center</span></a>
+          <a class="<?= $view === 'review' ? 'is-active' : '' ?>" href="<?= e(khotwa_url('parent/index.php')) ?>?view=review"><?= parent_icon('review') ?><span>Review the center</span><?php if ($view === 'review'): ?><i></i><?php endif; ?></a>
           <a href="<?= e(khotwa_url('index.php')) ?>"><?= parent_icon('website') ?><span>Website</span></a>
           <a href="<?= e(khotwa_url('logout.php')) ?>"><?= parent_icon('logout') ?><span>Logout</span></a>
         </section>
@@ -476,6 +581,100 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
       <main class="admin-content">
         <?php if ($error !== ''): ?>
           <div class="database-alert"><?= e($error) ?></div>
+        <?php elseif ($view === 'review'): ?>
+          <section class="content-heading">
+            <div>
+              <h1>Review the center</h1>
+            </div>
+          </section>
+
+          <section class="parent-reviews" id="reviews-panel">
+            <article class="data-panel">
+              <div class="panel-heading">
+                <div>
+                  <span>Your voice</span>
+                  <h2>Review the center</h2>
+                </div>
+              </div>
+
+              <?php // Kept on one line: the translator matches a whole text node, and an
+                    // embedded newline would stop this sentence from being found. ?>
+              <p class="parent-review-intro">You have one review, and sending it again replaces it. The administration reads it before anything appears on the website.</p>
+
+              <form class="parent-review-form" method="post">
+                <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
+                <input type="hidden" name="action" value="submit_review">
+
+                <?php $reviewNames = parent_review_names($user, $children, $parentReview); ?>
+                <?php /*
+                       * Shown, not asked for. Both readings sit side by side rather
+                       * than swapping with the page language: this is the name the
+                       * website carries in each language, so a parent should be able
+                       * to check both of them at once.
+                       */ ?>
+                <div class="parent-review-field parent-review-signature">
+                  <span>Name shown on the website</span>
+                  <div class="parent-review-names">
+                    <div>
+                      <small>English</small>
+                      <strong data-i18n-skip><?= e($reviewNames['en']) ?></strong>
+                    </div>
+                    <?php foreach ($reviewNames['ar_all'] as $arabicName): ?>
+                      <div>
+                        <small lang="ar" dir="rtl" data-i18n-skip>العربية</small>
+                        <strong lang="ar" dir="rtl" data-i18n-skip><?= e($arabicName) ?></strong>
+                      </div>
+                    <?php endforeach; ?>
+                  </div>
+                  <small>Set by the center. Contact the administration to change it.</small>
+                </div>
+
+                <?php $currentRating = (int) ($_POST['rating'] ?? $parentReview['rating'] ?? 5); ?>
+                <fieldset class="parent-review-rating">
+                  <legend>Your rating</legend>
+                  <?php /*
+                         * Five stars that fill up to the one chosen, rather than five
+                         * separate chips each carrying its own row of stars. The
+                         * inputs run 5 down to 1 and the row is reversed, so plain
+                         * sibling rules can light every star below the chosen one.
+                         */ ?>
+                  <div class="rating-options">
+                    <?php for ($star = 5; $star >= 1; $star--): ?>
+                      <input
+                        type="radio"
+                        id="rating-<?= e((string) $star) ?>"
+                        name="rating"
+                        value="<?= e((string) $star) ?>"
+                        <?= $star === $currentRating ? 'checked' : '' ?>
+                        required
+                      >
+                      <label for="rating-<?= e((string) $star) ?>">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.1 2.7 6 6.5.6-4.9 4.4 1.4 6.4-5.7-3.4-5.7 3.4 1.4-6.4L2.8 9.7l6.5-.6Z"/></svg>
+                        <span class="sr-only"><?= e((string) $star) ?> <?= $star === 1 ? 'star' : 'stars' ?></span>
+                      </label>
+                    <?php endfor; ?>
+                  </div>
+                </fieldset>
+
+                <label class="parent-review-field">
+                  <span>Your review</span>
+                  <textarea
+                    name="review_text"
+                    rows="4"
+                    minlength="20"
+                    maxlength="1200"
+                    placeholder="Tell other families what your child experienced at Khotwa."
+                    required
+                  ><?= e((string) ($_POST['review_text'] ?? $parentReview['review_text'] ?? '')) ?></textarea>
+                </label>
+
+                <button class="primary-action" type="submit">
+                  <?= $parentReview === null ? 'Send review' : 'Update my review' ?>
+                </button>
+              </form>
+
+            </article>
+          </section>
         <?php else: ?>
           <?php // The page is about one child, so the child names the page. ?>
           <section class="content-heading">
@@ -518,45 +717,66 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
               <strong data-i18n-skip><?= e(fmt_date((string) ($studentOverview['latest_attendance_date'] ?? ''), '—')) ?></strong>
               <p>Latest attendance</p>
             </article>
-          </section>
-
-          <section class="overview-grid parent-overview-grid">
-            <aside class="data-panel">
-              <div class="panel-heading">
-                <div><span>Student QR</span><h2>Student QR Code</h2></div>
-              </div>
-              <div class="student-qr-panel" data-student-qr data-qr-file-base="<?= e($selectedChildQrFileBase) ?>" data-qr-payload="<?= e((string) $selectedChildQrPayloadJson) ?>">
-                <div class="student-qr-head">
-                  <strong>Scan to read student identity JSON</strong>
-                </div>
-                <div class="student-qr-box" data-qr-canvas></div>
-                <div class="qr-download-actions">
-                  <?php // One format is enough; PNG keeps the code crisp. ?>
-                  <button class="primary-action" type="button" data-qr-download="png">Download QR code</button>
-                </div>
-              </div>
-            </aside>
+            <?php if ($writtenWarningCount > 0): ?>
+              <?php /*
+                     * Behaviour only appears for a child who has a written
+                     * warning standing. A family with nothing to answer for is
+                     * not shown a zero - there is nothing there to read.
+                     */ ?>
+              <a class="metric-card metric-red parent-warning-metric" href="#behaviour-panel">
+                <span class="metric-dot"></span>
+                <strong data-i18n-skip><?= e((string) $writtenWarningCount) ?></strong>
+                <p><?= $writtenWarningCount === 1 ? 'Written warning' : 'Written warnings' ?></p>
+                <?php if ($openWarningCount > 0): ?>
+                  <small><span data-i18n-skip><?= e((string) $openWarningCount) ?></span> <span>awaiting an expiation</span></small>
+                <?php endif; ?>
+              </a>
+            <?php endif; ?>
           </section>
 
           <section class="parent-table-grid">
             <article class="data-panel" id="subjects-table">
               <div class="panel-heading">
-                <div><span>Academic</span><h2>Active subjects</h2></div>
+                <div><span>Academic</span><h2>Subject attendance</h2></div>
               </div>
               <div class="table-scroll">
                 <table>
                   <thead>
-                    <tr><th data-lang="en">Subject</th><th data-lang="ar">Subject</th><th>Teacher</th></tr>
+                    <tr><th>Subject</th><th>Teacher</th><th>Sessions attended</th><th>Last session</th></tr>
                   </thead>
                   <tbody>
                     <?php if ($subjects === []): ?>
-                      <tr><td colspan="3" class="empty-row">No active subject enrollments.</td></tr>
+                      <tr><td colspan="4" class="empty-row">No active subject enrollments.</td></tr>
                     <?php else: ?>
                       <?php foreach ($subjects as $row): ?>
+                        <?php
+                        $totalSessions = (int) ($row['total_sessions'] ?? 0);
+                        $attendedSessions = (int) ($row['attended_sessions'] ?? 0);
+                        $lastStatus = (string) ($row['last_session_status'] ?? '');
+                        ?>
                         <tr>
-                          <td data-lang="en"><?= e((string) $row['subject_name']) ?></td>
-                          <td data-lang="ar" lang="ar" dir="rtl" data-i18n-skip><?= e((string) $row['subject_name_ar']) ?></td>
+                          <?php // Swapped in place rather than stacked, so only one reading is shown. ?>
+                          <td data-i18n-skip data-en="<?= e((string) $row['subject_name']) ?>" data-ar="<?= e((string) $row['subject_name_ar']) ?>"><?= e((string) $row['subject_name']) ?></td>
                           <td data-i18n-skip data-en="<?= e((string) $row['teacher_name']) ?>" data-ar="<?= e((string) ($row['teacher_name_ar'] ?? '')) ?>"><?= e((string) $row['teacher_name']) ?></td>
+                          <td>
+                            <?php if ($totalSessions === 0): ?>
+                              <span class="parent-session-empty">No sessions yet</span>
+                            <?php else: ?>
+                              <?php // The bar says at a glance what the numbers say exactly. ?>
+                              <span class="parent-session-count" data-i18n-skip><?= e((string) $attendedSessions) ?> / <?= e((string) $totalSessions) ?></span>
+                              <span class="parent-session-bar" aria-hidden="true">
+                                <i style="width: <?= e((string) round(($attendedSessions / $totalSessions) * 100)) ?>%"></i>
+                              </span>
+                            <?php endif; ?>
+                          </td>
+                          <td>
+                            <?php if ($lastStatus === ''): ?>
+                              <span class="parent-session-empty">-</span>
+                            <?php else: ?>
+                              <span class="status-pill <?= e(parent_status_class($lastStatus)) ?>"><?= e(ucfirst($lastStatus)) ?></span>
+                              <small class="parent-session-date" data-i18n-skip><?= e(fmt_date((string) ($row['last_session_date'] ?? ''), '-')) ?></small>
+                            <?php endif; ?>
+                          </td>
                         </tr>
                       <?php endforeach; ?>
                     <?php endif; ?>
@@ -567,7 +787,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
 
             <article class="data-panel" id="attendance-table">
               <div class="panel-heading">
-                <div><span>Attendance</span><h2>Recent attendance</h2></div>
+                <div><span>Attendance</span><h2>Daily attendance</h2></div>
               </div>
               <div class="table-scroll">
                 <table>
@@ -595,27 +815,25 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
 
             <article class="data-panel" id="homework-table">
               <div class="panel-heading">
-                <div><span>Homework</span><h2>Teacher homework notes</h2></div>
+                <div><span>Homework</span><h2>Homework</h2></div>
               </div>
               <div class="table-scroll">
                 <table>
                   <thead>
-                    <tr><th>Date</th><th>Subject</th><th>Teacher</th><th>Status</th><th>Homework note</th></tr>
+                    <tr><th>Date</th><th>Subject</th><th>Homework</th></tr>
                   </thead>
                   <tbody>
                     <?php if ($homeworkItems === []): ?>
-                      <tr><td colspan="5" class="empty-row">No homework notes yet.</td></tr>
+                      <tr><td colspan="3" class="empty-row">No homework notes yet.</td></tr>
                     <?php else: ?>
                       <?php foreach ($homeworkItems as $row): ?>
                         <tr>
-                          <td><?= e(fmt_date((string) $row['attendance_date'])) ?></td>
+                          <td data-i18n-skip><?= e(fmt_date((string) $row['attendance_date'])) ?></td>
                           <td>
                             <?php // Swapped in place rather than stacked, so only one is read. ?>
                             <strong data-i18n-skip data-en="<?= e((string) $row['subject_name']) ?>" data-ar="<?= e((string) $row['subject_name_ar']) ?>"><?= e((string) $row['subject_name']) ?></strong>
                           </td>
-                          <td data-i18n-skip data-en="<?= e((string) $row['teacher_name']) ?>" data-ar="<?= e((string) ($row['teacher_name_ar'] ?? '')) ?>"><?= e((string) $row['teacher_name']) ?></td>
-                          <td><span class="status-pill <?= e(parent_status_class((string) $row['subject_attendance_status'])) ?>"><?= e(ucwords(str_replace('_', ' ', (string) $row['subject_attendance_status']))) ?></span></td>
-                          <td><?= e((string) $row['homework_note']) ?></td>
+                          <td class="parent-homework-cell"><?= e((string) $row['homework_note']) ?></td>
                         </tr>
                       <?php endforeach; ?>
                     <?php endif; ?>
@@ -631,17 +849,28 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
               <div class="table-scroll">
                 <table>
                   <thead>
-                    <tr><th>Month</th><th>Expected</th><th>Balance</th><th>Status</th></tr>
+                    <tr><th>Month</th><th>Expected</th><th>Paid</th><th>Balance</th><th>Status</th></tr>
                   </thead>
                   <tbody>
                     <?php if ($billing === []): ?>
-                      <tr><td colspan="4" class="empty-row">No billing records yet.</td></tr>
+                      <tr><td colspan="5" class="empty-row">No billing records yet.</td></tr>
                     <?php else: ?>
                       <?php foreach ($billing as $row): ?>
+                        <?php $balance = (float) $row['balance_amount']; ?>
                         <tr>
-                          <td><?= e((string) $row['billing_year']) ?>-<?= e(str_pad((string) $row['billing_month'], 2, '0', STR_PAD_LEFT)) ?></td>
-                          <td><?= e(number_format((float) $row['expected_amount'], 2)) ?></td>
-                          <td><?= e(number_format((float) $row['balance_amount'], 2)) ?></td>
+                          <td>
+                            <?php // "September 2026" rather than "2026-09": a month, not a code. ?>
+                            <strong data-i18n-skip><?= e(parent_billing_month((int) $row['billing_year'], (int) $row['billing_month'])) ?></strong>
+                            <?php if ($row['last_payment_date']): ?>
+                              <small class="parent-billing-paid-on">
+                                <span>Paid on</span> <span data-i18n-skip><?= e(fmt_date((string) $row['last_payment_date'])) ?></span>
+                              </small>
+                            <?php endif; ?>
+                          </td>
+                          <td data-i18n-skip><?= e(number_format((float) $row['expected_amount'], 2)) ?></td>
+                          <td data-i18n-skip><?= e(number_format((float) $row['paid_amount'], 2)) ?></td>
+                          <?php // What is still owed is the one figure worth reading twice. ?>
+                          <td class="parent-billing-balance <?= $balance > 0 ? 'is-owing' : 'is-clear' ?>" data-i18n-skip><?= e(number_format($balance, 2)) ?></td>
                           <td><span class="status-pill <?= e(parent_status_class((string) $row['payment_status'])) ?>"><?= e(parent_payment_label((string) $row['payment_status'])) ?></span></td>
                         </tr>
                       <?php endforeach; ?>
@@ -652,34 +881,60 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
             </article>
           </section>
 
-          <section class="parent-behaviour" id="behaviour-panel">
-            <article class="data-panel">
-              <div class="panel-heading">
-                <div>
-                  <span>Behaviour</span>
-                  <h2>Warnings &amp; expiations</h2>
+          <?php /*
+                 * Nothing here until there is something to answer for: no panel,
+                 * no "great work" banner. Only a written warning carries an
+                 * expiation, so an oral one never reaches this screen.
+                 */ ?>
+          <?php if ($parentWarnings !== []): ?>
+            <section class="parent-behaviour" id="behaviour-panel">
+              <article class="data-panel">
+                <div class="panel-heading">
+                  <div>
+                    <span>Behaviour</span>
+                    <h2><?= $writtenWarningCount === 1 ? 'Written warning' : 'Written warnings' ?></h2>
+                  </div>
+                  <?php if ($childAgeGroup !== null): ?>
+                    <?php // The age group decides which expiations are offered, so it is
+                          // named here rather than left for a parent to work out. ?>
+                    <strong class="record-count">Age group: <span data-i18n-skip data-en="<?= e((string) $childAgeGroup['name_en']) ?>" data-ar="<?= e((string) ($childAgeGroup['name_ar'] ?? '')) ?>"><?= e((string) $childAgeGroup['name_en']) ?></span></strong>
+                  <?php endif; ?>
                 </div>
-                <?php if ($childAgeGroup !== null): ?>
-                  <strong class="record-count">Age group: <span data-i18n-skip data-en="<?= e((string) $childAgeGroup['name_en']) ?>" data-ar="<?= e((string) ($childAgeGroup['name_ar'] ?? '')) ?>"><?= e((string) $childAgeGroup['name_en']) ?></span></strong>
+
+                <?php if ($openWarningCount > 0): ?>
+                  <p class="parent-behaviour-lead">
+                    <?php // One warning, one expiation: each card below is chosen on its own. ?>
+                    <span data-i18n-skip><?= e((string) $openWarningCount) ?></span>
+                    <span><?= $openWarningCount === 1
+                        ? 'of these warnings still needs an expiation. Choose one below.'
+                        : 'of these warnings still need an expiation. Choose one for each.' ?></span>
+                  </p>
                 <?php endif; ?>
-              </div>
-              <?php if ($parentWarnings === []): ?>
-                <p class="linked-empty">No warnings for this child. Great work!</p>
-              <?php else: ?>
+
                 <div class="parent-warning-list">
-                  <?php foreach ($parentWarnings as $warning): ?>
-                    <div class="parent-warning-card parent-warning-<?= e((string) $warning['status']) ?>">
+                  <?php foreach ($parentWarnings as $index => $warning): ?>
+                    <?php $isOpen = (string) $warning['status'] === 'issued'; ?>
+                    <div class="parent-warning-card parent-warning-<?= e((string) $warning['status']) ?><?= $isOpen ? ' is-open' : '' ?>">
                       <div class="parent-warning-top">
-                        <span class="status-pill <?= e(parent_status_class((string) ($warning['warning_type'] ?: 'warning'))) ?>">
-                          <?= e($warning['warning_type'] ? ucfirst((string) $warning['warning_type']) . ' warning' : 'Warning') ?>
+                        <?php /*
+                               * Each card names itself, because a family with more
+                               * than one open warning is choosing an expiation per
+                               * warning and has to know which one they are on.
+                               */ ?>
+                        <strong class="parent-warning-label">
+                          <span>Warning</span>
+                          <span data-i18n-skip><?= e((string) ($warning['warning_number'] ?: ($index + 1))) ?></span>
+                        </strong>
+                        <span class="status-pill <?= $isOpen ? 'status-issued' : 'status-assigned' ?>">
+                          <?= $isOpen ? 'Expiation needed' : 'Expiation chosen' ?>
                         </span>
-                        <small><?= e(fmt_date((string) $warning['warning_date'])) ?></small>
+                        <small data-i18n-skip><?= e(fmt_date((string) $warning['warning_date'])) ?></small>
                       </div>
                       <?php // Only the administration's message is shown; the teacher's own
                             // wording of the incident stays internal to the centre. ?>
                       <p class="parent-warning-reason"><?= nl2br(e((string) $warning['parent_message'])) ?></p>
 
-                      <?php if ((string) $warning['status'] === 'issued'): ?>
+                      <?php if ($isOpen): ?>
                         <?php if ($expiationsByCategory === []): ?>
                           <p class="parent-warning-note">No expiations are available for this age group yet. Please contact the administration.</p>
                         <?php else: ?>
@@ -688,7 +943,7 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                             <input type="hidden" name="action" value="select_expiation">
                             <input type="hidden" name="warning_id" value="<?= e((string) $warning['id']) ?>">
                             <label>
-                              <span>Choose an expiation for your child</span>
+                              <span>Choose an expiation for this warning</span>
                               <select name="expiation_id" required>
                                 <option value="">Select an expiation…</option>
                                 <?php foreach ($expiationsByCategory as $categoryName => $options): ?>
@@ -706,99 +961,17 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
                       <?php elseif ($warning['expiation_title']): ?>
                         <div class="parent-warning-expiation">
                           <span>Chosen expiation</span>
-                          <strong><?= e((string) $warning['expiation_title']) ?></strong>
+                          <strong data-i18n-skip data-en="<?= e((string) $warning['expiation_title']) ?>" data-ar="<?= e((string) ($warning['expiation_title_ar'] ?? '')) ?>"><?= e((string) $warning['expiation_title']) ?></strong>
                           <small><?= e((string) $warning['expiation_category']) ?></small>
                         </div>
                       <?php endif; ?>
                     </div>
                   <?php endforeach; ?>
                 </div>
-              <?php endif; ?>
-            </article>
-          </section>
+              </article>
+            </section>
+          <?php endif; ?>
 
-          <section class="parent-reviews" id="reviews-panel">
-            <article class="data-panel">
-              <div class="panel-heading">
-                <div>
-                  <span>Your voice</span>
-                  <h2>Review the center</h2>
-                </div>
-              </div>
-
-              <?php // Kept on one line: the translator matches a whole text node, and an
-                    // embedded newline would stop this sentence from being found. ?>
-              <p class="parent-review-intro">Share your experience with Khotwa Education Center. You have one review, and you can rewrite it whenever you like &mdash; sending it again replaces what you wrote before. The administration reads every message before anything appears on the website.</p>
-
-              <form class="parent-review-form" method="post">
-                <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
-                <input type="hidden" name="action" value="submit_review">
-
-                <label class="parent-review-field">
-                  <span>Name shown on the website</span>
-                  <input
-                    type="text"
-                    name="display_name"
-                    maxlength="120"
-                    value="<?= e((string) ($_POST['display_name']
-                        ?? $parentReview['display_name']
-                        ?? trim((string) $user['first_name'] . ' ' . (string) ($user['last_name'] ?? '')))) ?>"
-                    required
-                  >
-                </label>
-
-                <label class="parent-review-field">
-                  <span>Name in Arabic (optional)</span>
-                  <input
-                    type="text"
-                    name="display_name_ar"
-                    maxlength="120"
-                    dir="rtl"
-                    lang="ar"
-                    placeholder="الاسم كما يظهر في الموقع العربي"
-                    value="<?= e((string) ($_POST['display_name_ar'] ?? $parentReview['display_name_ar'] ?? '')) ?>"
-                  >
-                </label>
-
-                <fieldset class="parent-review-rating">
-                  <legend>Your rating</legend>
-                  <div class="rating-options">
-                    <?php for ($star = 5; $star >= 1; $star--): ?>
-                      <label>
-                        <?php $currentRating = (int) ($_POST['rating'] ?? $parentReview['rating'] ?? 5); ?>
-                        <input type="radio" name="rating" value="<?= e((string) $star) ?>" <?= $star === $currentRating ? 'checked' : '' ?> required>
-                        <span aria-hidden="true"><?= str_repeat('★', $star) ?></span>
-                        <small><?= e((string) $star) ?></small>
-                      </label>
-                    <?php endfor; ?>
-                  </div>
-                </fieldset>
-
-                <label class="parent-review-field">
-                  <span>Your review</span>
-                  <textarea
-                    name="review_text"
-                    rows="4"
-                    minlength="20"
-                    maxlength="1200"
-                    placeholder="Tell other families what your child experienced at Khotwa."
-                    required
-                  ><?= e((string) ($_POST['review_text'] ?? $parentReview['review_text'] ?? '')) ?></textarea>
-                </label>
-
-                <button class="primary-action" type="submit">
-                  <?= $parentReview === null ? 'Send review' : 'Update my review' ?>
-                </button>
-                <?php if ($parentReview !== null): ?>
-                  <?php // The date sits in its own element so the label can be translated. ?>
-                  <p class="parent-review-note">
-                    Last sent on <time datetime="<?= e((string) $parentReview['updated_at']) ?>"><?= e(fmt_datetime((string) $parentReview['updated_at'])) ?></time>
-                  </p>
-                <?php endif; ?>
-              </form>
-
-            </article>
-          </section>
         <?php endif; ?>
       </main>
     </div>
@@ -806,13 +979,11 @@ $selectedChildQrFileBase = 'student-' . $selectedStudentId;
     <button class="sidebar-scrim" type="button" aria-label="Close navigation panel" data-sidebar-scrim></button>
   </div>
 
-  <script src="<?= e(khotwa_asset('vendor/qrcode.min.js')) ?>" defer></script>
   <?php render_toasts([
       ['type' => 'success', 'text' => $parentMessage ?? ''],
       ['type' => 'error', 'text' => $reviewError ?? ''],
   ]); ?>
   <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
-  <script src="<?= e(khotwa_asset('js/qr-tools.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/admin.js')) ?>" defer></script>
 </body>
 </html>
