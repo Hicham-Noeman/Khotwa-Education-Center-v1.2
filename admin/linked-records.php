@@ -53,6 +53,17 @@ try {
     $statement->execute([$personId]);
     $rows = $statement->fetchAll();
 
+    /*
+     * A student has one set of medical details. Once it exists the only thing to
+     * do is edit it, so the add button goes and a direct ?add=1 is ignored -
+     * otherwise the unique key turns a reasonable click into a database error.
+     */
+    $isSingleRecordTable = in_array($table, admin_single_record_tables(), true);
+    $alreadyHasRecord = $isSingleRecordTable && $rows !== [];
+    if ($alreadyHasRecord) {
+        $isAdding = false;
+    }
+
     // The school schedule is entered on a weekly planner rather than as a stack of
     // rows, so the section loads it as a grid of sessions instead.
     $isPlanner = $type === 'student' && $table === 'student_school_schedule';
@@ -136,10 +147,14 @@ try {
   </form>
 <?php else: ?>
 <div class="linked-section-actions">
-  <a class="add-record-button" href="<?= e(khotwa_url('admin/person.php')) ?>?type=<?= e($type) ?>&id=<?= e((string) $personId) ?>&add_table=<?= e($table) ?>#linked-<?= e($table) ?>">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-    Add linked record
-  </a>
+  <?php if ($alreadyHasRecord): ?>
+    <p class="linked-single-note">This student already has these details. Open the record below to edit them.</p>
+  <?php else: ?>
+    <a class="add-record-button" href="<?= e(khotwa_url('admin/person.php')) ?>?type=<?= e($type) ?>&id=<?= e((string) $personId) ?>&add_table=<?= e($table) ?>#linked-<?= e($table) ?>">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      Add linked record
+    </a>
+  <?php endif; ?>
 </div>
 
 <?php if ($isAdding): ?>
@@ -197,6 +212,11 @@ try {
               }
               if ($columnName === $relationColumn) {
                   $locked[$columnName] = $personId;
+              }
+              // Fixed once saved: re-pointing it would move every attendance
+              // row already recorded against this enrollment.
+              if (in_array($columnName, admin_locked_after_create($table), true)) {
+                  $locked[$columnName] = $row[$columnName] ?? '';
               }
               admin_render_field(
                   $pdo,

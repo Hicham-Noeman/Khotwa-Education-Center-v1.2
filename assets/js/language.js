@@ -988,6 +988,24 @@
     ,"of these warnings still need an expiation. Choose one for each.": "من هذه الإنذارات ما زالت بحاجة إلى كفّارة. اختر واحدة لكل منها."
     ,"Choose an expiation for this warning": "اختر كفّارة لهذا الإنذار"
     ,"Only a written warning carries an expiation.": "الإنذار الخطي وحده يحمل كفّارة."
+
+    // The parent agreement. The clauses themselves carry both readings on the
+    // element, but the wording around them is ordinary page text and needs the
+    // dictionary like everything else.
+    ,"Before you continue": "قبل المتابعة"
+    ,"This agreement covers your children": "تشمل هذه الاتفاقية أبناءك"
+    ,"This agreement covers": "تشمل هذه الاتفاقية"
+    ,"I have read the agreement above and I accept it.": "قرأتُ الاتفاقية أعلاه وأوافق عليها."
+    ,"I have read the agreement above and I accept it for each of the children named.": "قرأتُ الاتفاقية أعلاه وأوافق عليها عن كل طفل من المذكورين."
+    ,"Agree and continue": "أوافق وأتابع"
+    ,"You need to accept this before the portal opens.": "عليك الموافقة قبل أن تُفتح البوابة."
+    ,"Parent agreement": "اتفاقية أولياء الأمور"
+    ,"Accepted on": "تمت الموافقة في"
+    ,"Version": "الإصدار"
+    ,"The agreement has been updated": "تم تحديث الاتفاقية"
+    ,"In effect from": "سارية اعتباراً من"
+    ,"Agreed": "تمت الموافقة"
+    ,"Not yet agreed": "لم تتم الموافقة بعد"
   };
 
   const explicit = {
@@ -1196,6 +1214,16 @@
     }
   };
 
+  /*
+   * Arabic is the language the site opens in: the families it is written for read
+   * Arabic first, so English is the one that has to be asked for.
+   *
+   * Nothing is written to storage until someone presses the language button, so a
+   * saved value is always a choice somebody made, and that choice wins on every
+   * later visit. A page that must open in English says so for itself with
+   * data-default-language="en" on its html element.
+   */
   const saved = localStorage.getItem(STORAGE_KEY);
-  applyLanguage(saved === "ar" ? "ar" : "en", false);
+  const fallback = document.documentElement.dataset.defaultLanguage === "en" ? "en" : "ar";
+  applyLanguage(saved === "ar" || saved === "en" ? saved : fallback, false);
 })();

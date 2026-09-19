@@ -56,7 +56,7 @@ const KHOTWA_CENTER_HOURS_EN = 'Mon-Thu & Sat, 3:00-8:00 PM';
 const KHOTWA_CENTER_HOURS_AR = 'الاثنين–الخميس والسبت، 3:00–8:00 مساءً';
 
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
-const KHOTWA_SCHEMA_VERSION = 25;
+const KHOTWA_SCHEMA_VERSION = 32;
 
 function getDatabaseConnection(): PDO
 {
@@ -436,10 +436,12 @@ function createKhotwaTables(PDO $pdo): void
             nationality_id BIGINT UNSIGNED NULL,
             blood_type ENUM('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-') NOT NULL,
             date_of_birth DATE NOT NULL,
+            place_of_birth VARCHAR(120) NULL,
             address TEXT NULL,
-            family_status ENUM('Married', 'Divorced', 'Widowed', 'Separated', 'Single') NOT NULL,
+            family_status ENUM('Married', 'Divorced', 'Widowed') NOT NULL,
             number_of_people_in_household TINYINT UNSIGNED NOT NULL,
-            current_teaching_language ENUM('French', 'English') NOT NULL,
+            father_work VARCHAR(150) NULL,
+            mother_work VARCHAR(150) NULL,
             father_phone_number VARCHAR(30) NULL,
             mother_phone_number VARCHAR(30) NULL,
             home_phone_number VARCHAR(30) NULL,
@@ -503,8 +505,8 @@ function createKhotwaTables(PDO $pdo): void
             school_id BIGINT UNSIGNED NULL,
             school_name VARCHAR(150) NULL,
             grade_name VARCHAR(100) NULL,
+            teaching_language ENUM('French', 'English') NULL,
             final_total DECIMAL(8,2) NULL,
-            final_average DECIMAL(5,2) NULL,
             is_current TINYINT(1) NOT NULL DEFAULT 0,
             notes VARCHAR(255) NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -678,9 +680,7 @@ function createKhotwaTables(PDO $pdo): void
             subject_id BIGINT UNSIGNED NOT NULL,
 
             academic_year SMALLINT UNSIGNED NOT NULL,
-            start_date DATE NULL,
-            end_date DATE NULL,
-            status ENUM('active', 'paused', 'stopped', 'completed') NOT NULL DEFAULT 'active',
+            status ENUM('active', 'inactive', 'paused') NOT NULL DEFAULT 'active',
             notes VARCHAR(255) NULL,
 
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1152,6 +1152,79 @@ function createKhotwaTables(PDO $pdo): void
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             UNIQUE KEY uq_homepage_settings_key (setting_key)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        /*
+         * The parent agreement, as a document with versions.
+         *
+         * A version is drafted by the administration, reviewed by a manager and
+         * only then published. Publishing a new version is what makes every
+         * family agree again: acceptance is recorded against a version, so a new
+         * one starts with nobody having accepted it.
+         */
+        "CREATE TABLE IF NOT EXISTS parent_agreements (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            version SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            title_en VARCHAR(180) NOT NULL,
+            title_ar VARCHAR(180) NOT NULL,
+            intro_en TEXT NULL,
+            intro_ar TEXT NULL,
+            status ENUM('draft', 'published', 'archived') NOT NULL DEFAULT 'draft',
+            effective_date DATE NULL,
+            created_by_user_id BIGINT UNSIGNED NULL,
+            published_at DATETIME NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            INDEX idx_parent_agreements_status (status),
+            CONSTRAINT fk_parent_agreement_author
+                FOREIGN KEY (created_by_user_id) REFERENCES users(id)
+                ON DELETE SET NULL ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        /* One clause of an agreement: a heading and its text, in both languages. */
+        "CREATE TABLE IF NOT EXISTS parent_agreement_clauses (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            agreement_id BIGINT UNSIGNED NOT NULL,
+            title_en VARCHAR(180) NOT NULL,
+            title_ar VARCHAR(180) NOT NULL,
+            body_en TEXT NOT NULL,
+            body_ar TEXT NOT NULL,
+            sort_order SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            INDEX idx_agreement_clause_order (agreement_id, sort_order),
+            CONSTRAINT fk_agreement_clause_agreement
+                FOREIGN KEY (agreement_id) REFERENCES parent_agreements(id)
+                ON DELETE CASCADE ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        /*
+         * Who agreed to what, for which child. A parent with three children
+         * agrees three times: the agreement is about a student, so a new child
+         * needs its own acceptance even from a parent who has accepted before.
+         */
+        "CREATE TABLE IF NOT EXISTS parent_agreement_acceptances (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            agreement_id BIGINT UNSIGNED NOT NULL,
+            parent_user_id BIGINT UNSIGNED NOT NULL,
+            student_id BIGINT UNSIGNED NOT NULL,
+            accepted_at DATETIME NOT NULL,
+            accepted_ip VARCHAR(45) NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_agreement_parent_student (agreement_id, parent_user_id, student_id),
+            INDEX idx_acceptance_parent (parent_user_id),
+            CONSTRAINT fk_acceptance_agreement
+                FOREIGN KEY (agreement_id) REFERENCES parent_agreements(id)
+                ON DELETE CASCADE ON UPDATE CASCADE,
+            CONSTRAINT fk_acceptance_parent
+                FOREIGN KEY (parent_user_id) REFERENCES users(id)
+                ON DELETE CASCADE ON UPDATE CASCADE,
+            CONSTRAINT fk_acceptance_student
+                FOREIGN KEY (student_id) REFERENCES students(id)
+                ON DELETE CASCADE ON UPDATE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
         "CREATE TABLE IF NOT EXISTS homepage_reviews (
@@ -1682,9 +1755,11 @@ function applyKhotwaMigrations(PDO $pdo): void
     // The teaching language is the foreign-language stream the student follows, so the
     // options are French and English. Rows recorded as 'Arabic' predate that and are
     // moved to French, which keeps the two original groups distinct.
+    // Guarded: the column moved to student_academic_records further down, and a
+    // fresh install never creates it on students at all.
     $teachingLanguageType = columnType($pdo, 'students', 'current_teaching_language');
 
-    if ($teachingLanguageType !== "enum('French','English')") {
+    if ($teachingLanguageType !== null && $teachingLanguageType !== "enum('French','English')") {
         if (str_contains(strtolower((string) $teachingLanguageType), 'arabic')) {
             $pdo->exec(
                 "ALTER TABLE students
@@ -1762,8 +1837,56 @@ function applyKhotwaMigrations(PDO $pdo): void
         $pdo->exec(
             "ALTER TABLE students
              MODIFY family_status
-             ENUM('Married', 'Divorced', 'Widowed', 'Separated', 'Single') NOT NULL"
+             ENUM('Married', 'Divorced', 'Widowed') NOT NULL"
         );
+    }
+
+    /*
+     * The list narrowed to the three situations the center records. "Separated"
+     * and "Single" are read as Divorced on the way through - the nearest of the
+     * three that remain - because a NOT NULL enum cannot keep a value that is no
+     * longer in the list, and an empty string is not a better answer.
+     */
+    $familyStatusType = (string) columnType($pdo, 'students', 'family_status');
+    if (str_contains(strtolower($familyStatusType), "'separated'")
+        || str_contains(strtolower($familyStatusType), "'single'")
+    ) {
+        $pdo->exec("UPDATE students SET family_status = 'Divorced' WHERE family_status IN ('Separated', 'Single')");
+        $pdo->exec(
+            "ALTER TABLE students
+             MODIFY family_status
+             ENUM('Married', 'Divorced', 'Widowed') NOT NULL"
+        );
+    }
+
+    // What each parent does, recorded beside the number to reach them on.
+    addColumnIfMissing($pdo, 'students', 'father_work', 'father_work VARCHAR(150) NULL AFTER number_of_people_in_household');
+    addColumnIfMissing($pdo, 'students', 'mother_work', 'mother_work VARCHAR(150) NULL AFTER father_work');
+
+    // Where the student was born, kept next to when.
+    addColumnIfMissing($pdo, 'students', 'place_of_birth', 'place_of_birth VARCHAR(120) NULL AFTER date_of_birth');
+
+    /*
+     * The language a student studies in moves off the person and onto the school
+     * year: a child can switch between French and English from one year to the
+     * next, and the profile had no way to say so. Each student's single stored
+     * value is copied onto every academic record they already have, so nothing
+     * is lost, and only then does the old column go.
+     */
+    addColumnIfMissing(
+        $pdo,
+        'student_academic_records',
+        'teaching_language',
+        "teaching_language ENUM('French', 'English') NULL AFTER grade_name"
+    );
+    if (columnExists($pdo, 'students', 'current_teaching_language')) {
+        $pdo->exec(
+            'UPDATE student_academic_records
+             JOIN students ON students.id = student_academic_records.student_id
+             SET student_academic_records.teaching_language = students.current_teaching_language
+             WHERE student_academic_records.teaching_language IS NULL'
+        );
+        $pdo->exec('ALTER TABLE students DROP COLUMN current_teaching_language');
     }
 
     // One review per parent account, editable in place. Any extras a parent already
@@ -1824,13 +1947,79 @@ function applyKhotwaMigrations(PDO $pdo): void
         'final_total',
         'final_total DECIMAL(8,2) NULL AFTER grade_name'
     );
-    addColumnIfMissing(
-        $pdo,
-        'student_academic_records',
-        'final_average',
-        'final_average DECIMAL(5,2) NULL AFTER final_total'
-    );
 
+    /*
+     * The agreement lost its review step: the administration writes it and
+     * publishes it, so there is no manager decision to record. Anything caught
+     * mid-review becomes a draft again rather than disappearing, and the date it
+     * takes effect is now part of the document.
+     */
+    if (columnExists($pdo, 'parent_agreements', 'status')) {
+        $agreementStatusType = (string) columnType($pdo, 'parent_agreements', 'status');
+        if (str_contains(strtolower($agreementStatusType), "'in_review'")) {
+            $pdo->exec("UPDATE parent_agreements SET status = 'draft' WHERE status = 'in_review'");
+            $pdo->exec(
+                "ALTER TABLE parent_agreements
+                 MODIFY status ENUM('draft', 'published', 'archived') NOT NULL DEFAULT 'draft'"
+            );
+        }
+
+        addColumnIfMissing(
+            $pdo,
+            'parent_agreements',
+            'effective_date',
+            'effective_date DATE NULL AFTER status'
+        );
+
+        if (constraintExists($pdo, 'parent_agreements', 'fk_parent_agreement_reviewer')) {
+            $pdo->exec('ALTER TABLE parent_agreements DROP FOREIGN KEY fk_parent_agreement_reviewer');
+        }
+        foreach (['review_note', 'submitted_at', 'reviewed_by_user_id', 'reviewed_at'] as $reviewColumn) {
+            if (columnExists($pdo, 'parent_agreements', $reviewColumn)) {
+                $pdo->exec('ALTER TABLE parent_agreements DROP COLUMN ' . $reviewColumn);
+            }
+        }
+    }
+
+    /*
+     * A subject enrollment says which teacher-subject the student takes and
+     * whether it is running. The dates were never read anywhere, and "stopped"
+     * and "completed" both meant the same thing to everyone using the form:
+     * not currently enrolled. Both become "inactive".
+     */
+    $enrollmentStatusType = (string) columnType($pdo, 'student_subject_enrollments', 'status');
+    if (str_contains(strtolower($enrollmentStatusType), "'stopped'")
+        || str_contains(strtolower($enrollmentStatusType), "'completed'")
+    ) {
+        $pdo->exec(
+            "ALTER TABLE student_subject_enrollments
+             MODIFY status ENUM('active', 'inactive', 'paused', 'stopped', 'completed') NOT NULL DEFAULT 'active'"
+        );
+        $pdo->exec(
+            "UPDATE student_subject_enrollments
+             SET status = 'inactive'
+             WHERE status IN ('stopped', 'completed')"
+        );
+        $pdo->exec(
+            "ALTER TABLE student_subject_enrollments
+             MODIFY status ENUM('active', 'inactive', 'paused') NOT NULL DEFAULT 'active'"
+        );
+    }
+
+    foreach (['start_date', 'end_date'] as $unusedDate) {
+        if (columnExists($pdo, 'student_subject_enrollments', $unusedDate)) {
+            $pdo->exec('ALTER TABLE student_subject_enrollments DROP COLUMN ' . $unusedDate);
+        }
+    }
+
+    /*
+     * One mark per academic record. The total and the average said much the same
+     * thing, and two boxes for one number is two chances to disagree. Dropped
+     * after the adds above, so no ordering can bring it back.
+     */
+    if (columnExists($pdo, 'student_academic_records', 'final_average')) {
+        $pdo->exec('ALTER TABLE student_academic_records DROP COLUMN final_average');
+    }
     addColumnIfMissing($pdo, 'teachers', 'email', 'email VARCHAR(150) NULL AFTER phone_number');
     addColumnIfMissing($pdo, 'teachers', 'photo_path', 'photo_path VARCHAR(255) NULL AFTER phone_number');
     addColumnIfMissing($pdo, 'teachers', 'password_hash', 'password_hash VARCHAR(255) NULL AFTER email');

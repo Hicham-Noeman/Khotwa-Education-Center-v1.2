@@ -743,3 +743,261 @@ const setupFilterChecklists = () => {
 };
 
 setupFilterChecklists();
+
+// ── Copy from a sibling ────────────────────────────────────────────────────
+// Registering a second child from one family meant retyping the parents, the
+// address and three phone numbers. This fills all of it from a sibling already
+// on file, and joins that family's parent account instead of making a second one.
+const setupSiblingCopy = () => {
+  const modal = document.querySelector("[data-sibling-modal]");
+  const openButton = document.querySelector("[data-sibling-open]");
+  if (!modal || !openButton) return;
+
+  const endpoint = modal.dataset.siblingUrl;
+  const csrf = modal.dataset.siblingCsrf;
+  const results = modal.querySelector("[data-sibling-results]");
+  const search = modal.querySelector("[data-sibling-search]");
+  const parentIdField = document.querySelector("[data-sibling-parent-id]");
+  const parentNote = document.querySelector("[data-sibling-parent-note]");
+  const parentLabel = document.querySelector("[data-sibling-parent-label]");
+  const parentClear = document.querySelector("[data-sibling-parent-clear]");
+  const emailField = document.querySelector('[name="parent[email]"]');
+  const belongsField = document.querySelector('[name="parent[belongs_to]"]');
+
+  let students = [];
+  let loaded = false;
+
+  const post = async (body) => {
+    const payload = new URLSearchParams({ csrf, ...body });
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      body: payload.toString(),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.error || "That request could not be completed.");
+    }
+    return data;
+  };
+
+  const render = (term = "") => {
+    const needle = term.trim().toLowerCase();
+    const matches = needle === ""
+      ? students
+      : students.filter((student) =>
+          `${student.name_en} ${student.name_ar} ${student.father}`.toLowerCase().includes(needle));
+
+    if (matches.length === 0) {
+      results.innerHTML = '<p class="sibling-empty">No students match that search.</p>';
+      return;
+    }
+
+    // Built as one string rather than a node at a time: the list is the whole
+    // school, and a hundred separate insertions is a hundred reflows.
+    results.innerHTML = matches.map((student) => `
+      <button class="sibling-row" type="button" data-sibling-pick="${student.id}">
+        <span class="sibling-row-main">
+          <strong>${escapeHtml(student.name_en)}</strong>
+          <small dir="rtl" lang="ar">${escapeHtml(student.name_ar)}</small>
+        </span>
+        <span class="sibling-row-meta">
+          ${student.grade ? `<i>${escapeHtml(student.grade)}</i>` : ""}
+          ${student.has_parent ? '<em class="sibling-has-parent">Has parent account</em>' : ""}
+        </span>
+      </button>
+    `).join("");
+  };
+
+  const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[character]);
+
+  const setField = (name, value) => {
+    const field = document.querySelector(`[name="fields[${name}]"]`);
+    if (!field) return;
+    field.value = value;
+    // A select given a value it has no option for silently keeps the old one,
+    // which would look like the copy worked when it did not.
+    if (field.tagName === "SELECT" && field.value !== String(value)) {
+      field.value = "";
+    }
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    field.classList.add("is-copied");
+  };
+
+  const showLinkedParent = (parent) => {
+    if (!parentIdField || !parentNote) return;
+    if (!parent) {
+      parentIdField.value = "";
+      parentNote.hidden = true;
+      return;
+    }
+    parentIdField.value = String(parent.id);
+    if (parentLabel) parentLabel.textContent = `${parent.name} (${parent.email})`;
+    parentNote.hidden = false;
+    // The account exists, so the fields that would make a new one step aside.
+    if (emailField) { emailField.value = ""; emailField.disabled = true; }
+    if (belongsField) belongsField.disabled = true;
+  };
+
+  parentClear?.addEventListener("click", () => {
+    showLinkedParent(null);
+    if (emailField) emailField.disabled = false;
+    if (belongsField) belongsField.disabled = false;
+  });
+
+  const choose = async (studentId) => {
+    try {
+      const data = await post({ action: "fields", student_id: String(studentId) });
+      Object.entries(data.fields).forEach(([name, value]) => setField(name, value));
+      showLinkedParent(data.parent);
+      closeModal();
+    } catch (error) {
+      results.innerHTML = `<p class="sibling-empty is-error">${escapeHtml(error.message)}</p>`;
+    }
+  };
+
+  const closeModal = () => {
+    modal.hidden = true;
+    document.body.style.removeProperty("overflow");
+    openButton.focus();
+  };
+
+  openButton.addEventListener("click", async () => {
+    modal.hidden = false;
+    document.body.style.overflow = "hidden";
+    search?.focus();
+
+    if (loaded) return;
+    try {
+      const data = await post({ action: "list" });
+      students = data.students || [];
+      loaded = true;
+      render(search?.value || "");
+    } catch (error) {
+      results.innerHTML = `<p class="sibling-empty is-error">${escapeHtml(error.message)}</p>`;
+    }
+  });
+
+  search?.addEventListener("input", () => render(search.value));
+
+  results.addEventListener("click", (event) => {
+    const row = event.target.closest("[data-sibling-pick]");
+    if (row) choose(row.dataset.siblingPick);
+  });
+
+  modal.querySelectorAll("[data-sibling-close]").forEach((button) => {
+    button.addEventListener("click", closeModal);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !modal.hidden) closeModal();
+  });
+};
+
+setupSiblingCopy();
+
+// ── Agreements table ───────────────────────────────────────────────────────
+// A row opens the agreement editor below rather than the generic record form:
+// an agreement has rules about what can change and when, and the raw column
+// editor would walk straight through them.
+const setupAgreementTable = () => {
+  const rows = [...document.querySelectorAll("[data-agreement-row]")];
+  if (rows.length === 0) return;
+
+  rows.forEach((row) => {
+    row.addEventListener("click", (event) => {
+      // The title is already a link; let it do its own work.
+      if (event.target.closest("a")) return;
+      const href = row.dataset.href;
+      if (href) window.location.href = href;
+    });
+  });
+
+  const search = document.querySelector("[data-agreement-search]");
+  search?.addEventListener("input", () => {
+    const needle = search.value.trim().toLowerCase();
+    rows.forEach((row) => {
+      row.hidden = needle !== "" && !row.textContent.toLowerCase().includes(needle);
+    });
+  });
+};
+
+setupAgreementTable();
+
+// ── Client-side table filters ─────────────────────────────────────────────
+// For the tables the server renders whole: matching on the row's own text means
+// a search covers every column shown, which is what someone typing a student's
+// name into a list of parents expects.
+const setupTableFilters = () => {
+  document.querySelectorAll("[data-filter-table]").forEach((search) => {
+    const key = search.dataset.filterTable;
+    const rows = [...document.querySelectorAll(`[data-filter-row="${key}"]`)];
+    if (rows.length === 0) return;
+
+    search.addEventListener("input", () => {
+      const needle = search.value.trim().toLowerCase();
+      rows.forEach((row) => {
+        row.hidden = needle !== "" && !row.textContent.toLowerCase().includes(needle);
+      });
+    });
+  });
+};
+
+setupTableFilters();
+
+// ── Agreement clauses: add several, save once ──────────────────────────────
+// "+" clones a blank clause into the form instead of writing a row, so a set of
+// clauses is written the way it is thought of - all of it, then saved together.
+const setupClauseEditor = () => {
+  const form = document.querySelector("[data-clause-form]");
+  const list = document.querySelector("[data-clause-list]");
+  const template = document.querySelector("[data-clause-template]");
+  if (!form || !list || !template) return;
+
+  const empty = form.querySelector("[data-clause-empty]");
+  const counter = document.querySelector("[data-clause-count]");
+  const addButton = form.querySelector("[data-clause-add]");
+  let newKeys = 0;
+
+  // Numbers are positional, so they are rewritten whenever the set changes
+  // rather than baked in when a card is made.
+  const renumber = () => {
+    const cards = [...list.querySelectorAll("[data-clause-card]")];
+    cards.forEach((card, index) => {
+      const number = card.querySelector("[data-clause-number]");
+      if (number) number.textContent = String(index + 1);
+    });
+    if (empty) empty.hidden = cards.length > 0;
+    if (counter) counter.textContent = `${cards.length} ${cards.length === 1 ? "clause" : "clauses"}`;
+  };
+
+  list.addEventListener("click", (event) => {
+    const remove = event.target.closest("[data-clause-remove]");
+    if (!remove) return;
+    // Removed on screen only; the save is what makes it stick.
+    remove.closest("[data-clause-card]")?.remove();
+    renumber();
+  });
+
+  addButton?.addEventListener("click", () => {
+    newKeys++;
+    const card = template.content.firstElementChild.cloneNode(true);
+    // Each new card needs its own key, or they would overwrite one another.
+    card.querySelectorAll("[name]").forEach((field) => {
+      field.name = field.name.replace("__KEY__", `new-${newKeys}`);
+    });
+    list.appendChild(card);
+    renumber();
+    card.querySelector("input")?.focus();
+    card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+
+  renumber();
+};
+
+setupClauseEditor();

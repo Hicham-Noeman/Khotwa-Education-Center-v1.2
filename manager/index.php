@@ -273,8 +273,13 @@ try {
             'Below 60' => 0,
             'No grade' => 0,
         ];
+        /*
+         * Bucketed on the final total: the average column is gone, and the total
+         * is the one mark an academic record still carries. The bands read as a
+         * mark out of 100, which is how the center records a final total.
+         */
         $gradeAverageRows = $pdo->query(
-            "SELECT student_academic_records.final_average
+            "SELECT student_academic_records.final_total
              FROM students
              LEFT JOIN student_academic_records
                ON student_academic_records.student_id = students.id
@@ -282,12 +287,12 @@ try {
              WHERE students.status = 'active'"
         )->fetchAll();
         foreach ($gradeAverageRows as $row) {
-            if ($row['final_average'] === null || $row['final_average'] === '') {
+            if ($row['final_total'] === null || $row['final_total'] === '') {
                 $gradeBuckets['No grade']++;
                 continue;
             }
 
-            $average = (float) $row['final_average'];
+            $average = (float) $row['final_total'];
             if ($average >= 90) {
                 $gradeBuckets['90-100']++;
             } elseif ($average >= 80) {
@@ -404,15 +409,18 @@ try {
 
         /*
          * Enrolments started per month - growth, rather than the standing total.
+         * Counted by when the enrolment was recorded: the table carries no start
+         * date of its own, and the day the row was written is the day the student
+         * joined that subject.
+         *
          * Two years back rather than one: every enrolment currently on file was
-         * seeded with the same start date, so a twelve-month window showed an
-         * empty chart. It will read as a trend once real dates accumulate.
+         * seeded on the same day, so a twelve-month window showed an empty chart.
+         * It will read as a trend once real dates accumulate.
          */
         $enrolmentRows = $pdo->query(
-            "SELECT DATE_FORMAT(start_date, '%Y-%m') period, COUNT(*) value
+            "SELECT DATE_FORMAT(created_at, '%Y-%m') period, COUNT(*) value
              FROM student_subject_enrollments
-             WHERE start_date IS NOT NULL
-               AND start_date >= DATE_SUB(CURDATE(), INTERVAL 23 MONTH)
+             WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 23 MONTH)
              GROUP BY period
              ORDER BY period"
         )->fetchAll();
@@ -486,7 +494,7 @@ try {
         $columns = [
             'student_name' => 'Student', 'student_name_ar' => 'Arabic name',
             'gender' => 'Gender', 'date_of_birth' => 'Birth date', 'grade_name' => 'Current grade',
-            'current_teaching_language' => 'Language', 'status' => 'Status',
+            'teaching_language' => 'Study language', 'status' => 'Status',
         ];
         $rows = $pdo->query(
             "SELECT students.id,
@@ -494,7 +502,8 @@ try {
                     CONCAT(students.first_name_ar, ' ', students.last_name_ar) student_name_ar,
                     students.gender, students.date_of_birth,
                     COALESCE(student_academic_records.grade_name, 'Not assigned') grade_name,
-                    students.current_teaching_language, students.status
+                    COALESCE(student_academic_records.teaching_language, 'Not set') teaching_language,
+                    students.status
              FROM students
              LEFT JOIN student_academic_records
                ON student_academic_records.student_id = students.id
@@ -651,7 +660,7 @@ $page = $views[$view];
 
             <article class="data-panel manager-chart-card">
               <div class="panel-heading">
-                <div><span>Current averages</span><h2>Grades distribution</h2></div>
+                <div><span>Current totals</span><h2>Grades distribution</h2></div>
               </div>
               <div class="manager-canvas-wrap manager-canvas-compact">
                 <?php if ($gradeChart['labels'] === []): ?>

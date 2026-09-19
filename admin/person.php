@@ -64,6 +64,25 @@ try {
                 // The planner posts the whole week at once instead of one row per session.
                 admin_save_student_schedule($pdo, $personId, (string) ($_POST['schedule'] ?? '[]'));
             } elseif ($action === 'add_linked' && isset($linkedTables[$table])) {
+                /*
+                 * One row per person for the tables that allow only one. The button
+                 * is already gone once the row exists; this refuses the post that
+                 * gets there anyway - a stale tab, a back button - with a sentence
+                 * instead of a duplicate-key error.
+                 */
+                if (in_array($table, admin_single_record_tables(), true)) {
+                    $existing = $pdo->prepare(
+                        'SELECT COUNT(*) FROM ' . admin_quote_identifier($table)
+                        . ' WHERE ' . admin_quote_identifier($relationColumn) . ' = ?'
+                    );
+                    $existing->execute([$personId]);
+                    if ((int) $existing->fetchColumn() > 0) {
+                        throw new RuntimeException(
+                            'These details already exist for this student. Edit the saved record instead of adding another.'
+                        );
+                    }
+                }
+
                 $fields = (array) ($_POST['fields'] ?? []);
                 $fields[$relationColumn] = $personId;
                 admin_save_record($pdo, $table, $fields);

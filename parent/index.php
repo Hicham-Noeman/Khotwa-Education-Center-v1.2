@@ -3,16 +3,67 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/auth.php';
 require_once __DIR__ . '/../src/portal-ui.php';
+require_once __DIR__ . '/../src/parent-agreement.php';
 
 $user = require_roles(['parent']);
 $parentUserId = (int) ($user['id'] ?? 0);
+
+/*
+ * The agreement gate.
+ *
+ * A family that has not accepted the published agreement for every one of their
+ * children sees the agreement and nothing else. It runs before any of the page's
+ * own data is read, and the accept post is handled here too, so there is no
+ * route through this file that shows a child's record first and asks afterwards.
+ *
+ * With no published version there is nothing to accept and the portal opens as
+ * it always did.
+ */
+$agreementPdo = khotwa_db();
+$publishedAgreement = parent_agreement_published($agreementPdo);
+$agreementId = (int) ($publishedAgreement['id'] ?? 0);
+
+if ($agreementId > 0
+    && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST'
+    && (string) ($_POST['action'] ?? '') === 'accept_agreement'
+) {
+    verify_app_csrf();
+    // The box has to be ticked; the button alone is not agreement.
+    if ((string) ($_POST['agree'] ?? '') === '1') {
+        parent_agreement_accept(
+            $agreementPdo,
+            $parentUserId,
+            $agreementId,
+            (string) ($_SERVER['REMOTE_ADDR'] ?? '')
+        );
+    }
+    header('Location: ' . khotwa_url('parent/index.php'));
+    exit;
+}
+
+$agreementPending = $agreementId > 0
+    ? parent_agreement_pending_students($agreementPdo, $parentUserId, $agreementId)
+    : [];
+
+if ($agreementPending !== []) {
+    $agreementClauses = parent_agreement_clauses($agreementPdo, $agreementId);
+    /*
+     * A family that has accepted an older version is being shown a change, not a
+     * first agreement. Saying which is the difference between reading it and
+     * clicking past something that looks familiar.
+     */
+    $agreementIsUpdate = parent_agreement_is_update_for($agreementPdo, $parentUserId, $agreementId);
+    require __DIR__ . '/agreement-gate.php';
+    exit;
+}
+
 $selectedStudentId = (int) ($_GET['student_id'] ?? 0);
 /*
  * The review belongs to the parent account, not to any one child, so it has a
  * screen of its own rather than a panel repeated under every child.
  */
 $view = (string) ($_GET['view'] ?? 'child');
-if (!in_array($view, ['child', 'review'], true)) {
+if (!in_array($view, ['child', 'review', 'agreement'], true)) {
     $view = 'child';
 }
 
@@ -48,7 +99,7 @@ try {
         students.last_name_ar,
             CONCAT(students.first_name_en, ' ', students.last_name_en) AS student_name,
             CONCAT(students.first_name_ar, ' ', students.last_name_ar) AS student_name_ar,
-            students.current_teaching_language,
+            current_record.teaching_language,
             students.status,
             COALESCE(current_record.grade_name, 'Not assigned') AS grade_name,
             parent_students.status AS link_status,
@@ -494,6 +545,7 @@ function parent_icon(string $name): string
     'attendance' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18m-5 5 2 2 4-4"/>',
     'billing' => '<circle cx="12" cy="12" r="9"/><path d="M16 8h-5a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4H8m4-10v12"/>',
     'review' => '<path d="M12 3.6 14.3 9l5.7.4-4.4 3.7 1.4 5.6L12 15.7 7 18.7l1.4-5.6L4 9.4 9.7 9Z"/>',
+    'agreement' => '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 12h6M9 16h3"/><path d="m14.5 18.5 1.5 1.5 3-3"/>',
     'logout' => '<path d="M10 17l5-5-5-5M15 12H3"/><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/>',
   ];
 
@@ -565,6 +617,10 @@ $selectedChildStatus = (string) ($studentOverview['status'] ?? 'inactive');
         <section class="nav-group">
           <h2>Shortcuts</h2>
           <a class="<?= $view === 'review' ? 'is-active' : '' ?>" href="<?= e(khotwa_url('parent/index.php')) ?>?view=review"><?= parent_icon('review') ?><span>Review the center</span><?php if ($view === 'review'): ?><i></i><?php endif; ?></a>
+          <?php if ($publishedAgreement !== null): ?>
+            <?php // The agreement stays readable after it has been accepted. ?>
+            <a class="<?= $view === 'agreement' ? 'is-active' : '' ?>" href="<?= e(khotwa_url('parent/index.php')) ?>?view=agreement"><?= parent_icon('agreement') ?><span>Parent agreement</span><?php if ($view === 'agreement'): ?><i></i><?php endif; ?></a>
+          <?php endif; ?>
           <a href="<?= e(khotwa_url('logout.php')) ?>"><?= parent_icon('logout') ?><span>Logout</span></a>
         </section>
       </nav>
@@ -579,6 +635,56 @@ $selectedChildStatus = (string) ($studentOverview['status'] ?? 'inactive');
       <main class="admin-content">
         <?php if ($error !== ''): ?>
           <div class="database-alert"><?= e($error) ?></div>
+        <?php elseif ($view === 'agreement'): ?>
+          <?php
+          /*
+           * The agreement as it was accepted, readable at any time. A parent
+           * cannot reach this screen without having accepted, because the gate
+           * above runs first - so it always has an acceptance date to show.
+           */
+          $agreementClauses = parent_agreement_clauses($agreementPdo, $agreementId);
+          $acceptedStatement = $agreementPdo->prepare(
+              'SELECT MIN(accepted_at) FROM parent_agreement_acceptances
+               WHERE agreement_id = ? AND parent_user_id = ?'
+          );
+          $acceptedStatement->execute([$agreementId, $parentUserId]);
+          $acceptedOn = (string) $acceptedStatement->fetchColumn();
+          ?>
+          <section class="content-heading">
+            <div>
+              <h1 data-i18n-skip data-en="<?= e((string) $publishedAgreement['title_en']) ?>" data-ar="<?= e((string) $publishedAgreement['title_ar']) ?>"><?= e((string) $publishedAgreement['title_en']) ?></h1>
+              <p class="parent-heading-facts">
+                <?php if ($publishedAgreement['effective_date']): ?>
+                  <span>In effect from</span>
+                  <span data-i18n-skip><?= e(fmt_date((string) $publishedAgreement['effective_date'])) ?></span>
+                <?php endif; ?>
+                <?php if ($acceptedOn !== ''): ?>
+                  <?php if ($publishedAgreement['effective_date']): ?><i aria-hidden="true">&middot;</i><?php endif; ?>
+                  <span>Accepted on</span>
+                  <span data-i18n-skip><?= e(fmt_date($acceptedOn)) ?></span>
+                <?php endif; ?>
+              </p>
+            </div>
+          </section>
+
+          <section class="data-panel">
+            <?php $intro = trim((string) ($publishedAgreement['intro_en'] ?? '')); ?>
+            <?php if ($intro !== ''): ?>
+              <p class="agreement-intro" data-i18n-skip data-en="<?= e($intro) ?>" data-ar="<?= e(trim((string) ($publishedAgreement['intro_ar'] ?? '')) ?: $intro) ?>"><?= e($intro) ?></p>
+            <?php endif; ?>
+            <div class="agreement-body is-open">
+              <?php foreach ($agreementClauses as $index => $clause): ?>
+                <section class="agreement-clause">
+                  <h2>
+                    <i data-i18n-skip><?= e((string) ($index + 1)) ?>.</i>
+                    <span data-i18n-skip data-en="<?= e((string) $clause['title_en']) ?>" data-ar="<?= e((string) $clause['title_ar']) ?>"><?= e((string) $clause['title_en']) ?></span>
+                  </h2>
+                  <p data-i18n-skip data-en="<?= e((string) $clause['body_en']) ?>" data-ar="<?= e((string) $clause['body_ar']) ?>"><?= e((string) $clause['body_en']) ?></p>
+                </section>
+              <?php endforeach; ?>
+            </div>
+          </section>
+
         <?php elseif ($view === 'review'): ?>
           <section class="content-heading">
             <div>
@@ -683,7 +789,7 @@ $selectedChildStatus = (string) ($studentOverview['status'] ?? 'inactive');
                 <p class="parent-heading-facts">
                   <span><?= e((string) $studentOverview['grade_name']) ?></span>
                   <i aria-hidden="true">·</i>
-                  <span><?= e((string) $studentOverview['current_teaching_language']) ?></span>
+                  <span><?= e((string) ($studentOverview['teaching_language'] ?: 'Not set')) ?></span>
                 </p>
               <?php endif; ?>
             </div>

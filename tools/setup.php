@@ -249,11 +249,11 @@ function seedDatabase(PDO $pdo): array
             "INSERT INTO students (
                 first_name_en, father_name_en, last_name_en, mother_name_en, mother_last_name_en,
                 first_name_ar, father_name_ar, last_name_ar, mother_name_ar, mother_last_name_ar,
-                gender, nationality_id, blood_type, date_of_birth, address, family_status,
-                number_of_people_in_household, current_teaching_language,
+                gender, nationality_id, blood_type, date_of_birth, place_of_birth, address, family_status,
+                number_of_people_in_household, father_work, mother_work,
                 father_phone_number, mother_phone_number, home_phone_number,
                 parents_assigned_to_whatsapp_group, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')"
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')"
         );
 
         $insertMedical = $pdo->prepare(
@@ -275,15 +275,15 @@ function seedDatabase(PDO $pdo): array
         );
 
         $insertAcademic = $pdo->prepare(
-            "INSERT INTO student_academic_records (student_id, academic_year, school_name, grade_name, final_total, final_average, is_current, notes)
+            "INSERT INTO student_academic_records (student_id, academic_year, school_name, grade_name, teaching_language, final_total, is_current, notes)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         );
 
         $insertEnrollment = $pdo->prepare(
             "INSERT INTO student_subject_enrollments (
                 student_id, teacher_subject_id, teacher_id, subject_id,
-                academic_year, start_date, end_date, status
-            ) VALUES (?, ?, ?, ?, 2025, '2025-09-01', '2026-06-30', 'active')"
+                academic_year, status
+            ) VALUES (?, ?, ?, ?, 2025, 'active')"
         );
 
         $insertSubscription = $pdo->prepare(
@@ -352,6 +352,15 @@ function seedDatabase(PDO $pdo): array
                 $familyStatus = ['Married', 'Married', 'Married', 'Divorced', 'Widowed'][rand(0, 4)];
                 $household = rand(3, 7);
                 $lang = ($grade + $sIndex) % 2 === 0 ? 'French' : 'English';
+                $placeOfBirth = ['Beirut', 'Tripoli', 'Saida', 'Tyre', 'Zahle', 'Jounieh', 'Baalbek', 'Nabatieh'][rand(0, 7)];
+                $fatherWork = [
+                    'Civil engineer', 'Taxi driver', 'Shop owner', 'Accountant', 'Electrician',
+                    'Pharmacist', 'Carpenter', 'Bank clerk', 'Mechanic', 'Schoolteacher',
+                ][rand(0, 9)];
+                // Housewife is the common answer, which is why the form suggests it.
+                $motherWork = rand(1, 10) <= 6
+                    ? 'Housewife'
+                    : ['Nurse', 'Schoolteacher', 'Seamstress', 'Hairdresser', 'Pharmacist', 'Accountant'][rand(0, 5)];
                 
                 $phoneF = '+961 70 ' . rand(100, 999) . ' ' . rand(100, 999);
                 $phoneM = '+961 71 ' . rand(100, 999) . ' ' . rand(100, 999);
@@ -362,8 +371,9 @@ function seedDatabase(PDO $pdo): array
                 $insertStudent->execute([
                     $fn['en'], $father['en'], $family['en'], $mother['en'], $motherLast['en'],
                     $fn['ar'], $father['ar'], $family['ar'], $mother['ar'], $motherLast['ar'],
-                    $gender, $nat, $blood, $dob, $address, $familyStatus,
-                    $household, $lang, $phoneF, $phoneM, $phoneH, $whatsapp
+                    $gender, $nat, $blood, $dob, $placeOfBirth, $address, $familyStatus,
+                    $household, $fatherWork, $motherWork,
+                    $phoneF, $phoneM, $phoneH, $whatsapp
                 ]);
                 $studentId = (int)$pdo->lastInsertId();
                 $students[] = ['id' => $studentId, 'grade' => $grade];
@@ -397,7 +407,7 @@ function seedDatabase(PDO $pdo): array
 
                 // Academic records (Current year + past years)
                 // Current Year 2025
-                $insertAcademic->execute([$studentId, 2025, 'Khotwa Education Center', $gradeName, null, null, 1, 'Current academic year enrolment']);
+                $insertAcademic->execute([$studentId, 2025, 'Khotwa Education Center', $gradeName, $lang, null, 1, 'Current academic year enrolment']);
                 $counts['student_academic_records']++;
 
                 // Past Year 2024
@@ -405,7 +415,7 @@ function seedDatabase(PDO $pdo): array
                     $pastGrade = "Grade " . ($grade - 1);
                     $avg = rand(76, 98) + (rand(0, 99) / 100);
                     $tot = $avg * 5;
-                    $insertAcademic->execute([$studentId, 2024, 'Public Arabic School', $pastGrade, $tot, $avg, 0, 'Completed previous grade successfully']);
+                    $insertAcademic->execute([$studentId, 2024, 'Public Arabic School', $pastGrade, $lang, $tot, 0, 'Completed previous grade successfully']);
                     $counts['student_academic_records']++;
                 }
                 
@@ -414,7 +424,7 @@ function seedDatabase(PDO $pdo): array
                     $histGrade = "Grade " . ($grade - 2);
                     $avg = rand(72, 97) + (rand(0, 99) / 100);
                     $tot = $avg * 5;
-                    $insertAcademic->execute([$studentId, 2023, 'Public Arabic School', $histGrade, $tot, $avg, 0, 'Promoted with good standing']);
+                    $insertAcademic->execute([$studentId, 2023, 'Public Arabic School', $histGrade, $lang, $tot, 0, 'Promoted with good standing']);
                     $counts['student_academic_records']++;
                 }
 

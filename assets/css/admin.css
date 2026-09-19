@@ -3859,6 +3859,75 @@ html[dir="rtl"] .qr-download-menu button {
 }
 
 /* Optional parent block on the new-student form. */
+/*
+ * The one and only sight of a generated password. A panel rather than a toast,
+ * because a message that fades is no way to hand over a credential.
+ */
+.new-parent-credentials {
+  margin-bottom: 18px;
+  padding: 20px 22px;
+  border: 1px solid rgba(244, 159, 15, 0.35);
+  border-left: 4px solid var(--orange);
+  border-radius: 16px;
+  background: rgba(244, 159, 15, 0.07);
+}
+
+.new-parent-credentials > div > span {
+  color: var(--orange);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.new-parent-credentials h2 {
+  margin: 4px 0 0;
+  color: var(--navy);
+  font-family: var(--display);
+  font-size: 1.2rem;
+}
+
+.new-parent-credentials dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 32px;
+  margin: 14px 0 0;
+}
+
+.new-parent-credentials dt {
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.new-parent-credentials dd {
+  margin: 3px 0 0;
+  color: var(--navy);
+  font-size: 0.92rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+/* The password itself, set apart so it can be read off the screen at a glance. */
+.new-parent-credentials dd.is-secret {
+  padding: 5px 11px;
+  border: 1px dashed rgba(11, 28, 52, 0.22);
+  border-radius: 9px;
+  background: var(--paper);
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  user-select: all;
+}
+
+.new-parent-credentials p {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
 .new-student-parent {
   margin: 26px 0 4px;
   padding: 6px 18px 18px;
@@ -5184,4 +5253,860 @@ body:not(.is-arabic) [data-lang="ar"] {
 .qr-scan-modal.is-dropping .qr-scan-dialog {
   outline: 2px solid var(--orange);
   outline-offset: 3px;
+}
+
+/* ── Copy from a sibling ─────────────────────────────────────────────────── */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* A button that reads as a sentence, for an aside inside body text. */
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--navy);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+}
+
+/* Says why there is no Add button: the one record is already there. */
+.linked-single-note {
+  margin: 0;
+  padding: 9px 13px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.sibling-copy-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  background: var(--soft);
+}
+
+.sibling-copy-bar .secondary-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sibling-copy-bar small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+/*
+ * A field the picker filled, marked for a moment so it is obvious what changed
+ * on a form this long - and which boxes are still the admin's to fill in.
+ */
+.admin-field input.is-copied,
+.admin-field select.is-copied,
+.admin-field textarea.is-copied {
+  border-color: var(--orange);
+  background: rgba(244, 159, 15, 0.07);
+}
+
+.sibling-parent-note {
+  margin: 12px 0 0;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: rgba(34, 63, 107, 0.06);
+  color: var(--navy);
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.sibling-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.sibling-modal[hidden] {
+  display: none;
+}
+
+.sibling-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(11, 28, 52, 0.62);
+  backdrop-filter: blur(5px);
+  cursor: pointer;
+}
+
+.sibling-dialog {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(560px, 100%);
+  max-height: calc(100svh - 48px);
+  padding: 24px;
+  border-radius: 22px;
+  background: var(--paper);
+  box-shadow: 0 40px 90px rgba(10, 27, 51, 0.4);
+}
+
+.sibling-dialog header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sibling-dialog header strong {
+  color: var(--navy);
+  font-family: var(--display);
+  font-size: 1.15rem;
+}
+
+.sibling-dialog header p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.sibling-search input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+}
+
+.sibling-search input:focus-visible {
+  border-color: var(--navy);
+  outline: none;
+}
+
+.sibling-results {
+  display: grid;
+  gap: 6px;
+  overflow-y: auto;
+  min-height: 120px;
+}
+
+/* One row per student: the name leads, the context follows. */
+.sibling-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  cursor: pointer;
+  text-align: start;
+}
+
+.sibling-row:hover,
+.sibling-row:focus-visible {
+  outline: none;
+  border-color: var(--orange);
+  background: rgba(244, 159, 15, 0.07);
+}
+
+.sibling-row-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sibling-row-main strong {
+  color: var(--navy);
+  font-size: 0.86rem;
+}
+
+.sibling-row-main small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.sibling-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.sibling-row-meta i {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 700;
+}
+
+/* Says the family already has a login, so picking this one joins it. */
+.sibling-has-parent {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(34, 63, 107, 0.1);
+  color: var(--navy);
+  font-size: 0.64rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.sibling-empty {
+  margin: 0;
+  padding: 18px 4px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.sibling-empty.is-error {
+  color: #C2334D;
+  font-weight: 700;
+}
+
+@media (max-width: 560px) {
+  .sibling-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+}
+
+
+/* ── Parent agreement ────────────────────────────────────────────────────── */
+
+/*
+ * The dialog a parent meets before the portal opens, and the shell it sits over.
+ *
+ * The backdrop is the portal with nothing in it - it says where you are without
+ * being a way in. It carries no records, so the block does not rely on the
+ * dialog staying put; closing it would reveal an empty page.
+ */
+.agreement-page {
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--soft);
+}
+
+.agreement-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  pointer-events: none;
+  user-select: none;
+  filter: blur(2px);
+  opacity: 0.55;
+}
+
+.agreement-backdrop-stage {
+  flex: 1;
+  background: var(--soft);
+}
+
+.agreement-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px 18px;
+  background: rgba(11, 28, 52, 0.66);
+  backdrop-filter: blur(4px);
+  overflow-y: auto;
+}
+
+/* Kept for the preview page, which is a page rather than a dialog. */
+.agreement-shell {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  padding: 32px 20px 48px;
+}
+
+.agreement-card {
+  width: min(760px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: 34px;
+  border-radius: 24px;
+  background: var(--paper);
+  box-shadow: 0 40px 90px rgba(6, 17, 34, 0.45);
+}
+
+/* Says plainly that there is no way past it. */
+.agreement-note {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.agreement-head > span {
+  color: var(--orange);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.agreement-head h1 {
+  margin: 8px 0 0;
+  color: var(--navy);
+  font-family: var(--display);
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  line-height: 1.2;
+}
+
+.agreement-intro {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+/* Which children this acceptance covers, named so there is no doubt. */
+.agreement-children {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 20px 0 0;
+  padding: 12px 15px;
+  border-radius: 14px;
+  background: rgba(34, 63, 107, 0.06);
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.agreement-children strong {
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: var(--navy);
+  color: var(--paper);
+  font-size: 0.78rem;
+}
+
+/*
+ * The document itself scrolls inside the card rather than the page, so the
+ * accept button stays in view and a parent can always see what they are
+ * agreeing to while they agree to it.
+ */
+.agreement-body {
+  max-height: min(46vh, 460px);
+  margin: 22px 0;
+  padding: 4px 16px 4px 0;
+  overflow-y: auto;
+}
+
+/* On the read-it-later screen there is nothing to agree to, so nothing to keep
+   in view - the document runs at its natural length. */
+.agreement-body.is-open {
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+}
+
+.agreement-clause + .agreement-clause {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.agreement-clause h2 {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 7px;
+  color: var(--navy);
+  font-family: var(--display);
+  font-size: 1.05rem;
+}
+
+.agreement-clause h2 i {
+  color: var(--orange);
+  font-style: normal;
+}
+
+.agreement-clause p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.88rem;
+  line-height: 1.75;
+  white-space: pre-line;
+}
+
+.agreement-form {
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.agreement-tick {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  color: var(--navy);
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.6;
+  cursor: pointer;
+}
+
+.agreement-tick input {
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  flex-shrink: 0;
+  accent-color: var(--orange);
+}
+
+.agreement-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.agreement-foot {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.72rem;
+}
+
+/* The only other control on the page: which language to read it in. */
+.agreement-language {
+  position: fixed;
+  top: 18px;
+  inset-inline-end: 18px;
+}
+
+.agreement-page:has(.agreement-shell) {
+  overflow: auto;
+  background: var(--navy);
+}
+
+.agreement-preview-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 11px 20px;
+  background: var(--orange);
+  color: var(--navy);
+  font-size: 0.78rem;
+}
+
+.agreement-preview-banner strong {
+  font-weight: 800;
+}
+
+/* ── The admin side ──────────────────────────────────────────────────────── */
+
+/* The versions table, listed the way the other sections of Users list theirs. */
+.agreement-table-panel {
+  margin-bottom: 18px;
+}
+
+.agreement-row {
+  cursor: pointer;
+}
+
+.agreement-row:hover {
+  background: var(--soft);
+}
+
+/* The version open underneath, marked so the table says where you are. */
+.agreement-row.is-open {
+  background: rgba(244, 159, 15, 0.09);
+  box-shadow: inset 3px 0 0 var(--orange);
+}
+
+.agreement-row a {
+  color: var(--navy);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.agreement-row a:hover {
+  text-decoration: underline;
+}
+
+/* The one being read, lifted off the row. */
+.agreement-detail {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+/*
+ * A version that cannot be edited is shown as the document it is: the two
+ * languages beside each other, numbered, with room to read - not a column of
+ * greyed-out form fields.
+ */
+.agreement-read {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: agreement-clause;
+}
+
+.agreement-read-clause {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 30px;
+  padding: 18px 0 18px 42px;
+  border-top: 1px solid var(--line);
+  position: relative;
+  counter-increment: agreement-clause;
+}
+
+.agreement-read-clause:first-child {
+  border-top: 0;
+  padding-top: 4px;
+}
+
+/* The clause number, in the margin where a numbered document keeps it. */
+.agreement-read-clause::before {
+  content: counter(agreement-clause);
+  position: absolute;
+  inset-inline-start: 0;
+  top: 18px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: rgba(244, 159, 15, 0.14);
+  color: #9A6200;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.agreement-read-clause:first-child::before {
+  top: 4px;
+}
+
+.agreement-read-side {
+  min-width: 0;
+}
+
+.agreement-read-side h3 {
+  margin: 0 0 6px;
+  color: var(--navy);
+  font-family: var(--display);
+  font-size: 1rem;
+}
+
+.agreement-read-side p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.86rem;
+  line-height: 1.8;
+}
+
+.agreement-read-intro {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 30px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--soft);
+}
+
+.agreement-read-intro p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+
+@media (max-width: 860px) {
+  .agreement-read-clause,
+  .agreement-read-intro {
+    grid-template-columns: 1fr;
+  }
+}
+
+.agreement-review-note,
+.agreement-locked-note {
+  margin: 0 0 16px;
+  padding: 12px 15px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.agreement-review-note {
+  background: rgba(244, 159, 15, 0.12);
+  color: var(--navy);
+}
+
+.agreement-locked-note {
+  background: rgba(34, 63, 107, 0.07);
+  color: var(--muted);
+}
+
+.secondary-action.is-danger {
+  border-color: rgba(194, 51, 77, 0.35);
+  color: #C2334D;
+}
+
+.agreement-decision p {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+
+.agreement-review-form .admin-field {
+  max-width: 520px;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 620px) {
+  .agreement-card {
+    padding: 22px 18px;
+  }
+
+  .agreement-body {
+    max-height: none;
+    padding-inline-end: 0;
+  }
+}
+
+
+/* ── Agreement: update flag, dates, and the signed list ──────────────────── */
+
+/*
+ * A changed agreement is the easiest thing in the world to click past, so it
+ * says so in the one place a parent is looking: above the title.
+ */
+.agreement-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(244, 159, 15, 0.16);
+  color: #9A6200;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.agreement-flag svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.agreement-effective {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.agreement-effective strong {
+  color: var(--navy);
+  font-weight: 800;
+}
+
+/* Created, last edited, published - the history of one version at a glance. */
+.agreement-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  margin: 0 0 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.agreement-dates dt {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.agreement-dates dd {
+  margin: 3px 0 0;
+  color: var(--navy);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.agreement-version-edited {
+  display: block;
+  color: var(--muted);
+  font-size: 0.66rem;
+}
+
+.agreement-decision-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Agreed / not yet agreed, on the signed list. */
+.status-accepted {
+  background: rgba(46, 138, 92, 0.14);
+  color: #2E8A5C;
+}
+
+.status-waiting {
+  background: rgba(244, 159, 15, 0.16);
+  color: #9A6200;
+}
+
+/* Some children covered, some not - neither of the other two answers. */
+.status-partly {
+  display: inline-flex;
+  gap: 5px;
+  background: rgba(34, 63, 107, 0.12);
+  color: var(--navy);
+}
+
+/* ── Agreement editor: one language per column, all clauses on one form ──── */
+
+/*
+ * Grouped by language, not by field: reading down a column is reading the
+ * agreement in one language, which is how it reaches a family. The Arabic
+ * column carries dir="rtl" on the markup, so its labels and text align on the
+ * side they belong to without anything here flipping them.
+ */
+.agreement-bilingual {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.agreement-lang {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--soft);
+}
+
+.agreement-lang h4 {
+  margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--navy);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.agreement-lang .admin-field input,
+.agreement-lang .admin-field textarea {
+  background: var(--paper);
+}
+
+.agreement-effective-field {
+  max-width: 560px;
+  margin-top: 16px;
+}
+
+.agreement-clause-list {
+  display: grid;
+  gap: 14px;
+}
+
+/* One clause, numbered, with its own way out. */
+.agreement-clause-card {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+}
+
+.agreement-clause-card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.agreement-clause-card > header strong {
+  color: var(--navy);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.link-button.is-danger {
+  color: #C2334D;
+  font-size: 0.75rem;
+}
+
+.agreement-clause-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.agreement-add-clause {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-style: dashed;
+}
+
+.agreement-add-clause svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
+@media (max-width: 860px) {
+  .agreement-bilingual {
+    grid-template-columns: 1fr;
+  }
 }

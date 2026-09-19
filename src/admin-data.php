@@ -10,6 +10,8 @@ function admin_navigation(): array
         'students' => ['label' => 'Students', 'group' => 'People', 'sidebar_label' => 'Users'],
         'teachers' => ['label' => 'Teachers', 'group' => 'People', 'sidebar' => false],
         'parent-links' => ['label' => 'Parents', 'group' => 'People', 'sidebar' => false],
+        'parent-agreement' => ['label' => "Parent's Agreement", 'group' => 'People', 'sidebar' => false],
+        'parent-agreement-signed' => ['label' => 'Parents Agreed', 'group' => 'People', 'sidebar' => false],
         'nationalities' => ['label' => 'Nationalities', 'group' => 'People', 'sidebar' => false],
         'schools' => ['label' => 'Schools', 'group' => 'People', 'sidebar' => false],
         'attendance' => ['label' => 'Attendance', 'group' => 'Academics'],
@@ -56,6 +58,8 @@ function admin_manager_allowed_views(): array
         'website-reviews',
         'website-contacts',
         'parent-links',
+        'parent-agreement',
+        'parent-agreement-signed',
     ];
 }
 
@@ -245,6 +249,9 @@ function admin_icon(string $name): string
         'payments' => '<circle cx="12" cy="12" r="9"/><path d="M16 8h-5a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4H8m4-10v12"/>',
         'warnings' => '<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4M12 17h.01"/>',
         'users' => '<path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3Z"/><path d="m9 12 2 2 4-4"/>',
+        'parent-agreement-signed' => '<path d="M7 21v-2a5 5 0 0 1 5-5h3"/><circle cx="9" cy="8" r="3"/><path d="m15 17 2 2 4-4"/>',
+        // A signed sheet: the agreement is a document families put their name to.
+        'parent-agreement' => '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 12h6M9 16h3"/><path d="m14.5 18.5 1.5 1.5 3-3"/>',
         'parent-links' => '<path d="M7 21v-2a5 5 0 0 1 5-5h5"/><circle cx="9" cy="8" r="3"/><path d="m16 14 2 2 4-4"/>',
         'expiations' => '<path d="M12 3v18"/><path d="M5 8h14"/><path d="M6 8 4 20h6L8 8M18 8l-2 12h-6"/>',
         'expiation-categories' => '<path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/>',
@@ -291,6 +298,8 @@ function admin_workspace_tab_groups(): array
             'students' => 'Students',
             'teachers' => 'Teachers',
             'parent-links' => 'Parents',
+            'parent-agreement' => 'Agreement',
+            'parent-agreement-signed' => 'Parents agreed',
             'nationalities' => 'Nationalities',
             'schools' => 'Schools',
         ],
@@ -433,9 +442,15 @@ function admin_column_label(string $column): string
         'parent_user_id' => 'Parent User',
         'nationality_id' => 'Nationality',
         'school_id' => 'School',
-        'school_name' => 'School (old free text)',
+        'school_name' => 'Old School',
         'grade_name' => 'Grade',
         'phone_number' => 'Phone Number',
+        // Spelled the way they read, rather than the capitalised "Date Of Birth"
+        // the underscore-to-words rule would produce.
+        'date_of_birth' => 'Date of Birth',
+        'place_of_birth' => 'Place of Birth',
+        // Recorded per school year, since a student can change stream between years.
+        'teaching_language' => 'Study Language',
         // The teacher's own name in Arabic, shown on the Arabic side of the website.
         'first_name_ar' => 'First Name AR',
         'last_name_ar' => 'Last Name AR',
@@ -538,6 +553,9 @@ function admin_relation_options(PDO $pdo, string $column): array
         // The category rides along in the label: two schools in one town often share
         // a name, and private/public is what tells them apart.
         'school_id' => "SELECT id, CONCAT(name, ' (', UPPER(LEFT(category, 1)), SUBSTRING(category, 2), ')') label FROM schools WHERE status = 'active' ORDER BY name",
+        // The previous school is stored by name rather than by id, so the same
+        // list is offered with the name itself as the value.
+        'school_name' => "SELECT name id, CONCAT(name, ' (', UPPER(LEFT(category, 1)), SUBSTRING(category, 2), ')') label FROM schools WHERE status = 'active' ORDER BY name",
     ];
 
     if (!isset($queries[$column])) {
@@ -548,10 +566,43 @@ function admin_relation_options(PDO $pdo, string $column): array
     return $cache[$column];
 }
 
+/**
+ * Columns that are fixed once the record exists.
+ *
+ * An enrollment is a student in one teacher's subject; changing which subject
+ * after the fact would silently re-point every attendance row already recorded
+ * against it. Adding a second enrollment is the honest way to move a student, so
+ * the field is shown as it was saved and cannot be edited.
+ *
+ * @return array<int, string>
+ */
+function admin_locked_after_create(string $table): array
+{
+    return match ($table) {
+        'student_subject_enrollments' => ['teacher_subject_id'],
+        default => [],
+    };
+}
+
+/**
+ * Linked tables that hold at most one row per person.
+ *
+ * A student has one set of medical details, not a stack of them - the column
+ * already carries a unique key, so a second row is refused by the database. This
+ * is what stops the form offering to create one in the first place, so the
+ * answer is "edit the one that is there" rather than a duplicate-key error.
+ *
+ * @return array<int, string>
+ */
+function admin_single_record_tables(): array
+{
+    return ['student_medical_info'];
+}
+
 function admin_hidden_derived_columns(string $table): array
 {
     return match ($table) {
-        'student_subject_enrollments' => ['teacher_id', 'subject_id'],
+        'student_subject_enrollments' => ['teacher_id', 'subject_id', 'academic_year'],
         'student_subject_attendance' => ['student_id', 'attendance_date', 'teacher_id', 'subject_id'],
         'student_subscription_months', 'student_subscription_payments' => ['student_id'],
         default => [],
@@ -709,6 +760,45 @@ function admin_render_field(
         return;
     }
 
+    /*
+     * The school the student came from, beside the school picked from the list.
+     * Both are shown on every form, new records included, and both are the
+     * admin's to set: nothing here rewrites one from the other, because a
+     * student's previous school is not the one they attend now.
+     *
+     * It is stored as a name rather than an id, so the same school list is
+     * offered with the name as the value. A name already stored that is no
+     * longer in the list is kept as its own option, so opening an older record
+     * and saving it does not quietly clear the previous school.
+     */
+    if ($name === 'school_name') {
+        $schools = admin_relation_options($pdo, 'school_name');
+        $stored = (string) $value;
+        $isKnown = false;
+        foreach ($schools as $school) {
+            if ((string) $school['id'] === $stored) {
+                $isKnown = true;
+                break;
+            }
+        }
+
+        echo '<label class="admin-field" data-field-name="school_name">';
+        echo '<span>' . e(admin_column_label($name)) . '</span>';
+        echo '<select name="fields[school_name]" data-i18n-skip>';
+        echo '<option value="">Select an option</option>';
+        if ($stored !== '' && !$isKnown) {
+            echo '<option value="' . e($stored) . '" selected>' . e($stored) . '</option>';
+        }
+        foreach ($schools as $school) {
+            $selected = (string) $school['id'] === $stored ? ' selected' : '';
+            echo '<option value="' . e((string) $school['id']) . '"' . $selected . '>'
+                . e((string) $school['label']) . '</option>';
+        }
+        echo '</select>';
+        echo '</label>';
+        return;
+    }
+
     $label = $name === 'password_hash' ? 'Password' : admin_column_label($name);
     $type = (string) $column['DATA_TYPE'];
     $required = $column['IS_NULLABLE'] === 'NO' && $column['COLUMN_DEFAULT'] === null ? ' required' : '';
@@ -782,6 +872,27 @@ function admin_render_field(
             echo '<option value="' . e($option) . '"' . $selected . '>' . e(ucwords(str_replace('_', ' ', $option))) . '</option>';
         }
         echo '</select>';
+    } elseif ($name === 'grade_name') {
+        /*
+         * Twelve grades, picked rather than typed, so "Grade 8", "grade 8" and
+         * "8th" cannot all end up in the same column. A value already stored that
+         * is not one of the twelve is kept as its own option, so opening an older
+         * record and saving it does not quietly rewrite the grade.
+         */
+        echo '<select name="fields[' . e($name) . ']"' . $required . '>';
+        echo '<option value="">Select an option</option>';
+        $grades = [];
+        for ($grade = 1; $grade <= 12; $grade++) {
+            $grades[] = 'Grade ' . $grade;
+        }
+        if ((string) $value !== '' && !in_array((string) $value, $grades, true)) {
+            $grades[] = (string) $value;
+        }
+        foreach ($grades as $grade) {
+            $selected = $grade === (string) $value ? ' selected' : '';
+            echo '<option value="' . e($grade) . '"' . $selected . '>' . e($grade) . '</option>';
+        }
+        echo '</select>';
     } elseif (in_array($type, ['text', 'mediumtext', 'longtext'], true)) {
         echo '<textarea name="fields[' . e($name) . ']"' . $required . $languageAttributes . $translationSkipAttribute . '>' . e((string) $value) . '</textarea>';
     } else {
@@ -797,7 +908,21 @@ function admin_render_field(
         $hint = $name === 'password_hash'
             ? ' placeholder="Leave blank to keep the current password"'
             : '';
-        echo '<input type="' . e($inputType) . '" name="fields[' . e($name) . ']" value="' . e((string) $value) . '"' . $step . $required . $hint . $languageAttributes . $translationSkipAttribute . '>';
+        /*
+         * The mother's occupation is free text like the father's, but one answer
+         * comes up far more often than any other, so it is offered as a suggestion.
+         * A datalist suggests without restricting - anything else can still be typed.
+         */
+        $suggestions = $name === 'mother_work' ? ['Housewife'] : [];
+        $listAttribute = $suggestions === [] ? '' : ' list="' . e($name) . '-options"';
+        echo '<input type="' . e($inputType) . '" name="fields[' . e($name) . ']" value="' . e((string) $value) . '"' . $step . $required . $hint . $listAttribute . $languageAttributes . $translationSkipAttribute . '>';
+        if ($suggestions !== []) {
+            echo '<datalist id="' . e($name) . '-options">';
+            foreach ($suggestions as $suggestion) {
+                echo '<option value="' . e($suggestion) . '"></option>';
+            }
+            echo '</datalist>';
+        }
     }
 
     // Room for a caller to say what a field turns into once it is on the page.
@@ -826,6 +951,28 @@ function admin_derive_fields(PDO $pdo, string $table, array $fields): array
         }
         $fields['teacher_id'] = $relation['teacher_id'];
         $fields['subject_id'] = $relation['subject_id'];
+    }
+
+    if ($table === 'student_subject_enrollments') {
+        /*
+         * An enrollment belongs to the year the student is currently in, so the
+         * year is read off their current academic record rather than typed. A
+         * student with no current record has no year to enroll into - saying so
+         * is better than filing the enrollment under a guess.
+         */
+        $yearStatement = $pdo->prepare(
+            'SELECT academic_year FROM student_academic_records
+             WHERE student_id = ? AND is_current = 1
+             ORDER BY academic_year DESC LIMIT 1'
+        );
+        $yearStatement->execute([(int) ($fields['student_id'] ?? 0)]);
+        $currentYear = $yearStatement->fetchColumn();
+        if ($currentYear === false) {
+            throw new RuntimeException(
+                'This student has no current academic record yet. Add one and mark it current before enrolling them in a subject.'
+            );
+        }
+        $fields['academic_year'] = (int) $currentYear;
     }
 
     if ($table === 'student_subject_attendance') {
@@ -967,6 +1114,28 @@ function admin_save_record(PDO $pdo, string $table, array $fields, ?int $id = nu
         $previousPaymentMonthId = (int) $statement->fetchColumn();
     }
 
+    /*
+     * Columns fixed at creation are reset to what is stored before anything is
+     * derived from them. The form renders them disabled, but it still posts the
+     * original value in a hidden field, and a hand-made request could post a
+     * different one - so the row decides, not the request. Reset rather than
+     * removed, because the derived columns are worked out from this value.
+     */
+    $lockedColumns = $id === null ? [] : admin_locked_after_create($table);
+    if ($lockedColumns !== []) {
+        $storedStatement = $pdo->prepare(
+            'SELECT ' . implode(', ', array_map('admin_quote_identifier', $lockedColumns))
+            . ' FROM ' . admin_quote_identifier($table) . ' WHERE id = ? LIMIT 1'
+        );
+        $storedStatement->execute([$id]);
+        $stored = $storedStatement->fetch();
+        if ($stored) {
+            foreach ($lockedColumns as $lockedColumn) {
+                $fields[$lockedColumn] = $stored[$lockedColumn];
+            }
+        }
+    }
+
     $fields = admin_derive_fields($pdo, $table, $fields);
     $columns = admin_editable_columns($pdo, $table);
     $names = [];
@@ -1017,6 +1186,7 @@ function admin_save_record(PDO $pdo, string $table, array $fields, ?int $id = nu
         if ($table === 'student_subscription_payments') {
             admin_sync_subscription_month_payment($pdo, (int) ($fields['subscription_month_id'] ?? 0));
         }
+        admin_enforce_single_current_year($pdo, $table, $newId);
         return $newId;
     }
 
@@ -1037,7 +1207,43 @@ function admin_save_record(PDO $pdo, string $table, array $fields, ?int $id = nu
         }
     }
 
+    admin_enforce_single_current_year($pdo, $table, $id);
+
     return $id;
+}
+
+/**
+ * A student has one current academic year, and it is the one just saved.
+ *
+ * Marking a new year current is how a student moves up, so the year they were on
+ * has to stop being current at the same moment - otherwise every screen that
+ * reads "the current record" (the grade on the student list, the study language,
+ * the parent portal heading) picks whichever row the database happens to return
+ * first. Done here rather than in the form so it holds however the row was
+ * written.
+ */
+function admin_enforce_single_current_year(PDO $pdo, string $table, int $recordId): void
+{
+    if ($table !== 'student_academic_records' || $recordId < 1) {
+        return;
+    }
+
+    $statement = $pdo->prepare(
+        'SELECT student_id, is_current FROM student_academic_records WHERE id = ? LIMIT 1'
+    );
+    $statement->execute([$recordId]);
+    $saved = $statement->fetch();
+
+    // Only a row that claims to be current can push the others aside.
+    if (!$saved || (int) $saved['is_current'] !== 1) {
+        return;
+    }
+
+    $pdo->prepare(
+        'UPDATE student_academic_records
+         SET is_current = 0
+         WHERE student_id = ? AND id <> ? AND is_current = 1'
+    )->execute([(int) $saved['student_id'], $recordId]);
 }
 
 /**
@@ -1051,6 +1257,87 @@ function admin_save_record(PDO $pdo, string $table, array $fields, ?int $id = nu
  * @param array<string, mixed> $input first_name, last_name, email, password, status
  * @return array{user_id: int, link_id: int, name: string}
  */
+/**
+ * A first password nobody has to think up.
+ *
+ * Read out over the phone as often as it is typed, so the alphabet leaves out
+ * the characters that get misheard or mistyped: no O/0, no l/1/I.
+ */
+function admin_generate_password(int $length = 12): string
+{
+    $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    $last = strlen($alphabet) - 1;
+    $password = '';
+    for ($index = 0; $index < $length; $index++) {
+        $password .= $alphabet[random_int(0, $last)];
+    }
+
+    return $password;
+}
+
+/**
+ * The columns a brother and a sister share.
+ *
+ * Registering a second child from the same family meant retyping the parents'
+ * names, the address and every phone number - and a typo in any of them quietly
+ * split one family into two. These are the fields that describe the household
+ * rather than the child, so they can be copied from a sibling wholesale.
+ *
+ * Deliberately absent: the child's own names, gender, blood type, date and place
+ * of birth, photo and status. Siblings differ on all of those.
+ *
+ * @return array<int, string>
+ */
+function admin_family_shared_columns(): array
+{
+    return [
+        'father_name_en', 'father_name_ar',
+        'last_name_en', 'last_name_ar',
+        'mother_name_en', 'mother_name_ar',
+        'mother_last_name_en', 'mother_last_name_ar',
+        'nationality_id',
+        'address',
+        'family_status',
+        'number_of_people_in_household',
+        'father_work', 'mother_work',
+        'father_phone_number', 'mother_phone_number', 'home_phone_number',
+        'parents_assigned_to_whatsapp_group',
+    ];
+}
+
+/**
+ * Attaches a student to a parent account that already exists.
+ *
+ * The sibling route needs this: the family's parent already has a login, and a
+ * second account for the same person would split their children across two
+ * portals. Re-linking a pair that is already linked is not an error - it just
+ * makes sure the link is active.
+ */
+function admin_link_existing_parent(PDO $pdo, int $studentId, int $parentUserId): array
+{
+    $statement = $pdo->prepare(
+        "SELECT id, first_name, last_name, email FROM users
+         WHERE id = ? AND role = 'parent' LIMIT 1"
+    );
+    $statement->execute([$parentUserId]);
+    $parent = $statement->fetch();
+    if (!$parent) {
+        throw new RuntimeException('That parent account could not be found.');
+    }
+
+    $pdo->prepare(
+        "INSERT INTO parent_students (parent_user_id, student_id, status)
+         VALUES (?, ?, 'active')
+         ON DUPLICATE KEY UPDATE status = 'active'"
+    )->execute([$parentUserId, $studentId]);
+
+    return [
+        'user_id' => $parentUserId,
+        'name' => trim((string) $parent['first_name'] . ' ' . (string) ($parent['last_name'] ?? '')),
+        'email' => (string) $parent['email'],
+    ];
+}
+
 function admin_create_parent_account_link(PDO $pdo, int $studentId, array $input): array
 {
     $firstName = admin_capitalize_name((string) ($input['first_name'] ?? ''));
@@ -1058,6 +1345,36 @@ function admin_create_parent_account_link(PDO $pdo, int $studentId, array $input
     $email = trim((string) ($input['email'] ?? ''));
     $password = (string) ($input['password'] ?? '');
     $status = (string) ($input['status'] ?? 'active');
+    $belongsTo = (string) ($input['belongs_to'] ?? '');
+
+    /*
+     * Created alongside a student, the account is not named by hand: the family
+     * names are already on the student record, so the admin only says whose
+     * address this is and the name is read off the row that was just saved.
+     */
+    if ($studentId > 0 && in_array($belongsTo, ['father', 'mother'], true)) {
+        $names = $pdo->prepare(
+            'SELECT father_name_en, last_name_en, mother_name_en, mother_last_name_en
+             FROM students WHERE id = ? LIMIT 1'
+        );
+        $names->execute([$studentId]);
+        $student = $names->fetch();
+        if (!$student) {
+            throw new RuntimeException('That student no longer exists.');
+        }
+
+        $firstName = admin_capitalize_name((string) ($belongsTo === 'father'
+            ? $student['father_name_en']
+            : $student['mother_name_en']));
+        $lastName = admin_capitalize_name((string) ($belongsTo === 'father'
+            ? $student['last_name_en']
+            : $student['mother_last_name_en']));
+    }
+
+    // Nobody picks the first password; it is generated and shown once.
+    if ($password === '') {
+        $password = admin_generate_password();
+    }
 
     if ($firstName === '') {
         throw new RuntimeException('Enter the parent first name.');
@@ -1138,6 +1455,9 @@ function admin_create_parent_account_link(PDO $pdo, int $studentId, array $input
         'user_id' => $userId,
         'link_id' => $linkId,
         'name' => trim($firstName . ' ' . $lastName),
+        'email' => $email,
+        'password' => $password,
+        'belongs_to' => $belongsTo,
     ];
 }
 

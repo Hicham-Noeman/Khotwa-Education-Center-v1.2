@@ -266,7 +266,6 @@ try {
                     subjects.name_en AS subject_name,
                     subjects.name_ar AS subject_name_ar,
                     student_subject_enrollments.academic_year,
-                    student_subject_enrollments.start_date,
                     latest_attendance.attendance_date AS latest_attendance_date,
                     latest_attendance.status AS latest_attendance_status
              FROM student_subject_enrollments
