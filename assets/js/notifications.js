@@ -21,11 +21,22 @@
   const isArabic = () =>
     (window.KhotwaI18n ? window.KhotwaI18n.current() : document.documentElement.lang) === "ar";
 
+  /*
+   * The count is written into the tab title as well as onto the bell, so a
+   * window sitting behind something else still says how many are waiting. The
+   * title is rebuilt from the page's own each time, because the language switch
+   * rewrites it underneath us.
+   */
+  const baseTitle = document.title.replace(/^\(\d+\)\s*/, "");
+
   const showBadge = (count) => {
     counters.forEach((counter) => {
       counter.textContent = String(Math.min(count, 99));
       counter.hidden = count === 0;
     });
+
+    const plain = document.title.replace(/^\(\d+\)\s*/, "") || baseTitle;
+    document.title = count > 0 ? `(${Math.min(count, 99)}) ${plain}` : plain;
   };
 
   const closePanel = () => {
@@ -194,39 +205,41 @@
   /*
    * How often to ask.
    *
-   * Every ten seconds while the page is being looked at, which is what makes a
-   * notification feel like it arrived rather than like it was found later. A
-   * hidden tab is not asked at all - it is not being read, and a phone should
-   * not spend its battery on it - and it catches up the moment it comes back,
-   * which is also why returning to the page used to be when things appeared.
+   * Ten seconds while the page is being looked at, which is what makes a
+   * notification feel like it arrived rather than like it was found later.
+   *
+   * A tab that is hidden keeps asking, just slower: someone working in another
+   * tab still hears the chime and sees the count appear in the tab title, which
+   * is the nearest thing to a real notification a page can do without https.
+   * The browser throttles timers in a background tab to about once a minute
+   * anyway, so the slower figure is what actually happens either way - asking
+   * for it explicitly just makes the intent plain.
+   *
+   * Whenever the tab comes back to the front it catches up at once.
    */
   const LIVE_INTERVAL = 10000;
+  const BACKGROUND_INTERVAL = 60000;
   let timer = null;
+  let timerRate = 0;
 
-  const startPolling = () => {
-    if (timer !== null) return;
-    timer = window.setInterval(refresh, LIVE_INTERVAL);
+  const poll = (rate) => {
+    if (timer !== null && timerRate === rate) return;
+    if (timer !== null) window.clearInterval(timer);
+    timerRate = rate;
+    timer = window.setInterval(refresh, rate);
   };
 
-  const stopPolling = () => {
-    if (timer === null) return;
-    window.clearInterval(timer);
-    timer = null;
-  };
+  const pace = () => poll(document.hidden ? BACKGROUND_INTERVAL : LIVE_INTERVAL);
 
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) {
-      stopPolling();
-      return;
-    }
-    refresh();
-    startPolling();
+    if (!document.hidden) refresh();
+    pace();
   });
 
   window.addEventListener("focus", refresh);
 
   refresh();
-  if (!document.hidden) startPolling();
+  pace();
 
   document.addEventListener("khotwa:languagechange", () => {
     if (!list) return;
