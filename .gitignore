@@ -7,3 +7,4 @@ src/mail-config.php
 
 # Reset codes land here whenever SMTP is not configured.
 logs/mail.log
+src/push-keys.php

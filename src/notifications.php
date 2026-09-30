@@ -403,7 +403,11 @@ function notifications_mark_all_read(PDO $pdo, int $userId): void
  */
 function push_vapid_public_key(): string
 {
-    return defined('KHOTWA_VAPID_PUBLIC_KEY') ? (string) KHOTWA_VAPID_PUBLIC_KEY : '';
+    // Whatever tools/generate-vapid-keys.php wrote. Empty until it has been run,
+    // and empty is what stops the page asking for permission it cannot use.
+    $keys = push_keys();
+
+    return $keys === null ? '' : $keys['public'];
 }
 
 /**
@@ -516,9 +520,28 @@ function push_absolute_url(string $path): string
         return '';
     }
 
-    $secure = ($_SERVER['HTTPS'] ?? '') !== '' && ($_SERVER['HTTPS'] ?? '') !== 'off';
+    /*
+     * A tunnel terminates TLS in front of Apache and forwards plain http, so the
+     * server's own view of the connection says http even though the browser is
+     * on https. The forwarded header is what the browser actually used, and a
+     * push link that says http would be refused by the page that opens it.
+     */
+    $forwarded = strtolower(trim((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')));
+    $secure = $forwarded === 'https'
+        || (($_SERVER['HTTPS'] ?? '') !== '' && ($_SERVER['HTTPS'] ?? '') !== 'off');
 
-    return ($secure ? 'https://' : 'http://') . $host . khotwa_url($path);
+    /*
+     * khotwa_url() falls back to a relative './' when it cannot work out where
+     * the site sits - which is what happens in a command-line script, where
+     * there is no request to read it from. That is fine in a page, and useless
+     * in an address a phone has to open, so it is normalised to a real path.
+     */
+    $link = khotwa_url($path);
+    if (!str_starts_with($link, '/')) {
+        $link = '/' . ltrim($link, './');
+    }
+
+    return ($secure ? 'https://' : 'http://') . $host . $link;
 }
 
 /**

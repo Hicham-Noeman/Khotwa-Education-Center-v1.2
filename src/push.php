@@ -2,278 +2,177 @@
 declare(strict_types=1);
 
 /*
- * Web Push: reaching a phone with the site closed.
+ * Sending a notification to a browser that is not open.
  *
- * A notification row is what the bell reads; this file is what makes a phone
- * buzz for it. Chrome never accepts a push straight from us - it is handed to
- * the push service whose address the browser chose (Google's, for Chrome), and
- * that service wakes the phone. Two pieces of cryptography make that safe, and
- * both are done here by hand rather than by a library, because this machine has
- * no composer and openssl already carries everything the two need:
+ * This is the half that makes Chrome ring on a locked phone. The browser hands
+ * the page an endpoint and two keys when it subscribes; the center then posts an
+ * encrypted message to that endpoint, and Chrome's own service wakes the device
+ * and shows it. The page need not be open, or even to exist any more.
  *
- *   - VAPID (RFC 8292) signs a short-lived token with the center's own key, so
- *     the push service knows the push came from this site and not from anyone
- *     who happened to copy an endpoint.
- *   - aes128gcm (RFC 8291) encrypts the message to the browser's own key, so
- *     the push service carries the words without being able to read them.
+ * Two pieces of cryptography are required, and both are done here rather than
+ * pulled in, because this installation has no Composer:
  *
- * Nothing here is allowed to break a save: every failure is swallowed and the
- * notification still sits in the bell, which is the part that always works.
+ *   VAPID    a short-lived JWT signed with the center's own P-256 key, which is
+ *            how the push service knows the message came from this site and not
+ *            from whoever else learned the endpoint. RFC 8292.
+ *
+ *   aes128gcm the message itself, encrypted to the browser's key so that the
+ *            push service carries it without being able to read it. RFC 8291.
+ *
+ * Nothing here is allowed to break a save: every failure is swallowed, and a
+ * subscription the push service reports as dead is quietly deleted.
  */
 
 require_once __DIR__ . '/paths.php';
 
-/** The prime256v1 curve, the only one Web Push uses. */
-const PUSH_CURVE = 'prime256v1';
+// XAMPP's PHP cannot find its own openssl.cnf unless it is told, and generating
+// a key fails with an obscure "no such file" without it.
+const KHOTWA_OPENSSL_CONF = 'C:/xampp/php/extras/openssl/openssl.cnf';
 
-/*
- * The DER preamble of a P-256 public key. A browser hands its key over as 65
- * raw bytes; openssl will only take a structured one, and for this one curve
- * the structure ahead of those bytes is always these same 26.
+/**
+ * The key pair this site signs with, written by tools/generate-vapid-keys.php.
+ *
+ * @return array{public: string, private: string, subject: string}|null
  */
-const PUSH_SPKI_PREFIX = '3059301306072a8648ce3d020106082a8648ce3d030107034200';
+function push_keys(): ?array
+{
+    static $keys = null;
+    if ($keys !== null) {
+        return $keys === [] ? null : $keys;
+    }
 
-/** Base64 as the web uses it in URLs: no padding, and two characters swapped. */
-function push_b64url_encode(string $raw): string
+    $file = __DIR__ . '/push-keys.php';
+    if (!is_file($file)) {
+        $keys = [];
+        return null;
+    }
+
+    $loaded = require $file;
+    if (!is_array($loaded) || ($loaded['public'] ?? '') === '' || ($loaded['private'] ?? '') === '') {
+        $keys = [];
+        return null;
+    }
+
+    $keys = [
+        'public' => (string) $loaded['public'],
+        'private' => (string) $loaded['private'],
+        'subject' => (string) ($loaded['subject'] ?? 'mailto:khotwacenter.lb@gmail.com'),
+    ];
+
+    return $keys;
+}
+
+function push_is_configured(): bool
+{
+    return push_keys() !== null;
+}
+
+/**
+ * Base64 as the web push specs use it: url-safe, unpadded.
+ */
+function push_b64(string $raw): string
 {
     return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
 }
 
-function push_b64url_decode(string $value): string
+function push_b64_decode(string $value): string
 {
     $padded = strtr($value, '-_', '+/');
-    $padded .= str_repeat('=', (4 - (strlen($padded) % 4)) % 4);
+    $remainder = strlen($padded) % 4;
+    if ($remainder > 0) {
+        $padded .= str_repeat('=', 4 - $remainder);
+    }
 
     return (string) base64_decode($padded, true);
 }
 
 /**
- * The center's own key pair, as the two settings hold it.
+ * A raw 65-byte public point, wrapped as the PEM that OpenSSL will accept.
  *
- * @return array{public: string, private: string}
+ * The prefix is the fixed ASN.1 header for an uncompressed prime256v1 point;
+ * only the point itself changes from one browser to the next.
  */
-function push_vapid_keys(): array
+function push_public_pem(string $point): string
 {
-    return [
-        'public' => defined('KHOTWA_VAPID_PUBLIC_KEY') ? (string) KHOTWA_VAPID_PUBLIC_KEY : '',
-        'private' => defined('KHOTWA_VAPID_PRIVATE_KEY') ? (string) KHOTWA_VAPID_PRIVATE_KEY : '',
-    ];
+    $prefix = hex2bin('3059301306072a8648ce3d020106082a8648ce3d030107034200');
+    $der = $prefix . $point;
+
+    return "-----BEGIN PUBLIC KEY-----\n"
+        . chunk_split(base64_encode($der), 64, "\n")
+        . "-----END PUBLIC KEY-----\n";
 }
 
 /**
- * Who the push service should complain to, if a push goes wrong.
- *
- * The spec wants a way to reach the sender. The center's own address is the
- * honest answer, and it is already a setting.
+ * The 65-byte public point of a key OpenSSL is holding.
  */
-function push_vapid_subject(): string
+function push_point_of(mixed $key): string
 {
-    if (defined('KHOTWA_VAPID_SUBJECT') && (string) KHOTWA_VAPID_SUBJECT !== '') {
-        return (string) KHOTWA_VAPID_SUBJECT;
-    }
-
-    return defined('KHOTWA_CENTER_EMAIL')
-        ? 'mailto:' . KHOTWA_CENTER_EMAIL
-        : 'mailto:info@khotwaeducation.com';
-}
-
-/**
- * Where openssl's own config file is, if it has to be pointed at one.
- *
- * Generating a key is the one call here that reads it, and on Windows openssl
- * ships without knowing where it is: XAMPP carries two copies and sets the
- * environment variable for neither, so the call fails with "no such file"
- * rather than anything about keys. Found once and remembered, since it cannot
- * change while the process is up. KHOTWA_OPENSSL_CONF overrides it on a server
- * that keeps it somewhere else.
- */
-function push_openssl_config(): ?string
-{
-    static $found = false;
-    static $path = null;
-
-    if ($found) {
-        return $path;
-    }
-    $found = true;
-
-    $candidates = [];
-    if (defined('KHOTWA_OPENSSL_CONF')) {
-        $candidates[] = (string) KHOTWA_OPENSSL_CONF;
-    }
-    $fromEnvironment = getenv('OPENSSL_CONF');
-    if (is_string($fromEnvironment) && $fromEnvironment !== '') {
-        $candidates[] = $fromEnvironment;
-    }
-    $candidates[] = 'C:/xampp/apache/conf/openssl.cnf';
-    $candidates[] = 'C:/xampp/php/extras/ssl/openssl.cnf';
-
-    foreach ($candidates as $candidate) {
-        if (is_file($candidate)) {
-            $path = $candidate;
-            break;
-        }
-    }
-
-    return $path;
-}
-
-/** Whether a push can be sent at all: both halves of the key, and curl. */
-function push_is_configured(): bool
-{
-    $keys = push_vapid_keys();
-
-    return $keys['public'] !== ''
-        && $keys['private'] !== ''
-        && function_exists('curl_init')
-        && function_exists('openssl_pkey_derive');
-}
-
-/**
- * A fresh P-256 pair, as the raw bytes Web Push passes around.
- *
- * Used once to make the center's own key, and again for every single push: each
- * message is encrypted under a throwaway pair, which is what keeps one captured
- * message from opening the others.
- *
- * @return array{public: string, private: string, resource: OpenSSLAsymmetricKey}|null
- */
-function push_generate_keypair(): ?array
-{
-    $arguments = [
-        'curve_name' => PUSH_CURVE,
-        'private_key_type' => OPENSSL_KEYTYPE_EC,
-    ];
-    $config = push_openssl_config();
-    if ($config !== null) {
-        $arguments['config'] = $config;
-    }
-
-    $key = openssl_pkey_new($arguments);
-    if ($key === false) {
-        return null;
-    }
-
     $details = openssl_pkey_get_details($key);
-    if ($details === false || !isset($details['ec']['x'], $details['ec']['y'], $details['ec']['d'])) {
-        return null;
+    if (!is_array($details) || !isset($details['ec']['x'], $details['ec']['y'])) {
+        throw new RuntimeException('That key carries no EC point.');
     }
 
-    return [
-        // 0x04 says "both halves follow, uncompressed" - the only form used here.
-        'public' => "\x04"
-            . str_pad($details['ec']['x'], 32, "\0", STR_PAD_LEFT)
-            . str_pad($details['ec']['y'], 32, "\0", STR_PAD_LEFT),
-        'private' => str_pad($details['ec']['d'], 32, "\0", STR_PAD_LEFT),
-        'resource' => $key,
-    ];
+    return "\x04"
+        . str_pad($details['ec']['x'], 32, "\x00", STR_PAD_LEFT)
+        . str_pad($details['ec']['y'], 32, "\x00", STR_PAD_LEFT);
 }
 
 /**
- * The browser's 65 raw bytes, wrapped in the DER an openssl call will accept.
- */
-function push_public_key_resource(string $rawPoint)
-{
-    if (strlen($rawPoint) !== 65 || $rawPoint[0] !== "\x04") {
-        return false;
-    }
-
-    $der = hex2bin(PUSH_SPKI_PREFIX) . $rawPoint;
-
-    return openssl_pkey_get_public(
-        "-----BEGIN PUBLIC KEY-----\n" . chunk_split(base64_encode($der), 64, "\n") . "-----END PUBLIC KEY-----\n"
-    );
-}
-
-/**
- * A stored private key, rebuilt into one openssl will sign with.
+ * An ECDSA signature as JOSE wants it: r and s, 32 bytes each, no ASN.1.
  *
- * The settings hold the 32 secret bytes and the 65 public ones, because those
- * are the forms the browser and the push service speak. openssl wants the SEC1
- * structure around them, which is assembled here: the lengths are fixed, since
- * P-256 is the only curve in play.
+ * OpenSSL hands back a DER SEQUENCE of two INTEGERs, which carry a leading zero
+ * whenever the high bit is set and drop leading zeroes otherwise - so both are
+ * read out and re-padded to a fixed width.
  */
-function push_private_key_resource(string $rawPrivate, string $rawPublic)
-{
-    if (strlen($rawPrivate) !== 32 || strlen($rawPublic) !== 65) {
-        return false;
-    }
-
-    $der = "\x30\x77"                                       // SEQUENCE, 119 bytes
-        . "\x02\x01\x01"                                    // version 1
-        . "\x04\x20" . $rawPrivate                          // the secret scalar
-        . "\xa0\x0a\x06\x08" . hex2bin('2a8648ce3d030107')  // [0] curve: prime256v1
-        . "\xa1\x44\x03\x42\x00" . $rawPublic;              // [1] the matching public point
-
-    return openssl_pkey_get_private(
-        "-----BEGIN EC PRIVATE KEY-----\n" . chunk_split(base64_encode($der), 64, "\n") . "-----END EC PRIVATE KEY-----\n"
-    );
-}
-
-/**
- * An ECDSA signature, from the DER openssl returns to the 64 flat bytes a JWT wants.
- *
- * openssl wraps the two halves as DER integers, which are signed - so a half
- * whose top bit is set gains a leading zero, and a short one loses leading
- * zeros. Both are undone here and each half is laid out at its full 32 bytes.
- */
-function push_der_signature_to_raw(string $der): string
+function push_signature_to_raw(string $der): string
 {
     $offset = 0;
-    if (($der[$offset] ?? '') !== "\x30") {
-        return '';
-    }
-    // A P-256 signature is short enough that its length is always one byte.
-    $offset += 2;
-
     $readInteger = static function (string $der, int &$offset): string {
         if (($der[$offset] ?? '') !== "\x02") {
-            return '';
+            throw new RuntimeException('Malformed signature.');
         }
-        $offset++;
-        $length = ord($der[$offset] ?? "\0");
-        $offset++;
-        $value = substr($der, $offset, $length);
-        $offset += $length;
+        $length = ord($der[$offset + 1]);
+        $value = substr($der, $offset + 2, $length);
+        $offset += 2 + $length;
 
-        return str_pad(ltrim($value, "\0"), 32, "\0", STR_PAD_LEFT);
+        return str_pad(ltrim($value, "\x00"), 32, "\x00", STR_PAD_LEFT);
     };
 
-    $r = $readInteger($der, $offset);
-    $s = $readInteger($der, $offset);
+    if (($der[0] ?? '') !== "\x30") {
+        throw new RuntimeException('Malformed signature.');
+    }
+    // Skip the SEQUENCE header, which is two bytes at this size.
+    $offset = 2;
 
-    return strlen($r) === 32 && strlen($s) === 32 ? $r . $s : '';
+    return $readInteger($der, $offset) . $readInteger($der, $offset);
 }
 
 /**
- * The VAPID header pair for one push service.
+ * The Authorization header one push service will accept.
  *
- * The token is good for twelve hours and names the service it was made for, so
- * a token taken from one push cannot be replayed at another.
- *
- * @return array<int, string>|null  The Authorization line, then the encoding.
+ * The token is bound to that service's origin and expires, so the same header
+ * cannot be lifted and replayed against a different one.
  */
-function push_vapid_headers(string $endpoint): ?array
+function push_vapid_header(string $endpoint): ?string
 {
-    $keys = push_vapid_keys();
-    $parts = parse_url($endpoint);
-    if ($parts === false || !isset($parts['scheme'], $parts['host'])) {
+    $keys = push_keys();
+    if ($keys === null) {
         return null;
     }
 
-    $audience = $parts['scheme'] . '://' . $parts['host'];
+    $parts = parse_url($endpoint);
+    if (!isset($parts['scheme'], $parts['host'])) {
+        return null;
+    }
 
-    $header = push_b64url_encode((string) json_encode(['typ' => 'JWT', 'alg' => 'ES256']));
-    $claims = push_b64url_encode((string) json_encode([
-        'aud' => $audience,
+    $header = push_b64((string) json_encode(['typ' => 'JWT', 'alg' => 'ES256']));
+    $claims = push_b64((string) json_encode([
+        'aud' => $parts['scheme'] . '://' . $parts['host'],
         'exp' => time() + 43200,
-        'sub' => push_vapid_subject(),
+        'sub' => $keys['subject'],
     ]));
 
-    $privateKey = push_private_key_resource(
-        push_b64url_decode($keys['private']),
-        push_b64url_decode($keys['public'])
-    );
+    $privateKey = openssl_pkey_get_private($keys['private']);
     if ($privateKey === false) {
         return null;
     }
@@ -283,139 +182,133 @@ function push_vapid_headers(string $endpoint): ?array
         return null;
     }
 
-    $raw = push_der_signature_to_raw($der);
-    if ($raw === '') {
+    try {
+        $signature = push_b64(push_signature_to_raw($der));
+    } catch (Throwable $exception) {
         return null;
     }
 
-    return [
-        'Authorization: vapid t=' . $header . '.' . $claims . '.' . push_b64url_encode($raw)
-            . ', k=' . $keys['public'],
-        'Content-Encoding: aes128gcm',
-    ];
+    return 'vapid t=' . $header . '.' . $claims . '.' . $signature . ', k=' . $keys['public'];
 }
 
 /**
- * One message, sealed to one browser.
+ * The message body, encrypted to one browser.
  *
- * The recipe is RFC 8291's. A throwaway key pair is agreed with the browser's
- * key; that shared secret, stirred together with the browser's auth secret and
- * both public keys, yields the key and nonce the message is encrypted under.
- * The result carries its own salt and public key at the front, which is how the
- * browser can work out the same key without anything else being sent.
+ * Layout, per RFC 8188: the salt, the record size, the length of the sender's
+ * public key, that key, and then the ciphertext with its tag.
  */
-function push_encrypt(string $payload, string $clientPublicKey, string $authSecret): ?string
+function push_encrypt(string $payload, string $userPublicKey, string $authSecret): ?string
 {
-    $clientPublic = push_b64url_decode($clientPublicKey);
-    $auth = push_b64url_decode($authSecret);
-    if (strlen($clientPublic) !== 65 || strlen($auth) !== 16) {
+    try {
+        $userPoint = push_b64_decode($userPublicKey);
+        $auth = push_b64_decode($authSecret);
+        if (strlen($userPoint) !== 65 || strlen($auth) < 16) {
+            return null;
+        }
+
+        $ephemeral = openssl_pkey_new([
+            'private_key_type' => OPENSSL_KEYTYPE_EC,
+            'curve_name' => 'prime256v1',
+            'config' => KHOTWA_OPENSSL_CONF,
+        ]);
+        if ($ephemeral === false) {
+            return null;
+        }
+
+        $senderPoint = push_point_of($ephemeral);
+        $shared = openssl_pkey_derive(push_public_pem($userPoint), $ephemeral, 32);
+        if ($shared === false) {
+            return null;
+        }
+
+        // RFC 8291: the browser's key and ours are both mixed into the secret,
+        // so a message can only be read by the subscription it was sealed for.
+        $prk = hash_hkdf(
+            'sha256',
+            $shared,
+            32,
+            "WebPush: info\x00" . $userPoint . $senderPoint,
+            $auth
+        );
+
+        $salt = random_bytes(16);
+        $contentKey = hash_hkdf('sha256', $prk, 16, "Content-Encoding: aes128gcm\x00", $salt);
+        $nonce = hash_hkdf('sha256', $prk, 12, "Content-Encoding: nonce\x00", $salt);
+
+        $tag = '';
+        // 0x02 ends the record; nothing is padded, because the payload is small.
+        $cipher = openssl_encrypt(
+            $payload . "\x02",
+            'aes-128-gcm',
+            $contentKey,
+            OPENSSL_RAW_DATA,
+            $nonce,
+            $tag
+        );
+        if ($cipher === false) {
+            return null;
+        }
+
+        return $salt . pack('N', 4096) . chr(65) . $senderPoint . $cipher . $tag;
+    } catch (Throwable $exception) {
         return null;
     }
-
-    $local = push_generate_keypair();
-    if ($local === null) {
-        return null;
-    }
-
-    $clientResource = push_public_key_resource($clientPublic);
-    if ($clientResource === false) {
-        return null;
-    }
-
-    $sharedSecret = openssl_pkey_derive($clientResource, $local['resource'], 32);
-    if ($sharedSecret === false) {
-        return null;
-    }
-
-    /*
-     * The two public keys go into the mix in a fixed order - the browser's
-     * first, ours second - because the browser will stir them the same way and
-     * the two sides must land on the same key.
-     */
-    $keyInfo = "WebPush: info\0" . $clientPublic . $local['public'];
-    $pseudoRandomKey = hash_hkdf('sha256', $sharedSecret, 32, $keyInfo, $auth);
-
-    $salt = random_bytes(16);
-    $contentKey = hash_hkdf('sha256', $pseudoRandomKey, 16, "Content-Encoding: aes128gcm\0", $salt);
-    $nonce = hash_hkdf('sha256', $pseudoRandomKey, 12, "Content-Encoding: nonce\0", $salt);
-
-    // 0x02 closes the one and only record; there is no padding after it.
-    $tag = '';
-    $ciphertext = openssl_encrypt(
-        $payload . "\x02",
-        'aes-128-gcm',
-        $contentKey,
-        OPENSSL_RAW_DATA,
-        $nonce,
-        $tag
-    );
-    if ($ciphertext === false) {
-        return null;
-    }
-
-    /*
-     * The header the browser reads before it can decrypt anything: the salt,
-     * the record size, and our throwaway public key with its length ahead of it.
-     */
-    return $salt
-        . pack('N', 4096)
-        . chr(strlen($local['public']))
-        . $local['public']
-        . $ciphertext . $tag;
 }
 
 /**
- * Hand one sealed message to one push service.
+ * Post one encrypted message to one endpoint.
  *
- * The answer matters in one case beyond success: a browser that has been wiped
- * or has revoked permission answers 404 or 410, and that subscription is dead
- * for good. Saying so lets the caller drop the row rather than retry it forever.
+ * 'gone' is the answer that matters to the caller: the push service saying 404
+ * or 410 is how a browser reports that it has unsubscribed, and the only sane
+ * response is to stop trying.
  *
- * @return array{ok: bool, gone: bool, status: int}
+ * @param array<string, string> $payload
+ * @return array{sent: bool, status: int, gone: bool}
  */
 function push_deliver(string $endpoint, string $publicKey, string $authToken, array $payload): array
 {
-    $failed = ['ok' => false, 'gone' => false, 'status' => 0];
+    $failed = ['sent' => false, 'status' => 0, 'gone' => false];
 
-    if (!push_is_configured()) {
+    if (!push_is_configured() || !function_exists('curl_init') || $endpoint === '') {
         return $failed;
     }
 
-    $body = push_encrypt((string) json_encode($payload), $publicKey, $authToken);
-    if ($body === null) {
-        return $failed;
-    }
-
-    $headers = push_vapid_headers($endpoint);
-    if ($headers === null) {
+    $body = push_encrypt(
+        (string) json_encode($payload, JSON_UNESCAPED_UNICODE),
+        $publicKey,
+        $authToken
+    );
+    $authorization = push_vapid_header($endpoint);
+    if ($body === null || $authorization === null) {
         return $failed;
     }
 
     $handle = curl_init($endpoint);
-    if ($handle === false) {
-        return $failed;
-    }
-
     curl_setopt_array($handle, [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => $body,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 10,
-        CURLOPT_CONNECTTIMEOUT => 5,
-        CURLOPT_HTTPHEADER => array_merge($headers, [
+        // Short: a push service that is not answering must not hold up the save
+        // that raised the notification.
+        CURLOPT_TIMEOUT => 6,
+        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_HTTPHEADER => [
+            'Authorization: ' . $authorization,
+            'Content-Encoding: aes128gcm',
             'Content-Type: application/octet-stream',
-            // How long the service should hold it for a phone that is off.
             'TTL: 86400',
             'Urgency: normal',
-        ]),
+            'Content-Length: ' . strlen($body),
+        ],
     ]);
 
     curl_exec($handle);
     $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
+    curl_close($handle);
 
     return [
-        'ok' => $status >= 200 && $status < 300,
-        'gone' => $status === 404 || $status === 410,
+        'sent' => $status >= 200 && $status < 300,
         'status' => $status,
+        'gone' => $status === 404 || $status === 410,
     ];
 }
