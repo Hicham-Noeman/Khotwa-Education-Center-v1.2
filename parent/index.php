@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../src/auth.php';
+require_once __DIR__ . '/../src/notifications.php';
 require_once __DIR__ . '/../src/portal-ui.php';
 require_once __DIR__ . '/../src/parent-agreement.php';
 
@@ -71,6 +72,8 @@ $children = [];
 $studentOverview = null;
 $subjects = [];
 $attendance = [];
+$subjectSessions = [];
+$subjectTotals = [];
 $homeworkItems = [];
 $billing = [];
 $parentWarnings = [];
@@ -202,6 +205,15 @@ try {
         );
         $assignStatement->execute([$expiationId, $parentUserId, $warningId]);
 
+        // The administration is what happens next: they confirm it was done.
+        $chosenTitle = $pdo->prepare('SELECT title_en FROM expiations WHERE id = ? LIMIT 1');
+        $chosenTitle->execute([$expiationId]);
+        notify_expiation_chosen(
+            $pdo,
+            (int) $warningRow['student_id'],
+            (string) ($chosenTitle->fetchColumn() ?: 'an expiation')
+        );
+
         header('Location: ' . khotwa_url('parent/index.php') . '?student_id=' . (int) $warningRow['student_id'] . '&expiation=1');
         exit;
     }
@@ -290,8 +302,14 @@ try {
      * classes?" - a list of subject names alone cannot answer that, so the
      * count of sessions and the last one sit on the same row as the subject.
      */
+    /*
+     * Every subject the child is enrolled in, with how many of its sessions
+     * they actually attended. A list of subject names alone cannot answer
+     * "is my child going to their classes?", so the counts ride along.
+     */
     $subjectsStatement = $pdo->prepare(
         "SELECT
+            subjects.id AS subject_id,
             subjects.name_en AS subject_name,
             subjects.name_ar AS subject_name_ar,
             TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))) AS teacher_name,
@@ -306,19 +324,7 @@ try {
                FROM student_subject_attendance session_row
               WHERE session_row.student_id = student_subject_enrollments.student_id
                 AND session_row.subject_id = student_subject_enrollments.subject_id
-                AND session_row.status = 'attended') AS attended_sessions,
-            (SELECT session_row.attendance_date
-               FROM student_subject_attendance session_row
-              WHERE session_row.student_id = student_subject_enrollments.student_id
-                AND session_row.subject_id = student_subject_enrollments.subject_id
-              ORDER BY session_row.attendance_date DESC, session_row.id DESC
-              LIMIT 1) AS last_session_date,
-            (SELECT session_row.status
-               FROM student_subject_attendance session_row
-              WHERE session_row.student_id = student_subject_enrollments.student_id
-                AND session_row.subject_id = student_subject_enrollments.subject_id
-              ORDER BY session_row.attendance_date DESC, session_row.id DESC
-              LIMIT 1) AS last_session_status
+                AND session_row.status = 'attended') AS attended_sessions
          FROM student_subject_enrollments
          INNER JOIN subjects
            ON subjects.id = student_subject_enrollments.subject_id
@@ -336,10 +342,34 @@ try {
          FROM student_daily_attendance
          WHERE student_id = ?
          ORDER BY attendance_date DESC
-         LIMIT 30"
+         LIMIT 400"
     );
     $attendanceStatement->execute([$selectedStudentId]);
     $attendance = $attendanceStatement->fetchAll();
+
+    /*
+     * The sessions themselves, rather than the totals above: attendance is read
+     * a week at a time, and whether a child sat in Tuesday's maths class is a
+     * question about one week, not about the year.
+     */
+    $subjectSessionsStatement = $pdo->prepare(
+        "SELECT
+            student_subject_attendance.attendance_date,
+            student_subject_attendance.subject_id,
+            student_subject_attendance.status,
+            subjects.name_en AS subject_name,
+            subjects.name_ar AS subject_name_ar,
+            TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))) AS teacher_name,
+            TRIM(CONCAT(COALESCE(teachers.first_name_ar, ''), ' ', COALESCE(teachers.last_name_ar, ''))) AS teacher_name_ar
+         FROM student_subject_attendance
+         INNER JOIN subjects ON subjects.id = student_subject_attendance.subject_id
+         INNER JOIN teachers ON teachers.id = student_subject_attendance.teacher_id
+         WHERE student_subject_attendance.student_id = ?
+         ORDER BY student_subject_attendance.attendance_date DESC,
+                  subjects.name_en"
+    );
+    $subjectSessionsStatement->execute([$selectedStudentId]);
+    $subjectSessions = $subjectSessionsStatement->fetchAll();
 
     $homeworkStatement = $pdo->prepare(
         "SELECT
@@ -348,8 +378,7 @@ try {
             subjects.name_ar AS subject_name_ar,
             TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))) AS teacher_name,
             TRIM(CONCAT(COALESCE(teachers.first_name_ar, ''), ' ', COALESCE(teachers.last_name_ar, ''))) AS teacher_name_ar,
-            student_subject_attendance.homework_note,
-            student_subject_attendance.status AS subject_attendance_status
+            student_subject_attendance.homework_note
          FROM student_subject_attendance
          INNER JOIN subjects ON subjects.id = student_subject_attendance.subject_id
          INNER JOIN teachers ON teachers.id = student_subject_attendance.teacher_id
@@ -357,12 +386,39 @@ try {
            AND student_subject_attendance.homework_note IS NOT NULL
            AND TRIM(student_subject_attendance.homework_note) <> ''
          ORDER BY student_subject_attendance.attendance_date DESC,
-                  student_subject_attendance.id DESC,
-                  student_subject_attendance.updated_at DESC
-         LIMIT 12"
+                  student_subject_attendance.id DESC
+         LIMIT 400"
     );
     $homeworkStatement->execute([$selectedStudentId]);
     $homeworkItems = $homeworkStatement->fetchAll();
+
+    /*
+     * Everything read a week at a time carries the Monday of its own week. The
+     * page holds them all and shows one week; stepping between weeks is then
+     * instant and nothing scrolls sideways.
+     */
+    $parentWeekStart = static function (string $date): string {
+        return (new DateTimeImmutable($date))->modify('monday this week')->format('Y-m-d');
+    };
+    foreach ($homeworkItems as $index => $homeworkRow) {
+        $homeworkItems[$index]['week_start'] = $parentWeekStart((string) $homeworkRow['attendance_date']);
+    }
+    foreach ($attendance as $index => $attendanceRow) {
+        $attendance[$index]['week_start'] = $parentWeekStart((string) $attendanceRow['attendance_date']);
+    }
+    foreach ($subjectSessions as $index => $sessionRow) {
+        $subjectSessions[$index]['week_start'] = $parentWeekStart((string) $sessionRow['attendance_date']);
+    }
+
+    // A session row shows how the year is going for its own subject, so the
+    // totals already gathered above are kept to hand by subject.
+    $subjectTotals = [];
+    foreach ($subjects as $subjectRow) {
+        $subjectTotals[(int) $subjectRow['subject_id']] = [
+            'attended' => (int) ($subjectRow['attended_sessions'] ?? 0),
+            'total' => (int) ($subjectRow['total_sessions'] ?? 0),
+        ];
+    }
 
     $billingStatement = $pdo->prepare(
         "SELECT
@@ -376,7 +432,7 @@ try {
          FROM student_subscription_months
          WHERE student_id = ?
          ORDER BY billing_year DESC, billing_month DESC
-         LIMIT 8"
+         LIMIT 120"
     );
     $billingStatement->execute([$selectedStudentId]);
     $billing = $billingStatement->fetchAll();
@@ -436,22 +492,6 @@ try {
 }
 
 /**
- * A stored TIME as hours and minutes.
- *
- * The column keeps seconds, which nobody reads off an attendance list, and an
- * empty time shows a dash rather than a run of zeros.
- */
-function parent_clock(string $value): string
-{
-    $value = trim($value);
-    if ($value === '' || $value === '00:00:00') {
-        return '-';
-    }
-
-    return substr($value, 0, 5);
-}
-
-/**
  * The payment status in words a parent would use.
  *
  * The stored enum reads "paid" and "partial_paid"; spelled out here as fully
@@ -482,6 +522,22 @@ function parent_billing_month(int $year, int $month): string
     $month = max(1, min(12, $month));
 
     return date('F', mktime(0, 0, 0, $month, 1)) . ' ' . $year;
+}
+
+/**
+ * A stored TIME as hours and minutes.
+ *
+ * The column keeps seconds, which nobody reads off an attendance list, and an
+ * empty time shows a dash rather than a run of zeros.
+ */
+function parent_clock(string $value): string
+{
+    $value = trim($value);
+    if ($value === '' || $value === '00:00:00') {
+        return '-';
+    }
+
+    return substr($value, 0, 5);
 }
 
 /**
@@ -839,149 +895,297 @@ $selectedChildStatus = (string) ($studentOverview['status'] ?? 'inactive');
           </section>
 
           <section class="parent-table-grid">
-            <article class="data-panel" id="subjects-table">
+            <?php
+            /*
+             * Three panels read the same way: one week on screen, stepped through
+             * with the arrows, and a row opening the whole record rather than
+             * widening the table. $parentThisMonday is the week they open on and
+             * the week the "This week" button returns to.
+             */
+            $parentThisMonday = (new DateTimeImmutable('monday this week'))->format('Y-m-d');
+            ?>
+
+            <article class="data-panel" id="subjects-table" data-weekpanel data-weekpanel-now="<?= e($parentThisMonday) ?>">
               <div class="panel-heading">
                 <div><span>Academic</span><h2>Subject attendance</h2></div>
               </div>
-              <div class="table-scroll">
-                <table>
-                  <thead>
-                    <tr><th>Subject</th><th>Teacher</th><th>Sessions attended</th><th>Last session</th></tr>
-                  </thead>
-                  <tbody>
-                    <?php if ($subjects === []): ?>
-                      <tr><td colspan="4" class="empty-row">No active subject enrollments.</td></tr>
-                    <?php else: ?>
-                      <?php foreach ($subjects as $row): ?>
-                        <?php
-                        $totalSessions = (int) ($row['total_sessions'] ?? 0);
-                        $attendedSessions = (int) ($row['attended_sessions'] ?? 0);
-                        $lastStatus = (string) ($row['last_session_status'] ?? '');
-                        ?>
-                        <tr>
-                          <?php // Swapped in place rather than stacked, so only one reading is shown. ?>
-                          <td data-i18n-skip data-en="<?= e((string) $row['subject_name']) ?>" data-ar="<?= e((string) $row['subject_name_ar']) ?>"><?= e((string) $row['subject_name']) ?></td>
-                          <td data-i18n-skip data-en="<?= e((string) $row['teacher_name']) ?>" data-ar="<?= e((string) ($row['teacher_name_ar'] ?? '')) ?>"><?= e((string) $row['teacher_name']) ?></td>
-                          <td>
-                            <?php if ($totalSessions === 0): ?>
-                              <span class="parent-session-empty">No sessions yet</span>
-                            <?php else: ?>
-                              <?php // The bar says at a glance what the numbers say exactly. ?>
-                              <span class="parent-session-count" data-i18n-skip><?= e((string) $attendedSessions) ?> / <?= e((string) $totalSessions) ?></span>
-                              <span class="parent-session-bar" aria-hidden="true">
-                                <i style="width: <?= e((string) round(($attendedSessions / $totalSessions) * 100)) ?>%"></i>
-                              </span>
-                            <?php endif; ?>
-                          </td>
-                          <td>
-                            <?php if ($lastStatus === ''): ?>
-                              <span class="parent-session-empty">-</span>
-                            <?php else: ?>
-                              <span class="status-pill <?= e(parent_status_class($lastStatus)) ?>"><?= e(ucfirst($lastStatus)) ?></span>
-                              <small class="parent-session-date" data-i18n-skip><?= e(fmt_date((string) ($row['last_session_date'] ?? ''), '-')) ?></small>
-                            <?php endif; ?>
-                          </td>
-                        </tr>
-                      <?php endforeach; ?>
-                    <?php endif; ?>
-                  </tbody>
-                </table>
+
+              <div class="weekbar">
+                <button class="weekbar-step" type="button" data-weekpanel-step="-1" aria-label="Previous week">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                </button>
+                <p class="weekbar-range" data-weekpanel-range data-i18n-skip></p>
+                <?php // Beside the dates rather than below them, so nothing shifts down. ?>
+                <button class="weekbar-now" type="button" data-weekpanel-now-button hidden>This week</button>
+                <button class="weekbar-step" type="button" data-weekpanel-step="1" aria-label="Next week">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                </button>
               </div>
+
+              <table class="weeklist">
+                <thead>
+                  <tr><th>Subject</th><th>Session</th></tr>
+                </thead>
+                <tbody>
+                  <?php foreach ($subjectSessions as $row): ?>
+                    <?php
+                    $sessionDate = fmt_date((string) $row['attendance_date']);
+                    $sessionStatus = (string) $row['status'];
+                    $totals = $subjectTotals[(int) $row['subject_id']] ?? null;
+                    ?>
+                    <tr class="weekrow" data-weekpanel-row data-week="<?= e((string) $row['week_start']) ?>"
+                        tabindex="0" role="button"
+                        <?= (string) $row['week_start'] === $parentThisMonday ? '' : 'hidden' ?>>
+                      <td>
+                        <?php // Swapped in place rather than stacked, so only one reading is shown. ?>
+                        <strong data-i18n-skip data-en="<?= e((string) $row['subject_name']) ?>" data-ar="<?= e((string) $row['subject_name_ar']) ?>"><?= e((string) $row['subject_name']) ?></strong>
+                        <small class="weekrow-date" data-i18n-skip><?= e($sessionDate) ?></small>
+                      </td>
+                      <td>
+                        <span class="status-pill <?= e(parent_status_class($sessionStatus)) ?>"><?= e(ucwords(str_replace('_', ' ', $sessionStatus))) ?></span>
+
+                        <?php // Read into the sheet when the row is opened. ?>
+                        <div class="weeksheet-source" data-weekpanel-detail hidden>
+                          <span class="weeksheet-eyebrow">Subject attendance</span>
+                          <h3 data-i18n-skip data-en="<?= e((string) $row['subject_name']) ?>" data-ar="<?= e((string) $row['subject_name_ar']) ?>"><?= e((string) $row['subject_name']) ?></h3>
+                          <p class="weeksheet-date" data-i18n-skip><?= e($sessionDate) ?></p>
+                          <dl class="weeksheet-facts">
+                            <div>
+                              <dt>Status</dt>
+                              <dd><span class="status-pill <?= e(parent_status_class($sessionStatus)) ?>"><?= e(ucwords(str_replace('_', ' ', $sessionStatus))) ?></span></dd>
+                            </div>
+                            <div>
+                              <dt>Teacher</dt>
+                              <dd data-i18n-skip data-en="<?= e((string) $row['teacher_name']) ?>" data-ar="<?= e((string) ($row['teacher_name_ar'] ?? '')) ?>"><?= e((string) $row['teacher_name']) ?></dd>
+                            </div>
+                            <?php if ($totals !== null && $totals['total'] > 0): ?>
+                              <div>
+                                <dt>Sessions attended</dt>
+                                <dd data-i18n-skip><?= e((string) $totals['attended']) ?> / <?= e((string) $totals['total']) ?></dd>
+                              </div>
+                            <?php endif; ?>
+                          </dl>
+                        </div>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                  <tr class="weeklist-none" data-weekpanel-empty>
+                    <td colspan="2" class="empty-row">No sessions this week.</td>
+                  </tr>
+                </tbody>
+              </table>
             </article>
 
-            <article class="data-panel" id="attendance-table">
+            <article class="data-panel" id="attendance-table" data-weekpanel data-weekpanel-now="<?= e($parentThisMonday) ?>">
               <div class="panel-heading">
                 <div><span>Attendance</span><h2>Daily attendance</h2></div>
               </div>
-              <div class="table-scroll">
-                <table>
-                  <thead>
-                    <tr><th>Date</th><th>Status</th><th>Check in</th><th>Check out</th></tr>
-                  </thead>
-                  <tbody>
-                    <?php if ($attendance === []): ?>
-                      <tr><td colspan="4" class="empty-row">No attendance records yet.</td></tr>
-                    <?php else: ?>
-                      <?php foreach ($attendance as $row): ?>
-                        <tr>
-                          <td><?= e(fmt_date((string) $row['attendance_date'])) ?></td>
-                          <td><span class="status-pill <?= e(parent_status_class((string) $row['status'])) ?>"><?= e(ucwords(str_replace('_', ' ', (string) $row['status']))) ?></span></td>
-                          <?php // The stored TIME carries seconds; nobody reads them. ?>
-                          <td data-i18n-skip><?= e(parent_clock((string) ($row['check_in_time'] ?? ''))) ?></td>
-                          <td data-i18n-skip><?= e(parent_clock((string) ($row['check_out_time'] ?? ''))) ?></td>
-                        </tr>
-                      <?php endforeach; ?>
-                    <?php endif; ?>
-                  </tbody>
-                </table>
+
+              <div class="weekbar">
+                <button class="weekbar-step" type="button" data-weekpanel-step="-1" aria-label="Previous week">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                </button>
+                <p class="weekbar-range" data-weekpanel-range data-i18n-skip></p>
+                <button class="weekbar-now" type="button" data-weekpanel-now-button hidden>This week</button>
+                <button class="weekbar-step" type="button" data-weekpanel-step="1" aria-label="Next week">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                </button>
               </div>
+
+              <?php // The day and how it went; the clock times are read in the sheet. ?>
+              <table class="weeklist">
+                <thead>
+                  <tr><th>Date</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                  <?php foreach ($attendance as $row): ?>
+                    <?php
+                    $dayDate = fmt_date((string) $row['attendance_date']);
+                    $dayStatus = (string) $row['status'];
+                    $checkIn = parent_clock((string) ($row['check_in_time'] ?? ''));
+                    $checkOut = parent_clock((string) ($row['check_out_time'] ?? ''));
+                    ?>
+                    <tr class="weekrow" data-weekpanel-row data-week="<?= e((string) $row['week_start']) ?>"
+                        tabindex="0" role="button"
+                        <?= (string) $row['week_start'] === $parentThisMonday ? '' : 'hidden' ?>>
+                      <td data-i18n-skip><?= e($dayDate) ?></td>
+                      <td>
+                        <span class="status-pill <?= e(parent_status_class($dayStatus)) ?>"><?= e(ucwords(str_replace('_', ' ', $dayStatus))) ?></span>
+
+                        <div class="weeksheet-source" data-weekpanel-detail hidden>
+                          <span class="weeksheet-eyebrow">Daily attendance</span>
+                          <h3 data-i18n-skip><?= e($dayDate) ?></h3>
+                          <dl class="weeksheet-facts">
+                            <div>
+                              <dt>Status</dt>
+                              <dd><span class="status-pill <?= e(parent_status_class($dayStatus)) ?>"><?= e(ucwords(str_replace('_', ' ', $dayStatus))) ?></span></dd>
+                            </div>
+                            <div>
+                              <dt>Check in</dt>
+                              <dd data-i18n-skip><?= e($checkIn) ?></dd>
+                            </div>
+                            <div>
+                              <dt>Check out</dt>
+                              <dd data-i18n-skip><?= e($checkOut) ?></dd>
+                            </div>
+                            <?php if (trim((string) ($row['notes'] ?? '')) !== ''): ?>
+                              <div>
+                                <dt>Notes</dt>
+                                <dd data-i18n-skip><?= e((string) $row['notes']) ?></dd>
+                              </div>
+                            <?php endif; ?>
+                          </dl>
+                        </div>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                  <tr class="weeklist-none" data-weekpanel-empty>
+                    <td colspan="2" class="empty-row">No attendance recorded this week.</td>
+                  </tr>
+                </tbody>
+              </table>
             </article>
 
-            <article class="data-panel" id="homework-table">
+            <article class="data-panel" id="homework-table" data-weekpanel data-weekpanel-now="<?= e($parentThisMonday) ?>">
               <div class="panel-heading">
                 <div><span>Homework</span><h2>Homework</h2></div>
               </div>
-              <div class="table-scroll">
-                <table>
-                  <thead>
-                    <tr><th>Date</th><th>Subject</th><th>Homework</th></tr>
-                  </thead>
-                  <tbody>
-                    <?php if ($homeworkItems === []): ?>
-                      <tr><td colspan="3" class="empty-row">No homework notes yet.</td></tr>
-                    <?php else: ?>
-                      <?php foreach ($homeworkItems as $row): ?>
-                        <tr>
-                          <td data-i18n-skip><?= e(fmt_date((string) $row['attendance_date'])) ?></td>
-                          <td>
-                            <?php // Swapped in place rather than stacked, so only one is read. ?>
-                            <strong data-i18n-skip data-en="<?= e((string) $row['subject_name']) ?>" data-ar="<?= e((string) $row['subject_name_ar']) ?>"><?= e((string) $row['subject_name']) ?></strong>
-                          </td>
-                          <td class="parent-homework-cell"><?= e((string) $row['homework_note']) ?></td>
-                        </tr>
-                      <?php endforeach; ?>
-                    <?php endif; ?>
-                  </tbody>
-                </table>
+
+              <div class="weekbar">
+                <button class="weekbar-step" type="button" data-weekpanel-step="-1" aria-label="Previous week">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                </button>
+                <p class="weekbar-range" data-weekpanel-range data-i18n-skip></p>
+                <button class="weekbar-now" type="button" data-weekpanel-now-button hidden>This week</button>
+                <button class="weekbar-step" type="button" data-weekpanel-step="1" aria-label="Next week">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                </button>
               </div>
+
+              <table class="weeklist">
+                <thead>
+                  <tr><th>Subject</th><th>Homework</th></tr>
+                </thead>
+                <tbody>
+                  <?php foreach ($homeworkItems as $row): ?>
+                    <?php $rowDate = fmt_date((string) $row['attendance_date']); ?>
+                    <tr class="weekrow" data-weekpanel-row data-week="<?= e((string) $row['week_start']) ?>"
+                        tabindex="0" role="button"
+                        <?= (string) $row['week_start'] === $parentThisMonday ? '' : 'hidden' ?>>
+                      <td>
+                        <?php // Swapped in place rather than stacked, so only one is read. ?>
+                        <strong data-i18n-skip data-en="<?= e((string) $row['subject_name']) ?>" data-ar="<?= e((string) $row['subject_name_ar']) ?>"><?= e((string) $row['subject_name']) ?></strong>
+                        <small class="weekrow-date" data-i18n-skip><?= e($rowDate) ?></small>
+                      </td>
+                      <td class="parent-homework-cell" data-i18n-skip><?= e((string) $row['homework_note']) ?>
+
+                        <div class="weeksheet-source" data-weekpanel-detail hidden>
+                          <span class="weeksheet-eyebrow">Homework</span>
+                          <h3 data-i18n-skip data-en="<?= e((string) $row['subject_name']) ?>" data-ar="<?= e((string) $row['subject_name_ar']) ?>"><?= e((string) $row['subject_name']) ?></h3>
+                          <p class="weeksheet-date" data-i18n-skip><?= e($rowDate) ?></p>
+                          <p class="weeksheet-note" data-i18n-skip><?= e((string) $row['homework_note']) ?></p>
+                          <dl class="weeksheet-facts">
+                            <div>
+                              <dt>Teacher</dt>
+                              <dd data-i18n-skip data-en="<?= e((string) $row['teacher_name']) ?>" data-ar="<?= e((string) ($row['teacher_name_ar'] ?? '')) ?>"><?= e((string) $row['teacher_name']) ?></dd>
+                            </div>
+                          </dl>
+                        </div>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                  <tr class="weeklist-none" data-weekpanel-empty>
+                    <td colspan="2" class="empty-row">No homework set this week.</td>
+                  </tr>
+                </tbody>
+              </table>
             </article>
 
-            <article class="data-panel" id="billing-table">
+            <?php // Billing is owed by the month, so that one is stepped by the year. ?>
+            <?php // Billing is owed by the month, so this one is stepped by the year. ?>
+            <article class="data-panel" id="billing-table" data-weekpanel data-weekpanel-unit="year"
+                     data-weekpanel-now="<?= e(date('Y')) ?>">
               <div class="panel-heading">
-                <div><span>Finance</span><h2>Recent billing</h2></div>
+                <div><span>Finance</span><h2>Billing</h2></div>
               </div>
-              <div class="table-scroll">
-                <table>
-                  <thead>
-                    <tr><th>Month</th><th>Expected</th><th>Paid</th><th>Balance</th><th>Status</th></tr>
-                  </thead>
-                  <tbody>
-                    <?php if ($billing === []): ?>
-                      <tr><td colspan="5" class="empty-row">No billing records yet.</td></tr>
-                    <?php else: ?>
-                      <?php foreach ($billing as $row): ?>
-                        <?php $balance = (float) $row['balance_amount']; ?>
-                        <tr>
-                          <td>
-                            <?php // "September 2026" rather than "2026-09": a month, not a code. ?>
-                            <strong data-i18n-skip><?= e(parent_billing_month((int) $row['billing_year'], (int) $row['billing_month'])) ?></strong>
+
+              <div class="weekbar">
+                <button class="weekbar-step" type="button" data-weekpanel-step="-1" aria-label="Previous year">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                </button>
+                <p class="weekbar-range" data-weekpanel-range data-i18n-skip></p>
+                <button class="weekbar-now" type="button" data-weekpanel-now-button hidden>This year</button>
+                <button class="weekbar-step" type="button" data-weekpanel-step="1" aria-label="Next year">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                </button>
+              </div>
+
+              <?php // The month and what is still owed on it; the rest is in the sheet. ?>
+              <table class="weeklist">
+                <thead>
+                  <tr><th>Month</th><th>Balance</th></tr>
+                </thead>
+                <tbody>
+                  <?php foreach ($billing as $row): ?>
+                    <?php
+                    $balance = (float) $row['balance_amount'];
+                    $billingYear = (string) (int) $row['billing_year'];
+                    $monthLabel = parent_billing_month((int) $row['billing_year'], (int) $row['billing_month']);
+                    $paymentStatus = (string) $row['payment_status'];
+                    ?>
+                    <tr class="weekrow" data-weekpanel-row data-week="<?= e($billingYear) ?>"
+                        tabindex="0" role="button"
+                        <?= $billingYear === date('Y') ? '' : 'hidden' ?>>
+                      <td>
+                        <?php // "September 2026" rather than "2026-09": a month, not a code. ?>
+                        <strong data-i18n-skip><?= e($monthLabel) ?></strong>
+                        <?php if ($row['last_payment_date']): ?>
+                          <small class="parent-billing-paid-on">
+                            <span>Paid on</span> <span data-i18n-skip><?= e(fmt_date((string) $row['last_payment_date'])) ?></span>
+                          </small>
+                        <?php endif; ?>
+                      </td>
+                      <td>
+                        <?php // What is still owed is the one figure worth reading twice. ?>
+                        <span class="parent-billing-balance <?= $balance > 0 ? 'is-owing' : 'is-clear' ?>" data-i18n-skip><?= e(number_format($balance, 2)) ?></span>
+                        <span class="status-pill <?= e(parent_status_class($paymentStatus)) ?>"><?= e(parent_payment_label($paymentStatus)) ?></span>
+
+                        <div class="weeksheet-source" data-weekpanel-detail hidden>
+                          <span class="weeksheet-eyebrow">Billing</span>
+                          <h3 data-i18n-skip><?= e($monthLabel) ?></h3>
+                          <dl class="weeksheet-facts">
+                            <div>
+                              <dt>Status</dt>
+                              <dd><span class="status-pill <?= e(parent_status_class($paymentStatus)) ?>"><?= e(parent_payment_label($paymentStatus)) ?></span></dd>
+                            </div>
+                            <div>
+                              <dt>Expected</dt>
+                              <dd data-i18n-skip><?= e(number_format((float) $row['expected_amount'], 2)) ?></dd>
+                            </div>
+                            <div>
+                              <dt>Paid</dt>
+                              <dd data-i18n-skip><?= e(number_format((float) $row['paid_amount'], 2)) ?></dd>
+                            </div>
+                            <div>
+                              <dt>Balance</dt>
+                              <dd class="parent-billing-balance <?= $balance > 0 ? 'is-owing' : 'is-clear' ?>" data-i18n-skip><?= e(number_format($balance, 2)) ?></dd>
+                            </div>
                             <?php if ($row['last_payment_date']): ?>
-                              <small class="parent-billing-paid-on">
-                                <span>Paid on</span> <span data-i18n-skip><?= e(fmt_date((string) $row['last_payment_date'])) ?></span>
-                              </small>
+                              <div>
+                                <dt>Paid on</dt>
+                                <dd data-i18n-skip><?= e(fmt_date((string) $row['last_payment_date'])) ?></dd>
+                              </div>
                             <?php endif; ?>
-                          </td>
-                          <td data-i18n-skip><?= e(number_format((float) $row['expected_amount'], 2)) ?></td>
-                          <td data-i18n-skip><?= e(number_format((float) $row['paid_amount'], 2)) ?></td>
-                          <?php // What is still owed is the one figure worth reading twice. ?>
-                          <td class="parent-billing-balance <?= $balance > 0 ? 'is-owing' : 'is-clear' ?>" data-i18n-skip><?= e(number_format($balance, 2)) ?></td>
-                          <td><span class="status-pill <?= e(parent_status_class((string) $row['payment_status'])) ?>"><?= e(parent_payment_label((string) $row['payment_status'])) ?></span></td>
-                        </tr>
-                      <?php endforeach; ?>
-                    <?php endif; ?>
-                  </tbody>
-                </table>
-              </div>
+                          </dl>
+                        </div>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                  <tr class="weeklist-none" data-weekpanel-empty>
+                    <td colspan="2" class="empty-row">No billing recorded this year.</td>
+                  </tr>
+                </tbody>
+              </table>
             </article>
           </section>
 
@@ -1015,63 +1219,87 @@ $selectedChildStatus = (string) ($studentOverview['status'] ?? 'inactive');
                   </p>
                 <?php endif; ?>
 
-                <div class="parent-warning-list">
-                  <?php foreach ($parentWarnings as $index => $warning): ?>
-                    <?php $isOpen = (string) $warning['status'] === 'issued'; ?>
-                    <div class="parent-warning-card parent-warning-<?= e((string) $warning['status']) ?><?= $isOpen ? ' is-open' : '' ?>">
-                      <div class="parent-warning-top">
-                        <?php /*
-                               * Each card names itself, because a family with more
-                               * than one open warning is choosing an expiation per
-                               * warning and has to know which one they are on.
-                               */ ?>
-                        <strong class="parent-warning-label">
-                          <span>Warning</span>
-                          <span data-i18n-skip><?= e((string) ($warning['warning_number'] ?: ($index + 1))) ?></span>
-                        </strong>
-                        <span class="status-pill <?= $isOpen ? 'status-issued' : 'status-assigned' ?>">
-                          <?= $isOpen ? 'Expiation needed' : 'Expiation chosen' ?>
-                        </span>
-                        <small data-i18n-skip><?= e(fmt_date((string) $warning['warning_date'])) ?></small>
-                      </div>
-                      <?php // Only the administration's message is shown; the teacher's own
-                            // wording of the incident stays internal to the centre. ?>
-                      <p class="parent-warning-reason"><?= nl2br(e((string) $warning['parent_message'])) ?></p>
+                <?php // The same table the panels above are read as: the row says
+                      // which warning and where it stands, and opening it carries the
+                      // message and the expiation. ?>
+                <table class="weeklist">
+                  <thead>
+                    <tr><th>Warning</th><th>Status</th></tr>
+                  </thead>
+                  <tbody>
+                    <?php foreach ($parentWarnings as $index => $warning): ?>
+                      <?php
+                      $isOpen = (string) $warning['status'] === 'issued';
+                      $warningLabel = (string) ($warning['warning_number'] ?: ($index + 1));
+                      $warningDate = fmt_date((string) $warning['warning_date']);
+                      ?>
+                      <tr class="weekrow<?= $isOpen ? ' weekrow-open' : '' ?>" data-weekpanel-row tabindex="0" role="button">
+                        <td>
+                          <strong class="parent-warning-label">
+                            <span>Warning</span>
+                            <span data-i18n-skip><?= e($warningLabel) ?></span>
+                          </strong>
+                          <small class="weekrow-date" data-i18n-skip><?= e($warningDate) ?></small>
+                        </td>
+                        <td>
+                          <span class="status-pill <?= $isOpen ? 'status-issued' : 'status-assigned' ?>">
+                            <?= $isOpen ? 'Expiation needed' : 'Expiation chosen' ?>
+                          </span>
 
-                      <?php if ($isOpen): ?>
-                        <?php if ($expiationsByCategory === []): ?>
-                          <p class="parent-warning-note">No expiations are available for this age group yet. Please contact the administration.</p>
-                        <?php else: ?>
-                          <form method="post" class="parent-expiation-form">
-                            <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
-                            <input type="hidden" name="action" value="select_expiation">
-                            <input type="hidden" name="warning_id" value="<?= e((string) $warning['id']) ?>">
-                            <label>
-                              <span>Choose an expiation for this warning</span>
-                              <select name="expiation_id" required>
-                                <option value="">Select an expiation…</option>
-                                <?php foreach ($expiationsByCategory as $categoryName => $options): ?>
-                                  <optgroup label="<?= e((string) $categoryName) ?>">
-                                    <?php foreach ($options as $option): ?>
-                                      <option value="<?= e((string) $option['id']) ?>" data-i18n-skip data-en="<?= e((string) $option['title_en']) ?>" data-ar="<?= e((string) ($option['title_ar'] ?? '')) ?>"><?= e((string) $option['title_en']) ?></option>
-                                    <?php endforeach; ?>
-                                  </optgroup>
-                                <?php endforeach; ?>
-                              </select>
-                            </label>
-                            <button class="primary-action" type="submit">Save expiation</button>
-                          </form>
-                        <?php endif; ?>
-                      <?php elseif ($warning['expiation_title']): ?>
-                        <div class="parent-warning-expiation">
-                          <span>Chosen expiation</span>
-                          <strong data-i18n-skip data-en="<?= e((string) $warning['expiation_title']) ?>" data-ar="<?= e((string) ($warning['expiation_title_ar'] ?? '')) ?>"><?= e((string) $warning['expiation_title']) ?></strong>
-                          <small><?= e((string) $warning['expiation_category']) ?></small>
-                        </div>
-                      <?php endif; ?>
-                    </div>
-                  <?php endforeach; ?>
-                </div>
+                          <div class="weeksheet-source" data-weekpanel-detail hidden>
+                            <span class="weeksheet-eyebrow">Written warning</span>
+                            <h3>
+                              <span>Warning</span>
+                              <span data-i18n-skip><?= e($warningLabel) ?></span>
+                            </h3>
+                            <p class="weeksheet-date" data-i18n-skip><?= e($warningDate) ?></p>
+
+                            <?php // Only the administration's message is shown; the teacher's
+                                  // own wording of the incident stays internal to the centre. ?>
+                            <p class="weeksheet-note"><?= nl2br(e((string) $warning['parent_message'])) ?></p>
+
+                            <?php if ($isOpen): ?>
+                              <?php if ($expiationsByCategory === []): ?>
+                                <p class="parent-warning-note">No expiations are available for this age group yet. Please contact the administration.</p>
+                              <?php else: ?>
+                                <form method="post" class="parent-expiation-form">
+                                  <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
+                                  <input type="hidden" name="action" value="select_expiation">
+                                  <input type="hidden" name="warning_id" value="<?= e((string) $warning['id']) ?>">
+                                  <label>
+                                    <span>Choose an expiation for this warning</span>
+                                    <select name="expiation_id" required>
+                                      <option value="">Select an expiation…</option>
+                                      <?php foreach ($expiationsByCategory as $categoryName => $options): ?>
+                                        <optgroup label="<?= e((string) $categoryName) ?>">
+                                          <?php foreach ($options as $option): ?>
+                                            <option value="<?= e((string) $option['id']) ?>" data-i18n-skip data-en="<?= e((string) $option['title_en']) ?>" data-ar="<?= e((string) ($option['title_ar'] ?? '')) ?>"><?= e((string) $option['title_en']) ?></option>
+                                          <?php endforeach; ?>
+                                        </optgroup>
+                                      <?php endforeach; ?>
+                                    </select>
+                                  </label>
+                                  <button class="primary-action" type="submit">Save expiation</button>
+                                </form>
+                              <?php endif; ?>
+                            <?php elseif ($warning['expiation_title']): ?>
+                              <dl class="weeksheet-facts">
+                                <div>
+                                  <dt>Chosen expiation</dt>
+                                  <dd data-i18n-skip data-en="<?= e((string) $warning['expiation_title']) ?>" data-ar="<?= e((string) ($warning['expiation_title_ar'] ?? '')) ?>"><?= e((string) $warning['expiation_title']) ?></dd>
+                                </div>
+                                <div>
+                                  <dt>Category</dt>
+                                  <dd data-i18n-skip><?= e((string) $warning['expiation_category']) ?></dd>
+                                </div>
+                              </dl>
+                            <?php endif; ?>
+                          </div>
+                        </td>
+                      </tr>
+                    <?php endforeach; ?>
+                  </tbody>
+                </table>
               </article>
             </section>
           <?php endif; ?>
@@ -1089,5 +1317,7 @@ $selectedChildStatus = (string) ($studentOverview['status'] ?? 'inactive');
   ]); ?>
   <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/admin.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/notifications.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/parent.js')) ?>" defer></script>
 </body>
 </html>

@@ -5,6 +5,7 @@ require_once __DIR__ . '/../src/auth.php';
 require_once __DIR__ . '/../src/admin-data.php';
 require_once __DIR__ . '/../src/homepage-data.php';
 require_once __DIR__ . '/../src/parent-agreement.php';
+require_once __DIR__ . '/../src/notifications.php';
 
 $user = require_roles(['admin', 'manager']);
 $isManager = ($user['role'] ?? '') === 'manager';
@@ -241,6 +242,18 @@ try {
                         $adminUserId,
                         $warningId,
                     ]);
+
+                    /*
+                     * Both kinds reach the family: an oral warning is told to
+                     * them even though only a written one asks for an expiation.
+                     */
+                    if ($statement->rowCount() > 0) {
+                        $warnedStudent = $pdo->prepare(
+                            'SELECT student_id FROM student_warnings WHERE id = ? LIMIT 1'
+                        );
+                        $warnedStudent->execute([$warningId]);
+                        notify_warning_issued($pdo, (int) $warnedStudent->fetchColumn(), $warningType);
+                    }
                 } elseif ($action === 'warning_dismiss') {
                     // The flag was not worth a warning, so it is removed outright.
                     $statement = $pdo->prepare(
@@ -619,11 +632,6 @@ try {
     }
 
     if ($view === 'overview') {
-        /*
-         * The overview is a scanning station, not a dashboard: it carries no
-         * counters and no recent-activity table, so it needs no data of its own.
-         * Everything on it arrives from student-day.php after a scan.
-         */
         $pageDescription = 'Scan a student QR code to see their day: attendance, subjects, homework, notes, and open warnings.';
     } elseif ($view === 'students') {
         $pageDescription = 'Student profiles and their current academic placement. Double-click a student to open every linked record.';
@@ -2731,5 +2739,6 @@ try {
   <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/qr-tools.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/admin.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/notifications.js')) ?>" defer></script>
 </body>
 </html>

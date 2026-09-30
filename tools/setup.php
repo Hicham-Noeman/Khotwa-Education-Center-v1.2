@@ -1230,9 +1230,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' || $isCli) {
         <li><strong>Subjects:</strong> 12 core curriculum Arabic-school subjects</li>
         <li><strong>Staff:</strong> 12 teacher profiles with associated portal log-ins</li>
         <li><strong>Students:</strong> 72 profiles (6 per grade) with complete contact, medical, and history logs</li>
+        <li><strong>Attendance:</strong> 5 full days of daily and class attendance history</li>
         <li><strong>Linkage:</strong> Many-to-many subject enrollments linking teachers and students</li>
         <li><strong>Finance:</strong> Complete tuition subscriptions and payments for the 2025-2026 academic year</li>
-        <li><strong>Attendance:</strong> 5 full days of daily and class attendance history</li>
         <li><strong>Warnings:</strong> Set of oral and written behavior records</li>
       </ul>
 

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/auth.php';
 require_once __DIR__ . '/../src/admin-data.php';
+require_once __DIR__ . '/../src/notifications.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -71,6 +72,8 @@ try {
         $attendanceStatement->execute([$studentId, $today]);
         $attendance = $attendanceStatement->fetch();
         $action = 'checked_in';
+        // The family hears it as it happens: this is the scan at the door.
+        notify_student_arrived($pdo, $studentId, substr($timeNow, 0, 5));
     } elseif (empty($attendance['check_out_time'])) {
         $updateCheckout = $pdo->prepare(
             "UPDATE student_daily_attendance
@@ -93,6 +96,7 @@ try {
         $attendanceStatement->execute([$studentId, $today]);
         $attendance = $attendanceStatement->fetch();
         $action = 'checked_out';
+        notify_student_left($pdo, $studentId, substr($timeNow, 0, 5));
     } else {
         $action = 'already_checked_out';
     }

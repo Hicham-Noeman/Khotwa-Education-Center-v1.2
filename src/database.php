@@ -56,7 +56,7 @@ const KHOTWA_CENTER_HOURS_EN = 'Mon-Thu & Sat, 3:00-8:00 PM';
 const KHOTWA_CENTER_HOURS_AR = 'الاثنين–الخميس والسبت، 3:00–8:00 مساءً';
 
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
-const KHOTWA_SCHEMA_VERSION = 32;
+const KHOTWA_SCHEMA_VERSION = 35;
 
 function getDatabaseConnection(): PDO
 {
@@ -343,6 +343,7 @@ function seedExpiationDefaults(PDO $pdo): void
     }
 }
 
+
 /**
  * The per-day attendance rollup, as a SELECT rather than a database view.
  *
@@ -377,7 +378,6 @@ function khotwa_daily_attendance_summary_sql(): string
                 student_daily_attendance.check_out_time,
                 student_daily_attendance.status) AS student_daily_attendance_summary";
 }
-
 function createKhotwaTables(PDO $pdo): void
 {
     $queries = [
@@ -1254,6 +1254,67 @@ function createKhotwaTables(PDO $pdo): void
                 ON UPDATE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
+        /*
+         * What someone is told, and where they are told it.
+         *
+         * A notification is written in both languages when it is raised, rather
+         * than assembled from a code when it is read: the child's name and the
+         * month are known at that moment and never change afterwards, and a row
+         * that already carries its wording survives any later edit to the phrasing.
+         */
+        "CREATE TABLE IF NOT EXISTS notifications (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            user_id BIGINT UNSIGNED NOT NULL,
+            event_type VARCHAR(40) NOT NULL,
+            title_en VARCHAR(160) NOT NULL,
+            title_ar VARCHAR(160) NOT NULL,
+            body_en VARCHAR(400) NOT NULL,
+            body_ar VARCHAR(400) NOT NULL,
+            link VARCHAR(255) NULL,
+            student_id BIGINT UNSIGNED NULL,
+            read_at DATETIME NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            INDEX idx_notifications_user_unread (user_id, read_at, id),
+            INDEX idx_notifications_user_recent (user_id, id),
+            CONSTRAINT fk_notifications_user
+                FOREIGN KEY (user_id) REFERENCES users(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_notifications_student
+                FOREIGN KEY (student_id) REFERENCES students(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        /*
+         * One row per browser that agreed to be notified.
+         *
+         * Chrome hands the page an endpoint and two keys; sending to it is what
+         * reaches a phone with the site closed. They are kept from the moment a
+         * browser offers them, so the day the site answers on https the sending
+         * side is the only part left to write. The endpoint is the identity: the
+         * same browser re-subscribing replaces its own row rather than adding one.
+         */
+        "CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            user_id BIGINT UNSIGNED NOT NULL,
+            endpoint VARCHAR(500) NOT NULL,
+            public_key VARCHAR(255) NOT NULL,
+            auth_token VARCHAR(255) NOT NULL,
+            user_agent VARCHAR(255) NULL,
+            language ENUM('en', 'ar') NOT NULL DEFAULT 'en',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_push_endpoint (endpoint(191)),
+            INDEX idx_push_user (user_id),
+            CONSTRAINT fk_push_user
+                FOREIGN KEY (user_id) REFERENCES users(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
         // Reporting views used to live here. Three of them were never queried by any
         // page, and shared hosting commonly withholds CREATE VIEW, which stopped the
         // whole schema from being built. The one that was used is now a derived table
@@ -1748,6 +1809,19 @@ function khotwa_migrate_contact_placeholders(PDO $pdo): void
 
 function applyKhotwaMigrations(PDO $pdo): void
 {
+    /*
+     * A push carries words, not a page, so it has to be written in one language
+     * before it is sent. The browser's own language at the moment it subscribed
+     * is the best guess there is, so the subscription carries it. Rows that
+     * predate the column keep English, which is what they were reading.
+     */
+    addColumnIfMissing(
+        $pdo,
+        'push_subscriptions',
+        'language',
+        "language ENUM('en', 'ar') NOT NULL DEFAULT 'en' AFTER user_agent"
+    );
+
     khotwa_migrate_contact_placeholders($pdo);
     khotwa_migrate_remove_demo_partners($pdo);
     khotwa_migrate_retire_demo_team($pdo);

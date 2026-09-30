@@ -286,5 +286,6 @@ try {
   ]); ?>
   <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/admin.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/notifications.js')) ?>" defer></script>
 </body>
 </html>

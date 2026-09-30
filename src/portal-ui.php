@@ -11,6 +11,7 @@ declare(strict_types=1);
  */
 
 require_once __DIR__ . '/paths.php';
+require_once __DIR__ . '/notifications.php';
 
 /**
  * The top block of a portal sidebar: brand, language, logout, collapse toggle.
@@ -53,7 +54,36 @@ function portal_sidebar_top(string $brandHref, string $brandLabel, string $subli
  */
 function portal_session_controls(): void
 {
+    $user = function_exists('current_user') ? current_user() : null;
+    $userId = (int) ($user['id'] ?? 0);
+    $unread = 0;
+    if ($userId > 0) {
+        try {
+            $unread = notifications_unread_count(khotwa_db(), $userId);
+        } catch (Throwable $exception) {
+            $unread = 0;
+        }
+    }
     ?>
+    <?php if ($userId > 0): ?>
+      <?php /*
+             * The bell is drawn wherever these controls are - the bar on a phone,
+             * the foot of the panel on a desktop - and only one of the two is ever
+             * on screen. Both open the same list, which the top bar draws once,
+             * outside these controls: the foot of the panel is display:none on a
+             * phone, and a list inside it could never be shown.
+             */ ?>
+      <button
+        class="portal-bell"
+        type="button"
+        title="Notifications"
+        aria-label="Notifications"
+        data-notifications-toggle
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        <span class="portal-bell-count" data-notifications-count<?= $unread === 0 ? ' hidden' : '' ?>><?= htmlspecialchars((string) min($unread, 99), ENT_QUOTES, 'UTF-8') ?></span>
+      </button>
+    <?php endif; ?>
     <button
       class="portal-language"
       type="button"
@@ -65,6 +95,80 @@ function portal_session_controls(): void
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/></svg>
       <span>Log out</span>
     </a>
+    <?php
+}
+
+/**
+ * The list the bell opens: what happened, newest first.
+ *
+ * Both languages are carried on every line, because a notification was written
+ * when it was raised and the page may be read in either. Drawn once a page: the
+ * bells are what there are two of, not the list.
+ */
+function portal_notification_center(int $userId): void
+{
+    static $drawn = false;
+    if ($drawn) {
+        return;
+    }
+    $drawn = true;
+
+    try {
+        $items = notifications_recent(khotwa_db(), $userId, 20);
+    } catch (Throwable $exception) {
+        $items = [];
+    }
+
+    $e = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    ?>
+    <?php // The page reads both off the panel: the key decides whether Chrome is
+          // asked at all, the token signs the subscription when it is. ?>
+    <div class="notif-panel" data-notifications-panel hidden
+         data-vapid-key="<?= $e(push_vapid_public_key()) ?>"
+         data-app-csrf="<?= $e(app_csrf_token()) ?>"
+         <?php // Addresses are handed over rather than guessed: the portals sit in
+               // subfolders, so a relative path would resolve inside /parent/ or
+               // /admin/ and miss. The worker's own path is also its scope, which
+               // is why it is the one at the project root. ?>
+         data-feed-url="<?= $e(khotwa_url('notifications-feed.php')) ?>"
+         data-subscribe-url="<?= $e(khotwa_url('notifications-subscribe.php')) ?>"
+         data-worker-url="<?= $e(khotwa_url('sw.js')) ?>">
+      <div class="notif-head">
+        <strong>Notifications</strong>
+        <?php // Clearing the badge is a post, so it survives a refresh. ?>
+        <form method="post" action="<?= $e(khotwa_url('notifications-read.php')) ?>">
+          <input type="hidden" name="csrf" value="<?= $e(app_csrf_token()) ?>">
+          <button class="notif-clear" type="submit">Mark all read</button>
+        </form>
+        <button class="notif-close" type="button" data-notifications-close aria-label="Close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="notif-list" data-notifications-list>
+        <?php if ($items === []): ?>
+          <p class="notif-empty">Nothing yet.</p>
+        <?php else: ?>
+          <?php foreach ($items as $item): ?>
+            <?php /*
+                   * Every line goes through notifications-open.php, which marks
+                   * this one read and forwards to where it points. Following it
+                   * and reading it are the same act, which is what a phone needs:
+                   * the panel covers the page, so there is no second step there.
+                   */ ?>
+            <a class="notif-item<?= $item['read_at'] === null ? ' is-unread' : '' ?>"
+              href="<?= $e(khotwa_url('notifications-open.php')) ?>?id=<?= $e((string) $item['id']) ?>">
+              <strong data-i18n-skip
+                      data-en="<?= $e((string) $item['title_en']) ?>"
+                      data-ar="<?= $e((string) $item['title_ar']) ?>"><?= $e((string) $item['title_en']) ?></strong>
+              <span data-i18n-skip
+                    data-en="<?= $e((string) $item['body_en']) ?>"
+                    data-ar="<?= $e((string) $item['body_ar']) ?>"><?= $e((string) $item['body_en']) ?></span>
+              <small data-i18n-skip><?= $e(fmt_datetime((string) $item['created_at'])) ?></small>
+            </a>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      </div>
+    </div>
     <?php
 }
 
@@ -112,6 +216,17 @@ function portal_mobile_topbar(string $brandHref, string $brandLabel): void
       </div>
     </header>
     <?php
+    /*
+     * The list, as a sibling of the bar rather than a child of anything that
+     * comes and goes. It is fixed and centred, so it only asks of its parent
+     * that the parent is drawn and untransformed - which the foot of the drawer,
+     * hidden on a phone and slid off-screen with it, is not.
+     */
+    $user = function_exists('current_user') ? current_user() : null;
+    $userId = (int) ($user['id'] ?? 0);
+    if ($userId > 0) {
+        portal_notification_center($userId);
+    }
 }
 
 /**

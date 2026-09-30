@@ -3,12 +3,13 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/auth.php';
 require_once __DIR__ . '/../src/portal-ui.php';
+require_once __DIR__ . '/../src/notifications.php';
 
 $user = require_roles(['teacher']);
 $teacherId = (int) ($user['teacher_id'] ?? 0);
 $views = [
   'attendance' => ['label' => 'Subject Attendance', 'description' => 'Record subject attendance, lesson notes, and homework after administration marks daily attendance.'],
-  'submission' => ['label' => "Today's Submission", 'description' => 'Review and save today\'s subject attendance entries for your assigned students.'],
+  'submission' => ['label' => "Today's Submission", 'description' => "Review and save today's subject attendance entries for your assigned students."],
     'students' => ['label' => 'Students', 'description' => 'Students actively assigned to your subjects.'],
     'warnings' => ['label' => 'Behaviour', 'description' => 'Raise a behaviour flag to the administration. Only the administration can see your flags.'],
     'profile' => ['label' => 'My Profile', 'description' => 'Your teacher information, account details, and assigned subjects.'],
@@ -48,18 +49,18 @@ if (isset($_GET['flagged'])) {
 }
 $error = '';
 $studentRows = [];
-$attendanceRows = [];
 $teacherProfile = [];
 $assignedSubjects = [];
 $flagStudents = [];
 $myFlags = [];
+$attendanceRows = [];
 
 function teacher_icon(string $name): string
 {
     $paths = [
-        'students' => '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
         'attendance' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18m-5 5 2 2 4-4"/>',
         'submission' => '<path d="M9 11l2 2 4-4"/><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 17h8"/>',
+        'students' => '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
         'profile' => '<circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/><path d="M18 4h3v3"/>',
         'warnings' => '<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4M12 17h.01"/>',
         'logout' => '<path d="M10 17l5-5-5-5M15 12H3"/><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/>',
@@ -247,6 +248,14 @@ try {
                 substr($flagNotes, 0, 60000),
                 $flagMinutes,
             ]);
+
+            // The flag is invisible to the family until the administration acts
+            // on it, so only the administration is told.
+            notify_warning_flagged(
+                $pdo,
+                $flagStudentId,
+                trim((string) (($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''))) ?: 'A teacher'
+            );
 
             header('Location: ' . khotwa_url('teacher/index.php') . '?view=warnings&flagged=1');
             exit;
@@ -909,6 +918,7 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
   ]); ?>
   <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/admin.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/notifications.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/teacher.js')) ?>" defer></script>
 </body>
 </html>

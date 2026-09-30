@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/portal-ui.php';
+require_once __DIR__ . '/notifications.php';
 
 function admin_navigation(): array
 {
@@ -539,8 +540,8 @@ function admin_relation_options(PDO $pdo, string $column): array
         'student_id' => "SELECT id, CONCAT(first_name_en, ' ', last_name_en) label FROM students ORDER BY last_name_en, first_name_en",
         'teacher_id' => "SELECT id, TRIM(CONCAT(first_name, ' ', COALESCE(last_name, ''))) label FROM teachers ORDER BY last_name, first_name",
         'subject_id' => "SELECT id, name_en label FROM subjects ORDER BY name_en",
-        'teacher_subject_id' => "SELECT teacher_subjects.id, CONCAT(TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))), ' / ', subjects.name_en) label FROM teacher_subjects INNER JOIN teachers ON teachers.id = teacher_subjects.teacher_id INNER JOIN subjects ON subjects.id = teacher_subjects.subject_id ORDER BY label",
         'daily_attendance_id' => "SELECT student_daily_attendance.id, CONCAT(student_daily_attendance.attendance_date, ' / ', students.first_name_en, ' ', students.last_name_en) label FROM student_daily_attendance INNER JOIN students ON students.id = student_daily_attendance.student_id ORDER BY student_daily_attendance.attendance_date DESC",
+        'teacher_subject_id' => "SELECT teacher_subjects.id, CONCAT(TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))), ' / ', subjects.name_en) label FROM teacher_subjects INNER JOIN teachers ON teachers.id = teacher_subjects.teacher_id INNER JOIN subjects ON subjects.id = teacher_subjects.subject_id ORDER BY label",
         'subscription_id' => "SELECT student_subscriptions.id, CONCAT(students.first_name_en, ' ', students.last_name_en, ' / ', student_subscriptions.start_date) label FROM student_subscriptions INNER JOIN students ON students.id = student_subscriptions.student_id ORDER BY students.last_name_en, student_subscriptions.start_date DESC",
         // 'balance' rides along so the payment form can offer the outstanding
         // amount as the default: entering a payment normally settles the month in
@@ -570,9 +571,9 @@ function admin_relation_options(PDO $pdo, string $column): array
  * Columns that are fixed once the record exists.
  *
  * An enrollment is a student in one teacher's subject; changing which subject
- * after the fact would silently re-point every attendance row already recorded
- * against it. Adding a second enrollment is the honest way to move a student, so
- * the field is shown as it was saved and cannot be edited.
+ * after the fact would silently re-point everything already recorded against it.
+ * Adding a second enrollment is the honest way to move a student, so the field
+ * is shown as it was saved and cannot be edited.
  *
  * @return array<int, string>
  */
@@ -1185,6 +1186,9 @@ function admin_save_record(PDO $pdo, string $table, array $fields, ?int $id = nu
         $newId = (int) $pdo->lastInsertId();
         if ($table === 'student_subscription_payments') {
             admin_sync_subscription_month_payment($pdo, (int) ($fields['subscription_month_id'] ?? 0));
+            // Told after the month is brought up to date, so the notification can
+            // say what is still owed rather than what was owed a moment ago.
+            notify_payment_recorded($pdo, $newId);
         }
         admin_enforce_single_current_year($pdo, $table, $newId);
         return $newId;
@@ -1540,8 +1544,8 @@ function admin_delete_records(PDO $pdo, string $table, array $recordIds, int $cu
 /**
  * Rows shown on one page of a table view.
  *
- * The list views used to print every row, which meant 1.6 MB of HTML for the
- * attendance table and no upper bound as the centre keeps adding records. The
+ * The list views used to print every row, which meant megabytes of HTML for the
+ * larger tables and no upper bound as the centre keeps adding records. The
  * search runs here, over the whole result set, so narrowing a table still looks
  * at every row and not only at the page that happens to be loaded.
  *
@@ -1884,10 +1888,9 @@ function admin_schedule_check_filter_options(PDO $pdo): array
 /**
  * Students matching the schedule filters, each carrying their day-school week.
  *
- * This is the day school's timetable only - what hours the child is away. The
- * center's own attendance lives under Attendance, and nothing is booked or
- * changed from here: the week is set on the student's profile, and this screen
- * exists to look it up and take it away as a file.
+ * This is the day school's timetable only - what hours the child is away.
+ * Nothing is booked or changed from here: the week is set on the student's
+ * profile, and this screen exists to look it up and take it away as a file.
  *
  * The sessions are fetched in one query for the whole result set and stitched
  * back by student id, rather than a query per student.

@@ -102,12 +102,248 @@
   font-size: 0.7rem;
 }
 
-/* Homework is a sentence, not a label: it gets room to be one. */
+/*
+ * The panels that are read a week at a time.
+ *
+ * They are read on a phone held upright, so nothing in them scrolls sideways:
+ * each table keeps to the width it is given, a long note is cut to three lines,
+ * and the whole record is read in the sheet the row opens.
+ */
 .parent-homework-cell {
-  min-width: 180px;
   color: var(--ink);
   line-height: 1.55;
   white-space: normal;
+  /* The start of the note is a prompt to open it, not the note itself. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.weekbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+}
+
+/* Two ends of one control: the week between them is what changes. */
+.weekbar-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--navy);
+  cursor: pointer;
+}
+
+.weekbar-step:hover {
+  border-color: var(--navy);
+}
+
+.weekbar-step svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Arabic reads the other way, so "back a week" has to point the other way too. */
+[dir="rtl"] .weekbar-step svg {
+  transform: scaleX(-1);
+}
+
+.weekbar-range {
+  flex: 1;
+  margin: 0;
+  color: var(--navy);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+/*
+ * Offered only once the week on screen is not the week we are in, and standing
+ * beside the dates rather than below them: a row that appears under the bar
+ * pushes the whole table down every time the week changes.
+ */
+.weekbar-now {
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--navy);
+  font-size: 0.68rem;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.weekbar-now:hover {
+  border-color: var(--navy);
+}
+
+.weeklist {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.weeklist th:first-child,
+.weeklist td:first-child {
+  width: 42%;
+}
+
+.weekrow {
+  cursor: pointer;
+}
+
+.weekrow:hover,
+.weekrow:focus-visible {
+  background: var(--soft);
+  outline: none;
+}
+
+.weekrow-date {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+/* The whole record, over the page rather than beside it. */
+.weeksheet {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(11, 28, 52, 0.55);
+}
+
+body.weeksheet-open {
+  overflow: hidden;
+}
+
+.weeksheet-card {
+  position: relative;
+  width: min(420px, 100%);
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 22px 20px 20px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 22px 60px rgba(11, 28, 52, 0.28);
+}
+
+.weeksheet-close {
+  position: absolute;
+  top: 12px;
+  inset-inline-end: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--navy);
+  cursor: pointer;
+}
+
+.weeksheet-close svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
+.weeksheet-eyebrow {
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.weeksheet-card h3 {
+  margin: 6px 0 2px;
+  padding-inline-end: 34px;
+  color: var(--navy);
+  font-size: 1.1rem;
+}
+
+.weeksheet-date {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.weeksheet-note {
+  margin: 0 0 16px;
+  color: var(--ink);
+  font-size: 0.92rem;
+  line-height: 1.65;
+  white-space: pre-line;
+}
+
+/* One fact per line, the label quiet and the answer beside it. */
+.weeksheet-facts {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.weeksheet-facts > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line);
+}
+
+.weeksheet-facts > div:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.weeksheet-facts dt {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.weeksheet-facts dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: end;
 }
 
 .parent-billing-paid-on {
@@ -522,15 +758,25 @@
 }
 
 /*
- * A warning waiting on the family is bordered and tinted; one already answered
- * sits quiet, so a list of several shows at a glance which still need a choice.
+ * A warning still waiting on the family is tinted and marked down its leading
+ * edge; one already answered sits quiet, so a list of several shows at a glance
+ * which still need a choice.
  */
-.parent-warning-card.is-open {
-  border-left-color: #C2334D;
-  background: rgba(194, 51, 77, 0.04);
+.weekrow-open {
+  background: rgba(194, 51, 77, 0.05);
+  box-shadow: inset 3px 0 0 #C2334D;
 }
 
-/* "Warning 2" - the card names itself when there is more than one. */
+[dir="rtl"] .weekrow-open {
+  box-shadow: inset -3px 0 0 #C2334D;
+}
+
+.weekrow-open:hover,
+.weekrow-open:focus-visible {
+  background: rgba(194, 51, 77, 0.09);
+}
+
+/* "Warning 2" - the row names itself when there is more than one. */
 .parent-warning-label {
   display: flex;
   gap: 4px;
@@ -539,11 +785,13 @@
   font-weight: 800;
 }
 
-.parent-warning-top {
-  flex-wrap: wrap;
+/* The sheet holds the choice itself, so the form has to sit inside it. */
+.weeksheet-card .parent-expiation-form {
+  margin-top: 16px;
 }
 
-.parent-warning-top small {
-  margin-inline-start: auto;
+.weeksheet-card h3 {
+  display: flex;
+  gap: 5px;
 }
 

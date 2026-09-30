@@ -31,8 +31,8 @@ $revenueChart = ['labels' => [], 'values' => []];
 $subjectRateChart = ['labels' => [], 'values' => []];
 $schoolChart = ['labels' => [], 'values' => []];
 $schoolRows = [];
-$enrolmentChart = ['labels' => [], 'values' => []];
 $attendanceTrendChart = ['day' => [], 'week' => [], 'month' => []];
+$enrolmentChart = ['labels' => [], 'values' => []];
 $subjectRows = [];
 $teacherCoverageRows = [];
 $paymentStatusRows = [];
@@ -872,6 +872,7 @@ $page = $views[$view];
   </div>
   <script src="<?= e(khotwa_asset('js/language.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/admin.js')) ?>" defer></script>
+  <script src="<?= e(khotwa_asset('js/notifications.js')) ?>" defer></script>
   <script src="<?= e(khotwa_asset('js/manager.js')) ?>" defer></script>
 </body>
 </html>
