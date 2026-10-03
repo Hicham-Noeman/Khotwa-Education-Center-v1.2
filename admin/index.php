@@ -83,6 +83,7 @@ $pageDescription = '';
 $columns = [];
 $rows = [];
 $warningGroups = [];
+$absenceGroups = ['pending' => [], 'decided' => []];
 $scheduleFilters = ['grades' => [], 'school_category' => '', 'schools' => []];
 $scheduleFilterOptions = ['grades' => [], 'schools' => []];
 $scheduleHasSelection = false;
@@ -138,6 +139,11 @@ if (isset($_GET['updated'])) {
         ? 'Review updated successfully.'
         : 'Warning updated successfully.';
 }
+if (isset($_GET['absence'])) {
+    $message = $_GET['absence'] === 'approved'
+        ? 'The absence was approved. The teacher and the administration were notified.'
+        : 'The absence was rejected. The teacher and the administration were notified.';
+}
 if (isset($_GET['saved']) && $view === 'parent-agreement' && isset($_SESSION['admin_agreement_copied'])) {
     // Read once, so a reload does not keep announcing the same copy.
     $copied = (int) $_SESSION['admin_agreement_copied'];
@@ -172,7 +178,7 @@ if (isset($_GET['created_parent'])) {
         : 'The parent account for ' . $createdParent . ' was created.')
         . ' Open a student profile to attach them to a child.';
 }
-$isAdding = isset($_GET['new']) && $view !== 'overview';
+$isAdding = isset($_GET['new']) && !in_array($view, ['overview', 'absences'], true);
 $formColumns = [];
 
 try {
@@ -189,7 +195,7 @@ try {
              * document with its own workflow - so it is named here rather than
              * given a row-editing surface it has no use for.
              */
-            $postsWithoutTable = ['parent-agreement', 'parent-agreement-signed'];
+            $postsWithoutTable = ['parent-agreement', 'parent-agreement-signed', 'absences'];
             $isKnownSection = isset($viewTables[$postedView])
                 || in_array($postedView, $postsWithoutTable, true);
             if (!$isKnownSection || !admin_user_can_access_view($user, $postedView)) {
@@ -294,6 +300,79 @@ try {
                 }
 
                 header('Location: ' . admin_workspace_url('warnings', ['updated' => 1]));
+                exit;
+            }
+
+            /*
+             * A teacher's absence request. Only a manager decides; the
+             * administration reads the outcome on the same screen. A refusal has
+             * to say why, because the teacher reads that note and the
+             * administration may have to follow it up while the manager is out.
+             */
+            if (in_array($action, ['absence_approve', 'absence_reject'], true)) {
+                if ($postedView !== 'absences' || !$isManager) {
+                    throw new RuntimeException('Only a manager can approve or reject an absence.');
+                }
+                $requestId = (int) ($_POST['request_id'] ?? 0);
+                if ($requestId < 1) {
+                    throw new RuntimeException('Missing absence request reference.');
+                }
+
+                $approving = $action === 'absence_approve';
+                $decisionNote = trim((string) ($_POST['decision_note'] ?? ''));
+                if (!$approving && $decisionNote === '') {
+                    throw new RuntimeException('Write a note explaining why the absence is rejected.');
+                }
+                if (mb_strlen($decisionNote) > 2000) {
+                    throw new RuntimeException('Please keep the note under 2000 characters.');
+                }
+
+                // Only a pending request moves, so two managers deciding the same
+                // one at once cannot overwrite each other.
+                $statement = $pdo->prepare(
+                    "UPDATE teacher_absence_requests
+                     SET status = ?, decision_note = NULLIF(?, ''),
+                         decided_by_user_id = ?, decided_at = NOW()
+                     WHERE id = ? AND status = 'pending'"
+                );
+                $statement->execute([
+                    $approving ? 'approved' : 'rejected',
+                    $decisionNote,
+                    (int) ($user['id'] ?? 0),
+                    $requestId,
+                ]);
+                if ($statement->rowCount() < 1) {
+                    throw new RuntimeException('This request was already decided or withdrawn.');
+                }
+
+                $decided = $pdo->prepare(
+                    "SELECT teacher_absence_requests.id, teacher_absence_requests.start_date,
+                            teacher_absence_requests.end_date, teacher_absence_requests.start_time,
+                            teacher_absence_requests.end_time,
+                            TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))) AS teacher_name,
+                            users.id AS teacher_user_id
+                     FROM teacher_absence_requests
+                     INNER JOIN teachers ON teachers.id = teacher_absence_requests.teacher_id
+                     LEFT JOIN users ON users.teacher_id = teachers.id
+                     WHERE teacher_absence_requests.id = ?
+                     LIMIT 1"
+                );
+                $decided->execute([$requestId]);
+                if ($decidedRow = $decided->fetch()) {
+                    notify_absence_decided(
+                        $pdo,
+                        $decidedRow,
+                        (int) ($decidedRow['teacher_user_id'] ?? 0),
+                        (string) $decidedRow['teacher_name'],
+                        trim((string) (($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''))) ?: 'The manager',
+                        $approving
+                    );
+                }
+
+                header('Location: ' . admin_workspace_url('absences', [
+                    'stage' => 'pending',
+                    'absence' => $approving ? 'approved' : 'rejected',
+                ]));
                 exit;
             }
 
@@ -948,6 +1027,27 @@ try {
         $warningGroups = ['flagged' => [], 'issued' => [], 'assigned' => []];
         foreach ($warningRows as $warningRow) {
             $warningGroups[(string) $warningRow['status']][] = $warningRow;
+        }
+    } elseif ($view === 'absences') {
+        $absenceRows = $pdo->query(
+            "SELECT teacher_absence_requests.id, teacher_absence_requests.start_date,
+                    teacher_absence_requests.end_date, teacher_absence_requests.start_time,
+                    teacher_absence_requests.end_time, teacher_absence_requests.reason,
+                    teacher_absence_requests.status, teacher_absence_requests.decision_note,
+                    teacher_absence_requests.decided_at, teacher_absence_requests.created_at,
+                    TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))) AS teacher_name,
+                    TRIM(CONCAT(deciders.first_name, ' ', COALESCE(deciders.last_name, ''))) AS decided_by
+             FROM teacher_absence_requests
+             INNER JOIN teachers ON teachers.id = teacher_absence_requests.teacher_id
+             LEFT JOIN users AS deciders ON deciders.id = teacher_absence_requests.decided_by_user_id
+             ORDER BY
+                CASE WHEN teacher_absence_requests.status = 'pending' THEN teacher_absence_requests.start_date END ASC,
+                COALESCE(teacher_absence_requests.decided_at, teacher_absence_requests.created_at) DESC,
+                teacher_absence_requests.id DESC
+             LIMIT 300"
+        )->fetchAll();
+        foreach ($absenceRows as $absenceRow) {
+            $absenceGroups[$absenceRow['status'] === 'pending' ? 'pending' : 'decided'][] = $absenceRow;
         }
     } elseif ($view === 'expiations') {
         $pageDescription = 'Corrective expiations parents can assign, organised by category and age group.';
@@ -2336,6 +2436,117 @@ try {
               <?php endforeach; ?>
             </div>
             </div>
+          <?php elseif ($view === 'absences'): ?>
+            <?php
+            $absenceStageMeta = [
+                'pending' => [
+                    'tab' => 'Pending',
+                    'label' => 'Waiting for the manager',
+                    'hint' => $isManager
+                        ? 'Approve with an optional note, or reject with a note explaining why. The teacher and the administration are told either way.'
+                        : 'Only a manager can decide these. You will be notified once one is approved or rejected.',
+                ],
+                'decided' => [
+                    'tab' => 'Decided',
+                    'label' => 'Approved or rejected',
+                    'hint' => "The manager's decision and note, so the administration can follow up with the teacher.",
+                ],
+            ];
+            $activeAbsenceStage = isset($absenceStageMeta[(string) ($_GET['stage'] ?? '')])
+                ? (string) $_GET['stage']
+                : 'pending';
+            $absenceStatusLabels = ['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected'];
+            ?>
+            <div class="profile-workspace">
+            <nav class="profile-tabs" role="tablist" aria-label="Absence request stages">
+              <?php foreach ($absenceStageMeta as $stageKey => $stageMeta): ?>
+                <button
+                  class="profile-tab<?= $stageKey === $activeAbsenceStage ? ' is-active' : '' ?>"
+                  type="button"
+                  role="tab"
+                  aria-selected="<?= $stageKey === $activeAbsenceStage ? 'true' : 'false' ?>"
+                  aria-controls="panel-<?= e($stageKey) ?>"
+                  data-profile-tab="<?= e($stageKey) ?>"
+                >
+                  <span><?= e($stageMeta['tab']) ?></span>
+                  <i><?= e((string) count($absenceGroups[$stageKey])) ?></i>
+                </button>
+              <?php endforeach; ?>
+            </nav>
+            <div class="profile-panels">
+              <?php foreach ($absenceStageMeta as $stageKey => $stageMeta): ?>
+                <?php $stageRows = $absenceGroups[$stageKey]; ?>
+                <article
+                  class="data-panel warning-column"
+                  id="panel-<?= e($stageKey) ?>"
+                  role="tabpanel"
+                  data-profile-panel="<?= e($stageKey) ?>"
+                  <?= $stageKey === $activeAbsenceStage ? '' : 'hidden' ?>
+                >
+                  <div class="panel-heading">
+                    <div>
+                      <span><?= e($stageMeta['label']) ?> · <?= e((string) count($stageRows)) ?></span>
+                      <h2><?= e($stageMeta['tab']) ?></h2>
+                    </div>
+                  </div>
+                  <p class="warning-column-hint"><?= e($stageMeta['hint']) ?></p>
+                  <?php if ($stageRows === []): ?>
+                    <p class="empty-value">Nothing here.</p>
+                  <?php else: ?>
+                    <div class="warning-tiles">
+                    <?php foreach ($stageRows as $absence): ?>
+                      <?php $period = absence_period_text($absence); ?>
+                      <div class="warning-card absence-card">
+                        <div class="warning-card-top">
+                          <strong data-i18n-skip><?= e((string) $absence['teacher_name']) ?></strong>
+                          <span class="status-pill status-<?= e((string) $absence['status']) ?>"><?= e($absenceStatusLabels[(string) $absence['status']] ?? '') ?></span>
+                        </div>
+                        <p class="absence-period" data-en="<?= e($period['en']) ?>" data-ar="<?= e($period['ar']) ?>"><?= e($period['en']) ?></p>
+                        <?php if ($absence['start_time'] === null): ?>
+                          <small class="warning-meta">Full day</small>
+                        <?php endif; ?>
+                        <p class="warning-reason" data-i18n-skip><?= nl2br(e((string) $absence['reason'])) ?></p>
+                        <small class="warning-meta">Sent on <span data-i18n-skip><?= e(fmt_datetime((string) $absence['created_at'])) ?></span></small>
+
+                        <?php if ($stageKey === 'decided'): ?>
+                          <div class="absence-decision absence-decision-<?= e((string) $absence['status']) ?>">
+                            <small class="warning-meta">
+                              <?= $absence['status'] === 'approved' ? 'Approved by' : 'Rejected by' ?>
+                              <span data-i18n-skip><?= e((string) ($absence['decided_by'] ?: '—')) ?> · <?= e(fmt_datetime((string) $absence['decided_at'])) ?></span>
+                            </small>
+                            <?php if (trim((string) $absence['decision_note']) !== ''): ?>
+                              <p data-i18n-skip><?= nl2br(e((string) $absence['decision_note'])) ?></p>
+                            <?php else: ?>
+                              <p class="empty-value">No note.</p>
+                            <?php endif; ?>
+                          </div>
+                        <?php elseif ($isManager): ?>
+                          <form method="post" class="warning-action-form">
+                            <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
+                            <input type="hidden" name="view" value="absences">
+                            <input type="hidden" name="request_id" value="<?= e((string) $absence['id']) ?>">
+                            <?php // Not marked required: approving may leave it empty.
+                                  // A rejection without it is refused on the server. ?>
+                            <textarea
+                              name="decision_note"
+                              rows="3"
+                              maxlength="2000"
+                              placeholder="Note to the teacher (optional to approve, required to reject)"
+                            ></textarea>
+                            <div class="warning-card-actions">
+                              <button class="primary-action" type="submit" name="action" value="absence_approve">Approve</button>
+                              <button class="secondary-action" type="submit" name="action" value="absence_reject">Reject</button>
+                            </div>
+                          </form>
+                        <?php endif; ?>
+                      </div>
+                    <?php endforeach; ?>
+                    </div>
+                  <?php endif; ?>
+                </article>
+              <?php endforeach; ?>
+            </div>
+            </div>
           <?php elseif ($view === 'website-content'): ?>
             <?php admin_render_workspace_tabs($workspaceTabs ?? [], $view, $workspaceTabCounts ?? [], true); ?>
             <?php
@@ -2701,7 +2912,7 @@ try {
                  * every view that is not a table still gets an empty "Database
                  * table" card underneath it.
                  */ ?>
-          <?php elseif (!in_array($view, ['parent-agreement', 'parent-agreement-signed'], true)): ?>
+          <?php elseif (!in_array($view, ['parent-agreement', 'parent-agreement-signed', 'absences'], true)): ?>
           <?php
           // One page of rows only. $rows itself stays whole above this point so the
           // metric tiles and the record count keep describing the full table.

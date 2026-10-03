@@ -12,6 +12,7 @@ $views = [
   'submission' => ['label' => "Today's Submission", 'description' => "Review and save today's subject attendance entries for your assigned students."],
     'students' => ['label' => 'Students', 'description' => 'Students actively assigned to your subjects.'],
     'warnings' => ['label' => 'Behaviour', 'description' => 'Raise a behaviour flag to the administration. Only the administration can see your flags.'],
+    'absence' => ['label' => 'Absence', 'description' => 'Ask the manager for time away and follow the answer.'],
     'profile' => ['label' => 'My Profile', 'description' => 'Your teacher information, account details, and assigned subjects.'],
 ];
 /**
@@ -47,12 +48,21 @@ $message = isset($_GET['saved'])
 if (isset($_GET['flagged'])) {
     $message = 'Behaviour flag sent to the administration.';
 }
+if (isset($_GET['absence_sent'])) {
+    $message = 'Absence request sent to the manager.';
+}
+if (isset($_GET['absence_withdrawn'])) {
+    $message = 'Absence request withdrawn.';
+}
 $error = '';
 $studentRows = [];
 $teacherProfile = [];
 $assignedSubjects = [];
 $flagStudents = [];
 $myFlags = [];
+$myAbsences = [];
+// What the absence form held, so a refused request does not have to be retyped.
+$absenceInput = ['start_date' => '', 'end_date' => '', 'start_time' => '', 'end_time' => '', 'reason' => ''];
 $attendanceRows = [];
 
 function teacher_icon(string $name): string
@@ -63,6 +73,7 @@ function teacher_icon(string $name): string
         'students' => '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
         'profile' => '<circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/><path d="M18 4h3v3"/>',
         'warnings' => '<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4M12 17h.01"/>',
+        'absence' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/><path d="m10 14 4 4M14 14l-4 4"/>',
         'logout' => '<path d="M10 17l5-5-5-5M15 12H3"/><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/>',
     ];
 
@@ -77,7 +88,7 @@ function render_teacher_sidebar(array $user, string $activeView): void
       <nav class="admin-nav">
         <section class="nav-group">
           <h2>My Workspace</h2>
-          <?php foreach (['attendance' => 'Attendance', 'submission' => "Today's Submission", 'students' => 'Students', 'warnings' => 'Behaviour', 'profile' => 'My Profile'] as $key => $label): ?>
+          <?php foreach (['attendance' => 'Attendance', 'submission' => "Today's Submission", 'students' => 'Students', 'warnings' => 'Behaviour', 'absence' => 'Absence', 'profile' => 'My Profile'] as $key => $label): ?>
             <?php $href = khotwa_url('teacher/index.php') . '?view=' . rawurlencode($key); ?>
             <a class="<?= $activeView === $key ? 'is-active' : '' ?>" href="<?= e($href) ?>" title="<?= e($label) ?>">
               <?= teacher_icon($key) ?><span><?= e($label) ?></span>
@@ -264,6 +275,135 @@ try {
         }
     }
 
+    /*
+     * Asking for time away. A run of whole days, or part of one day when both
+     * times are given. Only the manager decides; until then the teacher may
+     * take the request back.
+     */
+    if ($view === 'absence' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+        try {
+            verify_app_csrf();
+
+            if ((string) ($_POST['action'] ?? '') === 'withdraw') {
+                $pdo->prepare(
+                    "DELETE FROM teacher_absence_requests
+                     WHERE id = ? AND teacher_id = ? AND status = 'pending'"
+                )->execute([(int) ($_POST['request_id'] ?? 0), $teacherId]);
+
+                header('Location: ' . khotwa_url('teacher/index.php') . '?view=absence&absence_withdrawn=1');
+                exit;
+            }
+
+            foreach (array_keys($absenceInput) as $field) {
+                $absenceInput[$field] = trim((string) ($_POST[$field] ?? ''));
+            }
+
+            $startDate = DateTimeImmutable::createFromFormat('!Y-m-d', $absenceInput['start_date']);
+            if ($startDate === false || $startDate->format('Y-m-d') !== $absenceInput['start_date']) {
+                throw new RuntimeException('Choose the day the absence starts.');
+            }
+            if ($startDate < new DateTimeImmutable('today')) {
+                throw new RuntimeException('An absence cannot start in the past.');
+            }
+
+            $endDate = $startDate;
+            if ($absenceInput['end_date'] !== '') {
+                $endDate = DateTimeImmutable::createFromFormat('!Y-m-d', $absenceInput['end_date']);
+                if ($endDate === false || $endDate->format('Y-m-d') !== $absenceInput['end_date']) {
+                    throw new RuntimeException('The end date is not a valid date.');
+                }
+                if ($endDate < $startDate) {
+                    throw new RuntimeException('The end date cannot be before the start date.');
+                }
+                if ((int) $startDate->diff($endDate)->days > 60) {
+                    throw new RuntimeException('One request can cover at most 60 days.');
+                }
+            }
+
+            $startTime = $absenceInput['start_time'];
+            $endTime = $absenceInput['end_time'];
+            if (($startTime === '') !== ($endTime === '')) {
+                throw new RuntimeException('Give both the from and to times, or leave both empty for a full day.');
+            }
+            if ($startTime !== '') {
+                foreach ([$startTime, $endTime] as $time) {
+                    if (preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $time) !== 1) {
+                        throw new RuntimeException('The times are not valid.');
+                    }
+                }
+                if ($endDate != $startDate) {
+                    throw new RuntimeException('Times can only be given for an absence on a single day.');
+                }
+                if ($endTime <= $startTime) {
+                    throw new RuntimeException('The to time must be after the from time.');
+                }
+            }
+
+            if ($absenceInput['reason'] === '') {
+                throw new RuntimeException('Write the reason for the absence.');
+            }
+            if (mb_strlen($absenceInput['reason']) > 1000) {
+                throw new RuntimeException('Please keep the reason under 1000 characters.');
+            }
+
+            /*
+             * Two requests for the same time would ask the manager the same
+             * question twice. They clash when their days meet, unless both are
+             * part-day and their hours do not.
+             */
+            $overlap = $pdo->prepare(
+                "SELECT COUNT(*)
+                 FROM teacher_absence_requests
+                 WHERE teacher_id = ?
+                   AND status IN ('pending', 'approved')
+                   AND start_date <= ? AND end_date >= ?
+                   AND (start_time IS NULL OR ? IS NULL OR (start_time < ? AND end_time > ?))"
+            );
+            $overlap->execute([
+                $teacherId,
+                $endDate->format('Y-m-d'),
+                $startDate->format('Y-m-d'),
+                $startTime === '' ? null : $startTime,
+                $endTime,
+                $startTime,
+            ]);
+            if ((int) $overlap->fetchColumn() > 0) {
+                throw new RuntimeException('You already have a pending or approved request covering that time.');
+            }
+
+            $request = [
+                'start_date' => $startDate->format('Y-m-d'),
+                'end_date' => $endDate->format('Y-m-d'),
+                'start_time' => $startTime === '' ? null : $startTime,
+                'end_time' => $endTime === '' ? null : $endTime,
+            ];
+            $pdo->prepare(
+                "INSERT INTO teacher_absence_requests
+                    (teacher_id, start_date, end_date, start_time, end_time, reason)
+                 VALUES (?, ?, ?, ?, ?, ?)"
+            )->execute([
+                $teacherId,
+                $request['start_date'],
+                $request['end_date'],
+                $request['start_time'],
+                $request['end_time'],
+                $absenceInput['reason'],
+            ]);
+            $request['id'] = (int) $pdo->lastInsertId();
+
+            notify_absence_requested(
+                $pdo,
+                $request,
+                trim((string) (($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''))) ?: 'A teacher'
+            );
+
+            header('Location: ' . khotwa_url('teacher/index.php') . '?view=absence&absence_sent=1');
+            exit;
+        } catch (Throwable $exception) {
+            $error = $exception->getMessage();
+        }
+    }
+
     if ($view === 'students') {
         $statement = $pdo->prepare(
             "SELECT student_subject_enrollments.id AS enrollment_id,
@@ -326,6 +466,22 @@ try {
         );
         $myFlagsStatement->execute([$teacherId]);
         $myFlags = $myFlagsStatement->fetchAll();
+    } elseif ($view === 'absence') {
+        $myAbsencesStatement = $pdo->prepare(
+            "SELECT teacher_absence_requests.id, teacher_absence_requests.start_date,
+                    teacher_absence_requests.end_date, teacher_absence_requests.start_time,
+                    teacher_absence_requests.end_time, teacher_absence_requests.reason,
+                    teacher_absence_requests.status, teacher_absence_requests.decision_note,
+                    teacher_absence_requests.decided_at, teacher_absence_requests.created_at,
+                    TRIM(CONCAT(deciders.first_name, ' ', COALESCE(deciders.last_name, ''))) AS decided_by
+             FROM teacher_absence_requests
+             LEFT JOIN users AS deciders ON deciders.id = teacher_absence_requests.decided_by_user_id
+             WHERE teacher_absence_requests.teacher_id = ?
+             ORDER BY teacher_absence_requests.start_date DESC, teacher_absence_requests.id DESC
+             LIMIT 50"
+        );
+        $myAbsencesStatement->execute([$teacherId]);
+        $myAbsences = $myAbsencesStatement->fetchAll();
     } elseif (in_array($view, ['attendance', 'submission'], true)) {
         $statement = $pdo->prepare(
             "SELECT student_subject_enrollments.id AS enrollment_id,
@@ -762,6 +918,84 @@ $unmarkedCount = count($attendanceRows) - $attendedCount - $missedCount;
                       </div>
                       <p><?= e((string) $flag['reason']) ?></p>
                       <span class="status-pill status-<?= e((string) $flag['status']) ?>"><?= e($flagStatusLabels[(string) $flag['status']] ?? ucfirst((string) $flag['status'])) ?><?= $flag['warning_type'] ? ' · ' . e(ucfirst((string) $flag['warning_type'])) : '' ?></span>
+                    </div>
+                  <?php endforeach; ?>
+                </div>
+              <?php endif; ?>
+            </article>
+          </section>
+
+        <?php elseif ($view === 'absence'): ?>
+          <section class="behaviour-grid">
+            <article class="data-panel">
+              <div class="panel-heading"><div><span>New request</span><h2>Request an absence</h2></div></div>
+              <form method="post" class="behaviour-flag-form absence-request-form">
+                <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
+                <div class="absence-form-pair">
+                  <label>
+                    <span>From date</span>
+                    <input type="date" name="start_date" min="<?= e($today) ?>" value="<?= e($absenceInput['start_date']) ?>" required>
+                  </label>
+                  <label>
+                    <span>To date (optional)</span>
+                    <input type="date" name="end_date" min="<?= e($today) ?>" value="<?= e($absenceInput['end_date']) ?>">
+                  </label>
+                </div>
+                <div class="absence-form-pair">
+                  <label>
+                    <span>From time (optional)</span>
+                    <input type="time" name="start_time" value="<?= e($absenceInput['start_time']) ?>">
+                  </label>
+                  <label>
+                    <span>To time (optional)</span>
+                    <input type="time" name="end_time" value="<?= e($absenceInput['end_time']) ?>">
+                  </label>
+                </div>
+                <p class="absence-form-hint">Leave the times empty to be away the whole day. Times work for one day only.</p>
+                <label>
+                  <span>Reason</span>
+                  <textarea name="reason" rows="4" maxlength="1000" placeholder="Why you need to be absent" required><?= e($absenceInput['reason']) ?></textarea>
+                </label>
+                <div class="record-form-actions">
+                  <button class="primary-action" type="submit">Send to the manager</button>
+                </div>
+              </form>
+            </article>
+
+            <article class="data-panel">
+              <div class="panel-heading"><div><span>My requests</span><h2>Absence requests</h2></div><strong class="record-count"><?= e((string) count($myAbsences)) ?> total</strong></div>
+              <?php if ($myAbsences === []): ?>
+                <p class="linked-empty">You have not requested any absence yet.</p>
+              <?php else: ?>
+                <div class="behaviour-flag-list">
+                  <?php $absenceStatusLabels = ['pending' => 'Waiting for the manager', 'approved' => 'Approved', 'rejected' => 'Rejected']; ?>
+                  <?php foreach ($myAbsences as $absence): ?>
+                    <?php $period = absence_period_text($absence); ?>
+                    <div class="behaviour-flag-item absence-item">
+                      <div>
+                        <strong data-en="<?= e($period['en']) ?>" data-ar="<?= e($period['ar']) ?>"><?= e($period['en']) ?></strong>
+                        <span class="status-pill status-<?= e((string) $absence['status']) ?>"><?= e($absenceStatusLabels[(string) $absence['status']] ?? '') ?></span>
+                      </div>
+                      <p data-i18n-skip><?= nl2br(e((string) $absence['reason'])) ?></p>
+                      <small>Sent on <span data-i18n-skip><?= e(fmt_datetime((string) $absence['created_at'])) ?></span></small>
+                      <?php if ($absence['status'] !== 'pending'): ?>
+                        <div class="absence-decision absence-decision-<?= e((string) $absence['status']) ?>">
+                          <small>
+                            <?= $absence['status'] === 'approved' ? 'Approved by' : 'Rejected by' ?>
+                            <span data-i18n-skip><?= e((string) ($absence['decided_by'] ?: '—')) ?> · <?= e(fmt_datetime((string) $absence['decided_at'])) ?></span>
+                          </small>
+                          <?php if (trim((string) $absence['decision_note']) !== ''): ?>
+                            <p data-i18n-skip><?= nl2br(e((string) $absence['decision_note'])) ?></p>
+                          <?php endif; ?>
+                        </div>
+                      <?php else: ?>
+                        <form method="post" class="absence-withdraw-form">
+                          <input type="hidden" name="csrf" value="<?= e(app_csrf_token()) ?>">
+                          <input type="hidden" name="action" value="withdraw">
+                          <input type="hidden" name="request_id" value="<?= e((string) $absence['id']) ?>">
+                          <button class="secondary-action" type="submit" data-confirm="Withdraw this absence request?">Withdraw</button>
+                        </form>
+                      <?php endif; ?>
                     </div>
                   <?php endforeach; ?>
                 </div>

@@ -21,6 +21,7 @@ function admin_navigation(): array
         'subscriptions' => ['label' => 'Subscriptions', 'group' => 'Finance'],
         'payments' => ['label' => 'Payments', 'group' => 'Finance', 'sidebar' => false],
         'warnings' => ['label' => 'Warnings', 'group' => 'Management'],
+        'absences' => ['label' => 'Absence Requests', 'group' => 'Management'],
         'expiations' => ['label' => 'Expiations', 'group' => 'Expiations'],
         'expiation-categories' => ['label' => 'Categories', 'group' => 'Expiations', 'sidebar' => false],
         'age-groups' => ['label' => 'Age Groups', 'group' => 'Expiations', 'sidebar' => false],
@@ -47,6 +48,7 @@ function admin_manager_allowed_views(): array
         'subscriptions',
         'payments',
         'warnings',
+        'absences',
         'expiations',
         'expiation-categories',
         'age-groups',
@@ -199,6 +201,13 @@ function admin_overview_snapshot(PDO $pdo): array
             'one' => 'expiation chosen, waiting to be confirmed done',
             'count' => $count($pdo, "SELECT COUNT(*) FROM student_warnings WHERE status = 'assigned'"),
             'link' => admin_workspace_url('warnings', ['stage' => 'assigned']),
+            'tone' => 'amber',
+        ],
+        [
+            'label' => 'teacher absence requests waiting for the manager',
+            'one' => 'teacher absence request waiting for the manager',
+            'count' => $count($pdo, "SELECT COUNT(*) FROM teacher_absence_requests WHERE status = 'pending'"),
+            'link' => admin_workspace_url('absences', ['stage' => 'pending']),
             'tone' => 'amber',
         ],
         [
@@ -469,6 +478,8 @@ function admin_icon(string $name): string
         'subscriptions' => '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
         'payments' => '<circle cx="12" cy="12" r="9"/><path d="M16 8h-5a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4H8m4-10v12"/>',
         'warnings' => '<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4M12 17h.01"/>',
+        // A calendar with a day struck out: a teacher away.
+        'absences' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/><path d="m10 14 4 4M14 14l-4 4"/>',
         'users' => '<path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3Z"/><path d="m9 12 2 2 4-4"/>',
         'parent-agreement-signed' => '<path d="M7 21v-2a5 5 0 0 1 5-5h3"/><circle cx="9" cy="8" r="3"/><path d="m15 17 2 2 4-4"/>',
         // A signed sheet: the agreement is a document families put their name to.

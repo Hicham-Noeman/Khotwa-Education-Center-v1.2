@@ -106,6 +106,23 @@ function notification_staff_user_ids(PDO $pdo): array
 }
 
 /**
+ * The active accounts holding one role, for an event only that role acts on.
+ *
+ * @return array<int, int>
+ */
+function notification_role_user_ids(PDO $pdo, string $role): array
+{
+    try {
+        $statement = $pdo->prepare("SELECT id FROM users WHERE role = ? AND status = 'active'");
+        $statement->execute([$role]);
+
+        return array_map('intval', $statement->fetchAll(PDO::FETCH_COLUMN));
+    } catch (Throwable $exception) {
+        return [];
+    }
+}
+
+/**
  * A child's name in both languages, for the sentence that names them.
  *
  * @return array{en: string, ar: string}
@@ -222,6 +239,88 @@ function notify_expiation_chosen(PDO $pdo, int $studentId, string $expiationTitl
         'body_en' => 'The family of ' . $name['en'] . ' chose: ' . $expiationTitle,
         'body_ar' => 'اختارت عائلة ' . $name['ar'] . ': ' . $expiationTitle,
         'link' => 'admin/index.php?view=warnings&stage=assigned',
+    ]);
+}
+
+/**
+ * When a teacher's absence runs, in one line: a single day, a span of days, or
+ * part of one day.
+ *
+ * @param array{start_date: string, end_date: string, start_time?: ?string, end_time?: ?string} $request
+ * @return array{en: string, ar: string}
+ */
+function absence_period_text(array $request): array
+{
+    $from = fmt_date((string) $request['start_date']);
+    $to = fmt_date((string) $request['end_date']);
+    $startTime = substr((string) ($request['start_time'] ?? ''), 0, 5);
+    $endTime = substr((string) ($request['end_time'] ?? ''), 0, 5);
+
+    if ($startTime !== '' && $endTime !== '') {
+        return [
+            'en' => $from . ', ' . $startTime . '–' . $endTime,
+            'ar' => $from . '، ' . $startTime . '–' . $endTime,
+        ];
+    }
+    if ($from === $to) {
+        return ['en' => $from, 'ar' => $from];
+    }
+
+    return ['en' => $from . ' to ' . $to, 'ar' => 'من ' . $from . ' إلى ' . $to];
+}
+
+/**
+ * A teacher asking to be away. Only the managers decide, so only they are told.
+ */
+function notify_absence_requested(PDO $pdo, array $request, string $teacherName): void
+{
+    $period = absence_period_text($request);
+    notify_users($pdo, notification_role_user_ids($pdo, 'manager'), [
+        'event' => 'absence_requested',
+        'title_en' => 'Absence request',
+        'title_ar' => 'طلب غياب',
+        'body_en' => $teacherName . ' asked to be absent on ' . $period['en'] . '.',
+        'body_ar' => 'طلب ' . $teacherName . ' الغياب بتاريخ ' . $period['ar'] . '.',
+        'link' => 'admin/index.php?view=absences&stage=pending',
+        'tag' => 'absence:' . (int) ($request['id'] ?? 0),
+    ]);
+}
+
+/**
+ * The manager's answer. The teacher hears it, and so does the administration,
+ * which may have to follow it up with the teacher while the manager is out.
+ */
+function notify_absence_decided(
+    PDO $pdo,
+    array $request,
+    int $teacherUserId,
+    string $teacherName,
+    string $managerName,
+    bool $approved
+): void {
+    $period = absence_period_text($request);
+
+    notify_users($pdo, [$teacherUserId], [
+        'event' => 'absence_decided',
+        'title_en' => $approved ? 'Absence approved' : 'Absence rejected',
+        'title_ar' => $approved ? 'تمت الموافقة على الغياب' : 'تم رفض طلب الغياب',
+        'body_en' => 'Your absence on ' . $period['en'] . ' was ' . ($approved ? 'approved' : 'rejected')
+            . ' by ' . $managerName . '.',
+        'body_ar' => ($approved ? 'وافق ' : 'رفض ') . $managerName . ' على طلب غيابك بتاريخ ' . $period['ar'] . '.',
+        'link' => 'teacher/index.php?view=absence',
+        'tag' => 'absence:' . (int) ($request['id'] ?? 0),
+    ]);
+
+    notify_users($pdo, notification_role_user_ids($pdo, 'admin'), [
+        'event' => 'absence_decided',
+        'title_en' => $approved ? 'Teacher absence approved' : 'Teacher absence rejected',
+        'title_ar' => $approved ? 'تمت الموافقة على غياب معلّم' : 'تم رفض غياب معلّم',
+        'body_en' => $managerName . ' ' . ($approved ? 'approved' : 'rejected') . ' the absence of '
+            . $teacherName . ' on ' . $period['en'] . '.',
+        'body_ar' => ($approved ? 'وافق ' : 'رفض ') . $managerName . ' على غياب ' . $teacherName
+            . ' بتاريخ ' . $period['ar'] . '.',
+        'link' => 'admin/index.php?view=absences&stage=decided',
+        'tag' => 'absence:' . (int) ($request['id'] ?? 0),
     ]);
 }
 
@@ -627,7 +726,7 @@ function push_absolute_url(string $path): string
  * arrives.
  *
  * @param array<int, int> $userIds
- * @param array{event: string, title_en: string, title_ar: string, body_en: string, body_ar: string, link?: string} $payload
+ * @param array{event: string, title_en: string, title_ar: string, body_en: string, body_ar: string, link?: string, tag?: string} $payload
  */
 function push_broadcast(PDO $pdo, array $userIds, array $payload): void
 {
@@ -656,9 +755,12 @@ function push_broadcast(PDO $pdo, array $userIds, array $payload): void
                         /*
                          * One tag per event per child, so a second warning
                          * replaces the first on the lock screen rather than
-                         * stacking - the phone shows what is true now.
+                         * stacking - the phone shows what is true now. An
+                         * event about something other than a child names its
+                         * own tag, so two teachers' requests do not collapse.
                          */
-                        'tag' => (string) $payload['event'] . ':' . (int) ($payload['student_id'] ?? 0),
+                        'tag' => (string) ($payload['tag']
+                            ?? $payload['event'] . ':' . (int) ($payload['student_id'] ?? 0)),
                     ]
                 );
 

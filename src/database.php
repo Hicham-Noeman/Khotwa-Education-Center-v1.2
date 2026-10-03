@@ -56,7 +56,7 @@ const KHOTWA_CENTER_HOURS_EN = 'Mon-Thu & Sat, 3:00-8:00 PM';
 const KHOTWA_CENTER_HOURS_AR = 'الاثنين–الخميس والسبت، 3:00–8:00 مساءً';
 
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
-const KHOTWA_SCHEMA_VERSION = 37;
+const KHOTWA_SCHEMA_VERSION = 38;
 
 function getDatabaseConnection(): PDO
 {
@@ -1316,6 +1316,40 @@ function createKhotwaTables(PDO $pdo): void
                 ON UPDATE CASCADE,
             CONSTRAINT fk_teacher_of_month_chooser
                 FOREIGN KEY (chosen_by_user_id) REFERENCES users(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        /*
+         * A teacher asking to be away. One row per request: a run of whole days,
+         * or part of a single day when the two times are set. The manager decides;
+         * the note is the manager's answer, and is required only for a refusal.
+         * Nothing is deleted on a decision, so the administration can read back
+         * what was agreed while the manager is out of the office.
+         */
+        "CREATE TABLE IF NOT EXISTS teacher_absence_requests (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            teacher_id BIGINT UNSIGNED NOT NULL,
+            start_date DATE NOT NULL,
+            end_date DATE NOT NULL,
+            start_time TIME NULL,
+            end_time TIME NULL,
+            reason TEXT NOT NULL,
+            status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+            decision_note TEXT NULL,
+            decided_by_user_id BIGINT UNSIGNED NULL,
+            decided_at DATETIME NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            INDEX idx_absence_status (status, start_date),
+            INDEX idx_absence_teacher (teacher_id, start_date),
+            CONSTRAINT fk_absence_teacher
+                FOREIGN KEY (teacher_id) REFERENCES teachers(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_absence_decider
+                FOREIGN KEY (decided_by_user_id) REFERENCES users(id)
                 ON DELETE SET NULL
                 ON UPDATE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",

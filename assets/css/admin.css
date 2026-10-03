@@ -1404,6 +1404,7 @@ tbody tr:has([data-record-select]:checked) {
 .status-attended,
 .status-paid,
 .status-overpaid,
+.status-approved,
 .status-admin {
   color: #2f7d22;
   background: rgba(79, 187, 55, 0.11);
@@ -1413,6 +1414,7 @@ tbody tr:has([data-record-select]:checked) {
 .status-missed,
 .status-not-paid,
 .status-inactive,
+.status-rejected,
 .status-written {
   color: #a30e4e;
   background: rgba(229, 28, 111, 0.09);
@@ -1422,6 +1424,7 @@ tbody tr:has([data-record-select]:checked) {
 .status-left-early,
 .status-partial-paid,
 .status-paused,
+.status-pending,
 .status-oral {
   color: #925b00;
   background: rgba(244, 159, 15, 0.12);
@@ -4105,6 +4108,37 @@ html[dir="rtl"] th:last-child {
 .behaviour-flag-item strong { color: var(--navy); }
 .behaviour-flag-item small { color: var(--muted); font-size: 0.72rem; }
 .behaviour-flag-item p { margin: 6px 0; color: var(--navy); }
+
+/* Teacher absence requests: the teacher's form and list, and the manager's cards */
+.absence-form-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.absence-request-form input[type="date"],
+.absence-request-form input[type="time"] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(11, 28, 52, 0.16);
+  border-radius: 10px;
+  font: inherit;
+}
+.absence-form-hint { margin: -6px 0 0; color: var(--muted); font-size: 0.72rem; }
+.absence-item > div:first-child { align-items: center; }
+.absence-period { margin: 6px 0 2px; color: var(--navy); font-weight: 800; }
+.absence-decision {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-inline-start: 3px solid var(--green);
+  border-radius: 8px;
+  background: rgba(79, 187, 55, 0.07);
+}
+.absence-decision-rejected {
+  border-inline-start-color: var(--pink);
+  background: rgba(229, 28, 111, 0.06);
+}
+.absence-decision p { margin: 4px 0 0; color: var(--navy); white-space: normal; }
+.absence-withdraw-form { margin-top: 8px; }
 
 /* Parent behaviour + expiation panel */
 .parent-behaviour { margin-top: 22px; }
