@@ -86,9 +86,17 @@
     }
 
     const arabic = isArabic();
+    const manageUrl = panel.dataset.manageUrl || "";
+    const csrf = panel.dataset.appCsrf || "";
+
     items.forEach((item) => {
+      // Same shape the page renders, so a line that arrived while you were
+      // reading behaves exactly like one that was there when you opened it.
+      const row = document.createElement("div");
+      row.className = "notif-row" + (item.unread ? " is-unread" : "");
+
       const node = document.createElement("a");
-      node.className = "notif-item" + (item.unread ? " is-unread" : "");
+      node.className = "notif-item";
       node.href = item.open_url;
 
       const title = document.createElement("strong");
@@ -108,7 +116,35 @@
       when.textContent = item.created_at;
 
       node.append(title, body, when);
-      list.append(node);
+      row.append(node);
+
+      if (manageUrl !== "") {
+        const form = document.createElement("form");
+        form.className = "notif-delete";
+        form.method = "post";
+        form.action = manageUrl;
+
+        [
+          ["csrf", csrf],
+          ["action", "delete"],
+          ["id", String(item.id)],
+        ].forEach(([name, value]) => {
+          const field = document.createElement("input");
+          field.type = "hidden";
+          field.name = name;
+          field.value = value;
+          form.append(field);
+        });
+
+        const remove = document.createElement("button");
+        remove.type = "submit";
+        remove.setAttribute("aria-label", arabic ? "حذف هذا الإشعار" : "Delete this notification");
+        remove.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+        form.append(remove);
+        row.append(form);
+      }
+
+      list.append(row);
     });
   };
 

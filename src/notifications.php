@@ -381,6 +381,80 @@ function notification_link_for(PDO $pdo, int $userId, int $notificationId): stri
     return $link;
 }
 
+/**
+ * How long a notification is kept.
+ *
+ * A week. Everything these announce - a child arrived, a month was paid, a
+ * warning was issued - is a fact about a particular day, and the place to read
+ * it afterwards is the page it points at, not the bell. Without this the table
+ * is the one that grows forever, because nothing else ever removes a row.
+ */
+const KHOTWA_NOTIFICATION_DAYS = 7;
+
+/**
+ * Drop everything older than a week, for everybody.
+ *
+ * Called from the bell rather than from a scheduled job, because this machine
+ * runs no scheduler: whoever opens a portal first on a given day pays for the
+ * sweep, and it is one indexed delete. The marker row keeps it to once a day
+ * instead of once a page load.
+ */
+function notifications_prune(PDO $pdo): void
+{
+    try {
+        $today = date('Y-m-d');
+        $alreadyRun = $pdo->prepare(
+            "SELECT 1 FROM homepage_settings
+             WHERE setting_key = 'notifications_pruned_on' AND setting_value = ?
+             LIMIT 1"
+        );
+        $alreadyRun->execute([$today]);
+        if ($alreadyRun->fetchColumn()) {
+            return;
+        }
+
+        $pdo->prepare(
+            'DELETE FROM notifications WHERE created_at < (NOW() - INTERVAL ? DAY)'
+        )->execute([KHOTWA_NOTIFICATION_DAYS]);
+
+        $pdo->prepare(
+            "INSERT INTO homepage_settings (setting_key, setting_value)
+             VALUES ('notifications_pruned_on', ?)
+             ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)"
+        )->execute([$today]);
+    } catch (Throwable $exception) {
+        // A sweep that fails is not a reason to withhold the bell.
+    }
+}
+
+/**
+ * One notification, thrown away by the person it belongs to.
+ *
+ * The user id is part of the match, so a row belonging to somebody else simply
+ * does not delete rather than being refused with an error that says it exists.
+ */
+function notifications_delete(PDO $pdo, int $userId, int $notificationId): void
+{
+    try {
+        $pdo->prepare('DELETE FROM notifications WHERE id = ? AND user_id = ?')
+            ->execute([$notificationId, $userId]);
+    } catch (Throwable $exception) {
+        // The list simply still shows it.
+    }
+}
+
+/**
+ * The whole list, cleared by its owner.
+ */
+function notifications_delete_all(PDO $pdo, int $userId): void
+{
+    try {
+        $pdo->prepare('DELETE FROM notifications WHERE user_id = ?')->execute([$userId]);
+    } catch (Throwable $exception) {
+        // The list simply stays as it was.
+    }
+}
+
 function notifications_mark_all_read(PDO $pdo, int $userId): void
 {
     try {

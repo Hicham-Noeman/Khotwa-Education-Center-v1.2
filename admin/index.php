@@ -1517,7 +1517,8 @@ try {
                     <?php
                     $fieldName = (string) $column['COLUMN_NAME'];
                     $fieldValue = $_POST['fields'][$fieldName] ?? admin_default_field_value($column);
-                    admin_render_field($pdo, admin_view_tables()[$view], $column, $fieldValue);
+                    // True: this is the add form, so a password cannot be skipped.
+                    admin_render_field($pdo, admin_view_tables()[$view], $column, $fieldValue, [], false, [], '', true);
                     ?>
                   <?php endforeach; ?>
                 </div>

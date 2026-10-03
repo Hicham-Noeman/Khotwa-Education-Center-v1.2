@@ -742,7 +742,8 @@ function admin_render_field(
     array $locked = [],
     bool $showHidden = false,
     array $hiddenOnly = [],
-    string $help = ''
+    string $help = '',
+    bool $isNew = false
 ): void
 {
     $name = (string) $column['COLUMN_NAME'];
@@ -803,10 +804,15 @@ function admin_render_field(
     $label = $name === 'password_hash' ? 'Password' : admin_column_label($name);
     $type = (string) $column['DATA_TYPE'];
     $required = $column['IS_NULLABLE'] === 'NO' && $column['COLUMN_DEFAULT'] === null ? ' required' : '';
-    // A password is never re-typed to save a record: an empty box means "keep the
-    // one already set", and admin_save_record leaves the stored hash alone.
+    /*
+     * A password is never re-typed to save an existing record: an empty box means
+     * "keep the one already set", and admin_save_record leaves the stored hash
+     * alone. A new account is the exception - it has no password to keep, and the
+     * save refuses one without it, so the form has to say so before it is sent
+     * rather than after.
+     */
     if ($name === 'password_hash') {
-        $required = '';
+        $required = $isNew ? ' required' : '';
     }
     $isLocked = array_key_exists($name, $locked);
     $value = $isLocked ? $locked[$name] : $value;
@@ -906,9 +912,12 @@ function admin_render_field(
         };
         $step = $type === 'decimal' ? ' step="0.01"' : '';
         // An empty password box keeps whatever is already stored, so it says so.
-        $hint = $name === 'password_hash'
-            ? ' placeholder="Leave blank to keep the current password"'
-            : '';
+        $hint = '';
+        if ($name === 'password_hash') {
+            $hint = $isNew
+                ? ' placeholder="Needed so this person can sign in"'
+                : ' placeholder="Leave blank to keep the current password"';
+        }
         /*
          * The mother's occupation is free text like the father's, but one answer
          * comes up far more often than any other, so it is offered as a suggestion.

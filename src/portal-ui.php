@@ -114,7 +114,10 @@ function portal_notification_center(int $userId): void
     $drawn = true;
 
     try {
-        $items = notifications_recent(khotwa_db(), $userId, 20);
+        $pdo = khotwa_db();
+        // Once a day, drop everything older than a week.
+        notifications_prune($pdo);
+        $items = notifications_recent($pdo, $userId, 20);
     } catch (Throwable $exception) {
         $items = [];
     }
@@ -132,13 +135,21 @@ function portal_notification_center(int $userId): void
                // is why it is the one at the project root. ?>
          data-feed-url="<?= $e(khotwa_url('notifications-feed.php')) ?>"
          data-subscribe-url="<?= $e(khotwa_url('notifications-subscribe.php')) ?>"
-         data-worker-url="<?= $e(khotwa_url('sw.js')) ?>">
+         data-worker-url="<?= $e(khotwa_url('sw.js')) ?>"
+         data-manage-url="<?= $e(khotwa_url('notifications-read.php')) ?>">
       <div class="notif-head">
         <strong>Notifications</strong>
         <?php // Clearing the badge is a post, so it survives a refresh. ?>
         <form method="post" action="<?= $e(khotwa_url('notifications-read.php')) ?>">
           <input type="hidden" name="csrf" value="<?= $e(app_csrf_token()) ?>">
           <button class="notif-clear" type="submit">Mark all read</button>
+        </form>
+        <?php // Emptying the list is a separate act from having read it. ?>
+        <form method="post" action="<?= $e(khotwa_url('notifications-read.php')) ?>"
+              onsubmit="return confirm('Delete all notifications?');">
+          <input type="hidden" name="csrf" value="<?= $e(app_csrf_token()) ?>">
+          <input type="hidden" name="action" value="delete_all">
+          <button class="notif-clear is-danger" type="submit">Clear all</button>
         </form>
         <button class="notif-close" type="button" data-notifications-close aria-label="Close">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -155,7 +166,8 @@ function portal_notification_center(int $userId): void
                    * and reading it are the same act, which is what a phone needs:
                    * the panel covers the page, so there is no second step there.
                    */ ?>
-            <a class="notif-item<?= $item['read_at'] === null ? ' is-unread' : '' ?>"
+            <div class="notif-row<?= $item['read_at'] === null ? ' is-unread' : '' ?>">
+            <a class="notif-item"
               href="<?= $e(khotwa_url('notifications-open.php')) ?>?id=<?= $e((string) $item['id']) ?>">
               <strong data-i18n-skip
                       data-en="<?= $e((string) $item['title_en']) ?>"
@@ -165,6 +177,16 @@ function portal_notification_center(int $userId): void
                     data-ar="<?= $e((string) $item['body_ar']) ?>"><?= $e((string) $item['body_en']) ?></span>
               <small data-i18n-skip><?= $e(fmt_datetime((string) $item['created_at'])) ?></small>
             </a>
+            <?php // Outside the link, so throwing one away never opens it first. ?>
+            <form method="post" action="<?= $e(khotwa_url('notifications-read.php')) ?>" class="notif-delete">
+              <input type="hidden" name="csrf" value="<?= $e(app_csrf_token()) ?>">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="id" value="<?= $e((string) $item['id']) ?>">
+              <button type="submit" aria-label="Delete this notification">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+              </button>
+            </form>
+            </div>
           <?php endforeach; ?>
         <?php endif; ?>
       </div>

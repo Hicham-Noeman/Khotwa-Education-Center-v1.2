@@ -36,9 +36,25 @@ if ($referer !== '') {
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     try {
         verify_app_csrf();
-        notifications_mark_all_read(khotwa_db(), (int) $user['id']);
+        $pdo = khotwa_db();
+        $userId = (int) $user['id'];
+
+        /*
+         * Three things the panel can ask for, all of them about this person's own
+         * list: mark it read, throw one line away, or empty it.
+         */
+        switch ((string) ($_POST['action'] ?? 'read_all')) {
+            case 'delete':
+                notifications_delete($pdo, $userId, (int) ($_POST['id'] ?? 0));
+                break;
+            case 'delete_all':
+                notifications_delete_all($pdo, $userId);
+                break;
+            default:
+                notifications_mark_all_read($pdo, $userId);
+        }
     } catch (Throwable $exception) {
-        // The badge simply stays as it was.
+        // The list simply stays as it was.
     }
 }
 
