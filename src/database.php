@@ -56,7 +56,7 @@ const KHOTWA_CENTER_HOURS_EN = 'Mon-Thu & Sat, 3:00-8:00 PM';
 const KHOTWA_CENTER_HOURS_AR = 'الاثنين–الخميس والسبت، 3:00–8:00 مساءً';
 
 // Increment this only when a release needs createKhotwaTables/applyKhotwaMigrations again.
-const KHOTWA_SCHEMA_VERSION = 35;
+const KHOTWA_SCHEMA_VERSION = 37;
 
 function getDatabaseConnection(): PDO
 {
@@ -576,7 +576,6 @@ function createKhotwaTables(PDO $pdo): void
 
             certifications_en VARCHAR(255) NULL,
             certifications_ar VARCHAR(255) NULL,
-            is_teacher_of_the_month TINYINT(1) NOT NULL DEFAULT 0,
             video_url VARCHAR(255) NULL,
 
             notes VARCHAR(255) NULL,
@@ -1002,25 +1001,6 @@ function createKhotwaTables(PDO $pdo): void
             INDEX idx_homepage_statistics_order (status, sort_order)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
-        "CREATE TABLE IF NOT EXISTS homepage_team_members (
-            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-            name_en VARCHAR(180) NOT NULL,
-            name_ar VARCHAR(180) NOT NULL,
-            role_en VARCHAR(180) NOT NULL,
-            role_ar VARCHAR(180) NOT NULL,
-            subjects_en VARCHAR(255) NOT NULL,
-            subjects_ar VARCHAR(255) NOT NULL,
-            initials VARCHAR(12) NULL,
-            image_path VARCHAR(255) NULL,
-            contact_url VARCHAR(500) NULL,
-            sort_order SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-            status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            INDEX idx_homepage_team_order (status, sort_order)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-
         "CREATE TABLE IF NOT EXISTS homepage_gallery_images (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             image_path VARCHAR(255) NOT NULL,
@@ -1315,6 +1295,31 @@ function createKhotwaTables(PDO $pdo): void
                 ON UPDATE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
+        /*
+         * Who the center celebrates each month. A month is stored as its first day
+         * and holds one teacher; choosing someone else for the same month replaces
+         * the row rather than adding a second winner. Months can be planned ahead.
+         */
+        "CREATE TABLE IF NOT EXISTS teacher_of_month (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            month_start DATE NOT NULL,
+            teacher_id BIGINT UNSIGNED NOT NULL,
+            chosen_by_user_id BIGINT UNSIGNED NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_teacher_of_month_month (month_start),
+            INDEX idx_teacher_of_month_teacher (teacher_id),
+            CONSTRAINT fk_teacher_of_month_teacher
+                FOREIGN KEY (teacher_id) REFERENCES teachers(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_teacher_of_month_chooser
+                FOREIGN KEY (chosen_by_user_id) REFERENCES users(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
         // Reporting views used to live here. Three of them were never queried by any
         // page, and shared hosting commonly withholds CREATE VIEW, which stopped the
         // whole schema from being built. The one that was used is now a derived table
@@ -1516,8 +1521,7 @@ function seedHomepageCollectionsDefaults(PDO $pdo): void
 
     // No team members are seeded. The homepage team section is built from the real
     // teachers in the teachers table (see homepage_team_from_teachers), so there is
-    // nothing to invent here. The old homepage_team_members rows are cleared by
-    // khotwa_migrate_retire_demo_team().
+    // nothing to invent here.
 
     $galleryImages = [
         [
@@ -1739,19 +1743,37 @@ function khotwa_migrate_remove_demo_partners(PDO $pdo): void
     }
 }
 
-/**
- * Retire the three invented team members from the original demo data.
- *
- * The homepage team section is drawn from the teachers table now. Only the exact demo
- * rows are removed, so anything an administrator added by hand survives - though it no
- * longer appears on the homepage.
+/*
+ * "Teacher of the month" used to be a yes/no box on the teacher, which could not
+ * say which month it meant and was never shown anywhere. It is now a schedule,
+ * one teacher per month. A teacher who had the box ticked keeps the title for
+ * the current month, so nothing an admin set is lost, and the box goes.
  */
-function khotwa_migrate_retire_demo_team(PDO $pdo): void
+function khotwa_migrate_teacher_of_month_flag(PDO $pdo): void
 {
-    $statement = $pdo->prepare('DELETE FROM homepage_team_members WHERE name_en = ? AND image_path IS NULL');
-    foreach (['Rana Mansour', 'Omar Saad', 'Layla Nasser'] as $demoName) {
-        $statement->execute([$demoName]);
+    if (!columnExists($pdo, 'teachers', 'is_teacher_of_the_month')) {
+        return;
     }
+
+    $flagged = $pdo->query(
+        'SELECT id FROM teachers WHERE is_teacher_of_the_month = 1 ORDER BY updated_at DESC, id DESC LIMIT 1'
+    )->fetchColumn();
+    if ($flagged !== false) {
+        $pdo->prepare('INSERT IGNORE INTO teacher_of_month (month_start, teacher_id) VALUES (?, ?)')
+            ->execute([date('Y-m-01'), (int) $flagged]);
+    }
+
+    dropColumnIfExists($pdo, 'teachers', 'is_teacher_of_the_month');
+}
+
+/*
+ * The homepage team used to be typed into its own table. It is built from the
+ * teachers table now (homepage_team_from_teachers), so nothing reads or writes
+ * homepage_team_members any more and it goes.
+ */
+function khotwa_migrate_drop_homepage_team_members(PDO $pdo): void
+{
+    $pdo->exec('DROP TABLE IF EXISTS homepage_team_members');
 }
 
 function khotwa_migrate_contact_placeholders(PDO $pdo): void
@@ -1824,7 +1846,7 @@ function applyKhotwaMigrations(PDO $pdo): void
 
     khotwa_migrate_contact_placeholders($pdo);
     khotwa_migrate_remove_demo_partners($pdo);
-    khotwa_migrate_retire_demo_team($pdo);
+    khotwa_migrate_drop_homepage_team_members($pdo);
 
     // The teaching language is the foreign-language stream the student follows, so the
     // options are French and English. Rows recorded as 'Arabic' predate that and are
@@ -2168,15 +2190,10 @@ function applyKhotwaMigrations(PDO $pdo): void
     addColumnIfMissing(
         $pdo,
         'teachers',
-        'is_teacher_of_the_month',
-        'is_teacher_of_the_month TINYINT(1) NOT NULL DEFAULT 0 AFTER certifications_ar'
-    );
-    addColumnIfMissing(
-        $pdo,
-        'teachers',
         'video_url',
-        'video_url VARCHAR(255) NULL AFTER is_teacher_of_the_month'
+        'video_url VARCHAR(255) NULL AFTER certifications_ar'
     );
+    khotwa_migrate_teacher_of_month_flag($pdo);
 
     // Experience used to be a typed-in number of years, which goes stale the moment
     // it is saved. Any figure already recorded is converted to the matching start

@@ -192,6 +192,11 @@ const renderStatistics = (language) => {
   setupCounters(grid);
 };
 
+// Kept in step with homepage_crown_svg() in index.php.
+const CROWN_SVG = '<svg viewBox="0 0 64 48"><path class="crown-body" d="M6 14l14 12L32 6l12 20 14-12-6 28H12z"/>'
+  + '<path class="crown-band" d="M12 36h40v6H12z"/>'
+  + '<circle cx="6" cy="14" r="4"/><circle cx="32" cy="6" r="4"/><circle cx="58" cy="14" r="4"/></svg>';
+
 const renderTeam = (language) => {
   const grid = document.querySelector("[data-homepage-team]");
   if (!grid || homepageCollections.team.length === 0) return;
@@ -203,6 +208,10 @@ const renderTeam = (language) => {
     const card = document.createElement("article");
     card.className = "team-card is-visible";
     card.dataset.reveal = "";
+    if (row.is_teacher_of_month) {
+      card.classList.add("is-teacher-of-month");
+      card.dataset.teacherOfMonth = "";
+    }
 
     const portraitNames = ["one", "two", "three"];
     const portrait = document.createElement("div");
@@ -224,6 +233,12 @@ const renderTeam = (language) => {
       const shape = document.createElement("div");
       shape.className = "portrait-shape";
       portrait.append(initials, shape);
+    }
+    if (row.is_teacher_of_month) {
+      const ribbon = document.createElement("span");
+      ribbon.className = "team-month-ribbon";
+      ribbon.textContent = language === "ar" ? translate("Teacher of the month") : "Teacher of the month";
+      portrait.append(ribbon);
     }
 
     const info = document.createElement("div");
@@ -260,6 +275,13 @@ const renderTeam = (language) => {
     card.dataset.teacherVideo = row.video_url || "";
 
     card.append(portrait, info, subjects);
+    if (row.is_teacher_of_month) {
+      const crown = document.createElement("span");
+      crown.className = "team-crown";
+      crown.setAttribute("aria-hidden", "true");
+      crown.innerHTML = CROWN_SVG;
+      portrait.after(crown);
+    }
     grid.append(card);
   });
 
@@ -1251,4 +1273,327 @@ document.querySelector("#year").textContent = new Date().getFullYear();
     window.clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(centreMiddleCard, 200);
   });
+})();
+
+// ── Teacher of the month celebration ──────────────────────────────────────
+/*
+ * Every time the teacher of the month's card scrolls into view, fireworks go up
+ * around it and the card gets a little fanfare. Scrolling away and coming back
+ * plays it again. Not at all for a visitor who asked for less motion: they still
+ * see the crown.
+ */
+(() => {
+  const section = document.querySelector("#team");
+  if (!section || reduceMotion || !("IntersectionObserver" in window)) return;
+
+  const colors = ["#f49f0f", "#e51c6f", "#4fbb37", "#223f6b", "#ffd166", "#ffffff"];
+  // The show in progress, so a replay can end it before starting afresh.
+  let stopShow = null;
+
+  /*
+   * Fireworks sounds, synthesised with the Web Audio API so there is no file to
+   * download: a rising whistle per rocket, a boom when it bursts, and a crackle
+   * as the sparks fall. Browsers only allow sound after the visitor has clicked,
+   * tapped or pressed a key on the page (scrolling does not count), so the audio
+   * is unlocked on the first such gesture and the show stays silent until then.
+   */
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  let audio = null;
+  let noise = null;
+
+  const unlockAudio = () => {
+    if (!AudioContextClass) return;
+    try {
+      audio = audio || new AudioContextClass();
+      if (audio.state === "suspended") audio.resume();
+      if (!noise) {
+        noise = audio.createBuffer(1, audio.sampleRate, audio.sampleRate);
+        const data = noise.getChannelData(0);
+        for (let i = 0; i < data.length; i += 1) data[i] = Math.random() * 2 - 1;
+      }
+    } catch {
+      audio = null;
+    }
+  };
+  ["pointerdown", "keydown", "touchend"].forEach((type) => {
+    window.addEventListener(type, unlockAudio, { passive: true });
+  });
+
+  const soundReady = () => audio && audio.state === "running" && noise;
+
+  // Left-to-right position on screen becomes left-to-right in the speakers.
+  const output = (pan, volume) => {
+    const gain = audio.createGain();
+    gain.gain.value = volume;
+    if (audio.createStereoPanner) {
+      const panner = audio.createStereoPanner();
+      panner.pan.value = Math.max(-0.9, Math.min(0.9, pan));
+      gain.connect(panner).connect(audio.destination);
+    } else {
+      gain.connect(audio.destination);
+    }
+    return gain;
+  };
+
+  const playNoise = (destination, at, duration, filterType, frequency, peak) => {
+    const source = audio.createBufferSource();
+    source.buffer = noise;
+    const filter = audio.createBiquadFilter();
+    filter.type = filterType;
+    filter.frequency.value = frequency;
+    const envelope = audio.createGain();
+    envelope.gain.setValueAtTime(0.0001, at);
+    envelope.gain.exponentialRampToValueAtTime(peak, at + 0.008);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, at + duration);
+    source.connect(filter).connect(envelope).connect(destination);
+    source.start(at, Math.random() * 0.5, duration + 0.05);
+  };
+
+  const soundWhistle = (pan) => {
+    if (!soundReady()) return;
+    const now = audio.currentTime;
+    const out = output(pan, 0.05);
+    const tone = audio.createOscillator();
+    tone.type = "sine";
+    tone.frequency.setValueAtTime(500 + Math.random() * 200, now);
+    tone.frequency.exponentialRampToValueAtTime(1500 + Math.random() * 500, now + 0.55);
+    const envelope = audio.createGain();
+    envelope.gain.setValueAtTime(0.0001, now);
+    envelope.gain.exponentialRampToValueAtTime(1, now + 0.08);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+    tone.connect(envelope).connect(out);
+    tone.start(now);
+    tone.stop(now + 0.65);
+  };
+
+  const soundBurst = (pan) => {
+    if (!soundReady()) return;
+    const now = audio.currentTime;
+    const out = output(pan, 0.35);
+
+    // The boom: a low thump under a burst of filtered noise.
+    const thump = audio.createOscillator();
+    thump.frequency.setValueAtTime(140, now);
+    thump.frequency.exponentialRampToValueAtTime(40, now + 0.4);
+    const thumpEnvelope = audio.createGain();
+    thumpEnvelope.gain.setValueAtTime(0.0001, now);
+    thumpEnvelope.gain.exponentialRampToValueAtTime(0.9, now + 0.01);
+    thumpEnvelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+    thump.connect(thumpEnvelope).connect(out);
+    thump.start(now);
+    thump.stop(now + 0.5);
+    playNoise(out, now, 0.7, "lowpass", 1400, 1);
+
+    // The crackle: short high clicks scattered over the next second.
+    for (let i = 0; i < 14; i += 1) {
+      playNoise(out, now + 0.25 + Math.random() * 1.1, 0.03 + Math.random() * 0.04, "highpass", 3000, 0.35);
+    }
+  };
+
+  const launch = () => {
+    const card = section.querySelector("[data-teacher-of-month]");
+    if (!card) return;
+    stopShow?.();
+
+    card.classList.remove("is-celebrating");
+    void card.offsetWidth; // restart the CSS animation if it already ran
+    card.classList.add("is-celebrating");
+
+    const canvas = document.createElement("canvas");
+    canvas.className = "team-fireworks";
+    canvas.setAttribute("aria-hidden", "true");
+    section.append(canvas);
+    const context = canvas.getContext("2d");
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    const resize = () => {
+      canvas.width = section.clientWidth * ratio;
+      canvas.height = section.clientHeight * ratio;
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    };
+    resize();
+
+    // The show is staged in the part of the section on screen, with the bursts
+    // leaning towards the card so the celebration clearly belongs to it.
+    const width = section.clientWidth;
+    const sectionBox = section.getBoundingClientRect();
+    const cardBox = card.getBoundingClientRect();
+    const centerX = cardBox.left - sectionBox.left + cardBox.width / 2;
+    const visibleTop = Math.max(0, -sectionBox.top);
+    const visibleBottom = Math.min(section.clientHeight, visibleTop + window.innerHeight);
+    const skyTop = visibleTop + 70;
+    const skyBottom = Math.max(skyTop + 80, Math.min(cardBox.top - sectionBox.top + 60, visibleTop + window.innerHeight * 0.45));
+    const clampX = (x) => Math.min(width - 40, Math.max(40, x));
+
+    const rockets = [];
+    const sparks = [];
+    const confetti = [];
+    const bursts = 10;
+    for (let i = 0; i < bursts; i += 1) {
+      // Every other rocket goes up near the card; the rest fill the sky around it.
+      const spread = i % 2 === 0 ? 320 : Math.min(width * 0.95, 1100);
+      rockets.push({
+        delay: i * 260 + Math.random() * 160,
+        x: clampX(centerX + (Math.random() - 0.5) * spread),
+        y: visibleBottom,
+        targetY: skyTop + Math.random() * (skyBottom - skyTop),
+        color: colors[i % colors.length],
+        done: false,
+      });
+    }
+
+    for (let i = 0; i < 110; i += 1) {
+      confetti.push({
+        x: Math.random() * width,
+        y: visibleTop - 20 - Math.random() * window.innerHeight * 0.6,
+        vy: 1.6 + Math.random() * 2.2,
+        sway: Math.random() * Math.PI * 2,
+        spin: Math.random() * Math.PI,
+        spinSpeed: (Math.random() - 0.5) * 0.25,
+        size: 6 + Math.random() * 6,
+        color: colors[i % (colors.length - 1)],
+      });
+    }
+
+    const explode = (rocket) => {
+      const count = 70 + Math.floor(Math.random() * 30);
+      const power = 3 + Math.random() * 2;
+      for (let i = 0; i < count; i += 1) {
+        const angle = (Math.PI * 2 * i) / count + Math.random() * 0.1;
+        const speed = power * (0.45 + Math.random() * 0.75);
+        sparks.push({
+          x: rocket.x,
+          y: rocket.y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 1,
+          decay: 0.01 + Math.random() * 0.01,
+          color: Math.random() < 0.3 ? "#ffd166" : rocket.color,
+        });
+      }
+    };
+
+    let stopped = false;
+    stopShow = () => {
+      stopped = true;
+      canvas.remove();
+    };
+
+    const start = performance.now();
+    const tick = (now) => {
+      if (stopped) return;
+      const elapsed = now - start;
+      context.clearRect(0, 0, width, section.clientHeight);
+      context.lineCap = "round";
+
+      rockets.forEach((rocket) => {
+        if (rocket.done || elapsed < rocket.delay) return;
+        if (!rocket.whistled) {
+          rocket.whistled = true;
+          soundWhistle((rocket.x / width) * 2 - 1);
+        }
+        const step = Math.max(7, (rocket.y - rocket.targetY) * 0.09);
+        context.strokeStyle = rocket.color;
+        context.lineWidth = 3;
+        context.beginPath();
+        context.moveTo(rocket.x, rocket.y + step * 2.5);
+        context.lineTo(rocket.x, rocket.y);
+        context.stroke();
+        rocket.y -= step;
+        if (rocket.y - rocket.targetY < 6) {
+          rocket.done = true;
+          explode(rocket);
+          soundBurst((rocket.x / width) * 2 - 1);
+        }
+      });
+
+      // Each spark is drawn as a short streak along its path, which reads as a
+      // firework trail on a white page where a dot would just look like dust.
+      for (let i = sparks.length - 1; i >= 0; i -= 1) {
+        const spark = sparks[i];
+        spark.vx *= 0.97;
+        spark.vy = spark.vy * 0.97 + 0.06;
+        spark.x += spark.vx;
+        spark.y += spark.vy;
+        spark.life -= spark.decay;
+        if (spark.life <= 0) {
+          sparks.splice(i, 1);
+          continue;
+        }
+        context.globalAlpha = Math.min(1, spark.life * 1.4);
+        context.strokeStyle = spark.color;
+        context.lineWidth = 2.6;
+        context.beginPath();
+        context.moveTo(spark.x - spark.vx * 3.5, spark.y - spark.vy * 3.5);
+        context.lineTo(spark.x, spark.y);
+        context.stroke();
+      }
+
+      // Confetti starts once the first bursts have opened.
+      if (elapsed > 600) {
+        for (let i = confetti.length - 1; i >= 0; i -= 1) {
+          const piece = confetti[i];
+          piece.y += piece.vy;
+          piece.sway += 0.05;
+          piece.spin += piece.spinSpeed;
+          if (piece.y > visibleBottom + 20) {
+            confetti.splice(i, 1);
+            continue;
+          }
+          context.globalAlpha = 0.95;
+          context.save();
+          context.translate(piece.x + Math.sin(piece.sway) * 14, piece.y);
+          context.rotate(piece.spin);
+          context.scale(1, Math.cos(piece.spin * 2));
+          context.fillStyle = piece.color;
+          context.fillRect(-piece.size / 2, -piece.size / 4, piece.size, piece.size / 2);
+          context.restore();
+        }
+      }
+      context.globalAlpha = 1;
+
+      const running = sparks.length > 0 || confetti.length > 0 || rockets.some((rocket) => !rocket.done);
+      if (running && elapsed < 9000) {
+        window.requestAnimationFrame(tick);
+      } else {
+        stopShow();
+        stopShow = null;
+      }
+    };
+    window.requestAnimationFrame(tick);
+  };
+
+  /*
+   * Watches the card itself, so the show plays each time it comes back on screen.
+   * It counts as gone only once fully off screen, so a small scroll while it is
+   * still visible does not set the fireworks off again.
+   */
+  let inView = false;
+  let firstShow = true;
+  let pendingLaunch = 0;
+  const watcher = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting && entry.intersectionRatio >= 0.35) {
+        if (inView) return;
+        inView = true;
+        // The first time, a beat for the cards to finish revealing; after that, at once.
+        pendingLaunch = window.setTimeout(launch, firstShow ? 450 : 60);
+        firstShow = false;
+      } else if (!entry.isIntersecting) {
+        inView = false;
+        window.clearTimeout(pendingLaunch);
+      }
+    });
+  }, { threshold: [0, 0.35] });
+
+  // renderTeam() replaces the cards when the content refreshes from the API or
+  // the language changes, so the new card is watched in place of the old one.
+  // inView carries over, so a re-render with the card on screen does not replay.
+  const grid = section.querySelector("[data-homepage-team]");
+  const watchCard = () => {
+    watcher.disconnect();
+    const card = grid?.querySelector("[data-teacher-of-month]");
+    if (card) watcher.observe(card);
+  };
+  watchCard();
+  if (grid) new MutationObserver(watchCard).observe(grid, { childList: true });
 })();

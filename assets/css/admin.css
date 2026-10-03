@@ -949,6 +949,107 @@ svg {
 .metric-green { color: var(--green); }
 .metric-pink { color: var(--pink); }
 .metric-navy { color: var(--navy); }
+/* Money still owed reads in the same red a standing warning does. */
+.metric-red { color: #C2334D; }
+
+/*
+ * The overview queue: one line per thing waiting for a person, each one a link
+ * to the screen that settles it. The number leads, because the number is what
+ * decides whether the line is worth opening.
+ */
+.overview-attention {
+  margin-bottom: 18px;
+}
+
+.attention-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attention-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  margin-bottom: 9px;
+  color: var(--navy);
+  text-decoration: none;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+
+.attention-list li:last-child .attention-row {
+  margin-bottom: 0;
+}
+
+.attention-row:hover,
+.attention-row:focus-visible {
+  border-color: var(--navy);
+  background: var(--soft);
+  outline: none;
+  transform: translateX(2px);
+}
+
+[dir="rtl"] .attention-row:hover,
+[dir="rtl"] .attention-row:focus-visible {
+  transform: translateX(-2px);
+}
+
+.attention-row strong {
+  flex: none;
+  min-width: 46px;
+  font-family: var(--display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  text-align: center;
+}
+
+.attention-row span {
+  flex: 1;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.attention-row svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--muted);
+}
+
+[dir="rtl"] .attention-row svg {
+  transform: scaleX(-1);
+}
+
+/* Red is for what a family is waiting on, or for money. Amber is the office queue. */
+.attention-row.is-red strong {
+  color: #C2334D;
+}
+
+.attention-row.is-red {
+  border-color: rgba(194, 51, 77, 0.3);
+  background: rgba(194, 51, 77, 0.04);
+}
+
+.attention-row.is-amber strong {
+  color: var(--orange);
+}
+
+@media (max-width: 560px) {
+  .attention-row strong {
+    min-width: 38px;
+    font-size: 1.25rem;
+  }
+}
 
 .overview-grid {
   display: grid;
@@ -6415,5 +6516,162 @@ body:not(.is-arabic) [data-lang="ar"] {
 @media (max-width: 860px) {
   .agreement-bilingual {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ── Teacher of the month (homepage studio) ─────────────────────────────── */
+.studio-month-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 22px;
+  padding: 22px;
+  border: 1px solid rgba(244, 159, 15, 0.35);
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fffaf0, var(--paper) 60%);
+  box-shadow: 0 10px 30px rgba(244, 159, 15, 0.08);
+}
+
+.studio-month-form {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.studio-month-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+
+.studio-month-fields .studio-date-field {
+  flex: 1 1 180px;
+}
+
+.studio-date-field select {
+  padding: 10px 12px;
+  color: var(--navy);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.studio-date-field select:focus {
+  border-color: var(--orange);
+  outline: none;
+}
+
+.studio-month-warning {
+  margin-top: 8px !important;
+  color: #a35a00 !important;
+  font-weight: 700;
+}
+
+.studio-month-schedule h4 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.63rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.studio-month-schedule ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.studio-month-schedule li {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+
+.studio-month-schedule li.is-current {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px rgba(244, 159, 15, 0.12);
+}
+
+.studio-month-when {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.studio-month-when b {
+  display: inline-block;
+  margin-inline-start: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--navy-deep);
+  background: #ffd166;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.studio-month-who {
+  display: grid;
+  min-width: 0;
+}
+
+.studio-month-who strong {
+  overflow: hidden;
+  color: var(--navy);
+  font-size: 0.85rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-month-who small {
+  color: #a35a00;
+  font-size: 0.68rem;
+}
+
+.studio-month-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.studio-month-actions form {
+  margin: 0;
+}
+
+.studio-month-actions .secondary-action {
+  padding: 6px 12px;
+  font-size: 0.72rem;
+}
+
+.studio-month-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.studio-month-tag {
+  color: #a35a00 !important;
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .studio-month-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .studio-month-schedule li {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

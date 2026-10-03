@@ -104,7 +104,7 @@ try {
                 teachers.teaches_primary, teachers.teaches_intermediate, teachers.teaches_secondary,
                 teachers.teaching_since, teachers.joined_center_on,
                 teachers.certifications_en, teachers.certifications_ar,
-                teachers.is_teacher_of_the_month, teachers.video_url, teachers.photo_path
+                teachers.video_url, teachers.photo_path
          FROM teachers
          INNER JOIN users ON users.teacher_id = teachers.id
          WHERE teachers.id = ? AND users.id = ? AND teachers.status = 'active'

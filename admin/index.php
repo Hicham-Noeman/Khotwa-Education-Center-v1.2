@@ -98,6 +98,11 @@ $websiteCollections = [
 $admissionsBannerVisible = true;
 $pendingReviewCount = 0;
 $foundingDate = '';
+$teacherOfMonthTeachers = [];
+$teacherOfMonthSchedule = [];
+$teacherOfMonthCurrentId = null;
+$teacherOfMonthFormMonth = teacher_of_month_now()->format('Y-m');
+$teacherOfMonthFormTeacher = 0;
 $homepageMetrics = [];
 $agreementRows = [];
 $signedRows = [];
@@ -152,6 +157,13 @@ if (isset($_GET['banner'])) {
 }
 if (isset($_GET['founding'])) {
     $message = 'The founding date was saved. The years of experience counter now uses it.';
+}
+if (isset($_GET['month_saved']) || isset($_GET['month_cleared'])) {
+    $flashMonth = DateTimeImmutable::createFromFormat('!Y-m', (string) ($_GET['month_saved'] ?? $_GET['month_cleared']));
+    $flashLabel = $flashMonth ? $flashMonth->format('F Y') : 'that month';
+    $message = isset($_GET['month_saved'])
+        ? 'The teacher of the month for ' . $flashLabel . ' was saved.'
+        : 'No teacher of the month is set for ' . $flashLabel . ' any more.';
 }
 if (isset($_GET['created_parent'])) {
     $createdParent = trim((string) $_GET['created_parent']);
@@ -504,6 +516,43 @@ try {
                 exit;
             }
 
+            if ($action === 'teacher_of_month_save' || $action === 'teacher_of_month_clear') {
+                if ($postedView !== 'website-content') {
+                    throw new RuntimeException('Invalid table action.');
+                }
+                $monthInput = trim((string) ($_POST['month'] ?? ''));
+                $month = DateTimeImmutable::createFromFormat('!Y-m', $monthInput);
+                if (!$month || $month->format('Y-m') !== $monthInput) {
+                    throw new RuntimeException('Choose the month as a valid month and year.');
+                }
+
+                if ($action === 'teacher_of_month_save') {
+                    $chosenTeacherId = (int) ($_POST['teacher_id'] ?? 0);
+                    $activeCheck = $pdo->prepare("SELECT 1 FROM teachers WHERE id = ? AND status = 'active'");
+                    $activeCheck->execute([$chosenTeacherId]);
+                    if ($chosenTeacherId < 1 || !$activeCheck->fetchColumn()) {
+                        throw new RuntimeException('Choose an active teacher for the teacher of the month.');
+                    }
+
+                    // One teacher per month: choosing again replaces whoever had it.
+                    $pdo->prepare(
+                        'INSERT INTO teacher_of_month (month_start, teacher_id, chosen_by_user_id)
+                         VALUES (?, ?, ?)
+                         ON DUPLICATE KEY UPDATE teacher_id = VALUES(teacher_id),
+                                                 chosen_by_user_id = VALUES(chosen_by_user_id)'
+                    )->execute([$month->format('Y-m-01'), $chosenTeacherId, (int) ($user['id'] ?? 0) ?: null]);
+                } else {
+                    $pdo->prepare('DELETE FROM teacher_of_month WHERE month_start = ?')
+                        ->execute([$month->format('Y-m-01')]);
+                }
+
+                header('Location: ' . khotwa_url('admin/index.php') . '?' . http_build_query([
+                    'view' => 'website-content',
+                    $action === 'teacher_of_month_save' ? 'month_saved' : 'month_cleared' => $monthInput,
+                ]) . '#teacher-of-month');
+                exit;
+            }
+
             if (isset($_POST['review_approve_id']) || isset($_POST['review_reject_id'])) {
                 if ($postedView !== 'website-reviews') {
                     throw new RuntimeException('Invalid table action.');
@@ -632,7 +681,8 @@ try {
     }
 
     if ($view === 'overview') {
-        $pageDescription = 'Scan a student QR code to see their day: attendance, subjects, homework, notes, and open warnings.';
+        $pageDescription = 'How the center stands today, and what is waiting for someone to act on.';
+        $overview = admin_overview_snapshot($pdo);
     } elseif ($view === 'students') {
         $pageDescription = 'Student profiles and their current academic placement. Double-click a student to open every linked record.';
         $columns = [
@@ -1048,8 +1098,38 @@ try {
                 status
              FROM teachers
              WHERE status = 'active'
-             ORDER BY first_name, last_name"
+             ORDER BY first_name, last_name, id"
         )->fetchAll();
+        $teacherOfMonthTeachers = $websiteCollections['team'];
+        $teacherOfMonthCurrentId = teacher_of_month_id($pdo, teacher_of_month_now()->format('Y-m-01'));
+        // The same order the homepage uses: this month's teacher of the month first,
+        // then everyone else alphabetically. usort is stable, so the rest keep the
+        // alphabetical order from the query.
+        usort(
+            $websiteCollections['team'],
+            static fn (array $a, array $b): int =>
+                ((int) $b['id'] === $teacherOfMonthCurrentId) <=> ((int) $a['id'] === $teacherOfMonthCurrentId)
+        );
+        // The last six months for the record, and anything planned ahead.
+        $teacherOfMonthSchedule = $pdo->query(
+            "SELECT teacher_of_month.month_start, teacher_of_month.teacher_id,
+                    TRIM(CONCAT(teachers.first_name, ' ', COALESCE(teachers.last_name, ''))) AS teacher_name,
+                    teachers.status, teachers.show_on_website
+             FROM teacher_of_month
+             INNER JOIN teachers ON teachers.id = teacher_of_month.teacher_id
+             WHERE teacher_of_month.month_start >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 6 MONTH)
+             ORDER BY teacher_of_month.month_start DESC"
+        )->fetchAll();
+        // "Change" on a scheduled month opens the form on that month.
+        $requestedMonth = DateTimeImmutable::createFromFormat('!Y-m', (string) ($_GET['tom_month'] ?? ''));
+        if ($requestedMonth) {
+            $teacherOfMonthFormMonth = $requestedMonth->format('Y-m');
+        }
+        foreach ($teacherOfMonthSchedule as $scheduled) {
+            if (substr((string) $scheduled['month_start'], 0, 7) === $teacherOfMonthFormMonth) {
+                $teacherOfMonthFormTeacher = (int) $scheduled['teacher_id'];
+            }
+        }
         $websiteCollections['gallery'] = $pdo->query(
             "SELECT id, caption_en, caption_ar, layout_style, image_path, sort_order, status
              FROM homepage_gallery_images ORDER BY sort_order, id"
@@ -1222,6 +1302,49 @@ try {
         <?php if ($databaseError !== ''): ?>
           <div class="database-alert"><?= e($databaseError) ?></div>
         <?php elseif ($view === 'overview'): ?>
+          <?php /*
+                 * Four figures for how the day stands, then the queue. The queue
+                 * is the point of the page: every line is something a person has
+                 * to settle, and it links to the screen that settles it. A line
+                 * with nothing in it is not drawn, so an empty list means there
+                 * is genuinely nothing waiting.
+                 */ ?>
+          <section class="metrics-grid">
+            <?php foreach (($overview['tiles'] ?? []) as $tile): ?>
+              <article class="metric-card metric-<?= e((string) $tile['color']) ?>">
+                <span class="metric-dot"></span>
+                <strong data-i18n-skip><?= e((string) $tile['value']) ?></strong>
+                <p><?= e((string) $tile['label']) ?></p>
+              </article>
+            <?php endforeach; ?>
+          </section>
+
+          <section class="data-panel overview-attention">
+            <div class="panel-heading">
+              <div><span>Today</span><h2>Needs attention</h2></div>
+              <strong class="record-count">
+                <span data-i18n-skip><?= e((string) count($overview['attention'] ?? [])) ?></span>
+                <span><?= count($overview['attention'] ?? []) === 1 ? 'item' : 'items' ?></span>
+              </strong>
+            </div>
+
+            <?php if (($overview['attention'] ?? []) === []): ?>
+              <p class="linked-empty">Nothing is waiting. Everything on file is up to date.</p>
+            <?php else: ?>
+              <ul class="attention-list">
+                <?php foreach ($overview['attention'] as $item): ?>
+                  <li>
+                    <a class="attention-row is-<?= e((string) $item['tone']) ?>" href="<?= e((string) $item['link']) ?>">
+                      <strong data-i18n-skip><?= e((string) $item['count']) ?></strong>
+                      <span><?= e((int) $item['count'] === 1 ? (string) $item['one'] : (string) $item['label']) ?></span>
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                    </a>
+                  </li>
+                <?php endforeach; ?>
+              </ul>
+            <?php endif; ?>
+          </section>
+
           <?php // A scanning station: one button, and the scanned student's day
                 // underneath it. Nothing here writes - the card is a view. ?>
           <section class="scan-station" aria-label="Student lookup">
@@ -2347,6 +2470,90 @@ try {
                 </a>
               </div>
 
+              <?php
+              $currentWinner = null;
+              foreach ($teacherOfMonthTeachers as $candidate) {
+                  if ((int) $candidate['id'] === $teacherOfMonthCurrentId) {
+                      $currentWinner = $candidate;
+                  }
+              }
+              ?>
+              <section class="studio-month-panel" id="teacher-of-month" aria-labelledby="teacher-of-month-title">
+                <form class="studio-month-form" method="post">
+                  <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
+                  <input type="hidden" name="view" value="website-content">
+                  <input type="hidden" name="action" value="teacher_of_month_save">
+                  <div class="studio-switch-copy">
+                    <small>Teacher of the month</small>
+                    <h3 id="teacher-of-month-title">
+                      <?= $currentWinner
+                          ? e((string) $currentWinner['name_en']) . ' &mdash; ' . e(teacher_of_month_now()->format('F Y'))
+                          : 'Nobody chosen for ' . e(teacher_of_month_now()->format('F Y')) . ' yet' ?>
+                    </h3>
+                    <p>The teacher chosen for the current month leads the team on the homepage with a crown, and fireworks go up when visitors reach the section. Choosing a different teacher for a month replaces the previous choice.</p>
+                    <?php if ($currentWinner && (int) $currentWinner['show_on_website'] !== 1): ?>
+                      <p class="studio-month-warning">This teacher is hidden from the website, so the homepage will not show them until they are put back on it.</p>
+                    <?php endif; ?>
+                  </div>
+                  <div class="studio-month-fields">
+                    <label class="studio-date-field">
+                      <span>Month</span>
+                      <input type="month" name="month" value="<?= e($teacherOfMonthFormMonth) ?>" required>
+                    </label>
+                    <label class="studio-date-field">
+                      <span>Teacher</span>
+                      <select name="teacher_id" required>
+                        <option value="">Choose a teacher</option>
+                        <?php foreach ($teacherOfMonthTeachers as $candidate): ?>
+                          <option value="<?= e((string) $candidate['id']) ?>" <?= (int) $candidate['id'] === $teacherOfMonthFormTeacher ? 'selected' : '' ?>>
+                            <?= e((string) $candidate['name_en']) ?><?= (int) $candidate['show_on_website'] === 1 ? '' : ' (hidden from website)' ?>
+                          </option>
+                        <?php endforeach; ?>
+                      </select>
+                    </label>
+                    <button class="primary-action" type="submit">Save teacher of the month</button>
+                  </div>
+                </form>
+
+                <div class="studio-month-schedule">
+                  <h4>Schedule</h4>
+                  <?php if ($teacherOfMonthSchedule === []): ?>
+                    <p class="studio-month-empty">No months have a teacher yet.</p>
+                  <?php else: ?>
+                    <ul>
+                      <?php foreach ($teacherOfMonthSchedule as $scheduled): ?>
+                        <?php
+                        $scheduledMonth = substr((string) $scheduled['month_start'], 0, 7);
+                        $isCurrentMonth = $scheduledMonth === teacher_of_month_now()->format('Y-m');
+                        ?>
+                        <li class="<?= $isCurrentMonth ? 'is-current' : '' ?>">
+                          <span class="studio-month-when">
+                            <?= e((new DateTimeImmutable((string) $scheduled['month_start']))->format('F Y')) ?>
+                            <?php if ($isCurrentMonth): ?><b>Now</b><?php endif; ?>
+                          </span>
+                          <span class="studio-month-who">
+                            <strong><?= e((string) $scheduled['teacher_name']) ?></strong>
+                            <?php if ($scheduled['status'] !== 'active' || (int) $scheduled['show_on_website'] !== 1): ?>
+                              <small>Not shown on the website</small>
+                            <?php endif; ?>
+                          </span>
+                          <span class="studio-month-actions">
+                            <a class="secondary-action" href="<?= e(khotwa_url('admin/index.php')) ?>?view=website-content&amp;tom_month=<?= e($scheduledMonth) ?>#teacher-of-month">Change</a>
+                            <form method="post" onsubmit="return confirm('Remove the teacher of the month for this month?');">
+                              <input type="hidden" name="csrf" value="<?= e(admin_csrf_token()) ?>">
+                              <input type="hidden" name="view" value="website-content">
+                              <input type="hidden" name="action" value="teacher_of_month_clear">
+                              <input type="hidden" name="month" value="<?= e($scheduledMonth) ?>">
+                              <button class="secondary-action is-danger" type="submit">Remove</button>
+                            </form>
+                          </span>
+                        </li>
+                      <?php endforeach; ?>
+                    </ul>
+                  <?php endif; ?>
+                </div>
+              </section>
+
               <nav class="website-studio-nav" aria-label="Website content sections">
                 <?php foreach ($workspaceSections as $section): ?>
                   <a class="studio-nav-<?= e($section['tone']) ?>" href="#<?= e($section['id']) ?>">
@@ -2452,6 +2659,9 @@ try {
                           <?php endif; ?>
                           <strong><?= e((string) $item['name_en']) ?></strong>
                           <small><?= (int) $item['show_on_website'] === 1 ? 'On the website' : 'Hidden from website' ?></small>
+                          <?php if ((int) $item['id'] === $teacherOfMonthCurrentId): ?>
+                            <small class="studio-month-tag">Teacher of the month</small>
+                          <?php endif; ?>
                         </a>
                       <?php endforeach; ?>
                     </div>

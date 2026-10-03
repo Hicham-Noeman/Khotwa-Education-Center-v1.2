@@ -54,6 +54,17 @@ function homepage_t(string $key): string
  * search engine indexes and what a visitor without JavaScript sees.
  */
 /**
+ * The crown on the teacher of the month's portrait. index.js draws the same
+ * shape when it rebuilds the team on a language switch.
+ */
+function homepage_crown_svg(): string
+{
+    return '<svg viewBox="0 0 64 48"><path class="crown-body" d="M6 14l14 12L32 6l12 20 14-12-6 28H12z"/>'
+        . '<path class="crown-band" d="M12 36h40v6H12z"/>'
+        . '<circle cx="6" cy="14" r="4"/><circle cx="32" cy="6" r="4"/><circle cx="58" cy="14" r="4"/></svg>';
+}
+
+/**
  * Five stars with the filled part clipped to the exact score, so 4.3 reads as 4.3
  * rather than being rounded up to five full stars.
  */
@@ -631,12 +642,14 @@ $homepageRating = $homepageRatingCount > 0
           <?php $teamMembers = $homepageData['team'] ?? []; ?>
           <?php foreach ($teamMembers as $index => $member): ?>
             <?php $portrait = ['one', 'two', 'three'][$index % 3]; ?>
+            <?php $isTeacherOfMonth = !empty($member['is_teacher_of_month']); ?>
             <?php // The profile panel reads a teacher's details off their own card, so the
                   // markup rendered here and the one index.js rebuilds on a language
                   // switch carry exactly the same set of attributes. ?>
             <article
-              class="team-card"
+              class="team-card<?= $isTeacherOfMonth ? ' is-teacher-of-month' : '' ?>"
               data-reveal
+              <?= $isTeacherOfMonth ? 'data-teacher-of-month' : '' ?>
               tabindex="0"
               role="button"
               data-teacher-experience="<?= homepage_e($member['years_experience'] === null ? '' : (string) (int) $member['years_experience']) ?>"
@@ -658,7 +671,14 @@ $homepageRating = $homepageRatingCount > 0
                   <span class="portrait-initials"><?= homepage_e((string) ($member['initials'] ?: 'K')) ?></span>
                   <div class="portrait-shape"></div>
                 <?php endif; ?>
+                <?php if ($isTeacherOfMonth): ?>
+                  <span class="team-month-ribbon">Teacher of the month</span>
+                <?php endif; ?>
               </div>
+              <?php if ($isTeacherOfMonth): ?>
+                <?php // Sits on the portrait's corner; outside it because the portrait clips. ?>
+                <span class="team-crown" aria-hidden="true"><?= homepage_crown_svg() ?></span>
+              <?php endif; ?>
               <div class="team-info">
                 <div>
                   <h3><?= homepage_e((string) $member['name_en']) ?></h3>

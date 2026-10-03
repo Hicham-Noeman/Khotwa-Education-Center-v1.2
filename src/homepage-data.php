@@ -251,12 +251,54 @@ function homepage_youtube_is_portrait(string $url): bool
  * on the website without a second step. Clearing "Show On Website" on a teacher takes
  * them off it again. Their subjects come from the subjects they are assigned to.
  *
- * The columns are named the way the old homepage_team_members table named them, so the
- * homepage markup and index.js render these rows unchanged.
+ * Teachers are listed alphabetically by name, and this month's teacher of the month,
+ * when there is one, always comes first.
+ *
+ * The columns keep the names the homepage markup and index.js expect (name_en,
+ * subjects_en, image_path...), so both render these rows as they are.
  */
 function homepage_team_from_teachers(PDO $pdo): array
 {
-    return homepage_team_rows($pdo);
+    $team = homepage_team_rows($pdo);
+
+    // This month's teacher of the month leads the list and carries the flag the
+    // page uses for the crown and the celebration. Only the current month counts,
+    // so on the 1st the previous winner drops off by itself and nobody is shown
+    // until the admin picks someone for the new month. A teacher who is hidden
+    // from the website stays hidden: the title does not override that choice.
+    $featuredId = teacher_of_month_id($pdo, teacher_of_month_now()->format('Y-m-01'));
+    $featured = [];
+    foreach ($team as $index => $row) {
+        $team[$index]['is_teacher_of_month'] = $featuredId !== null && (int) $row['id'] === $featuredId;
+        if ($team[$index]['is_teacher_of_month']) {
+            $featured[] = $team[$index];
+            unset($team[$index]);
+        }
+    }
+
+    return array_merge($featured, array_values($team));
+}
+
+/**
+ * Now, on the center's clock. The month turns over at midnight in Lebanon,
+ * whatever timezone the server happens to run in.
+ */
+function teacher_of_month_now(): DateTimeImmutable
+{
+    return new DateTimeImmutable('now', new DateTimeZone('Asia/Beirut'));
+}
+
+/**
+ * The teacher chosen for the month starting on $monthStart (a Y-m-01 date), or
+ * null when nobody has been chosen.
+ */
+function teacher_of_month_id(PDO $pdo, string $monthStart): ?int
+{
+    $statement = $pdo->prepare('SELECT teacher_id FROM teacher_of_month WHERE month_start = ? LIMIT 1');
+    $statement->execute([$monthStart]);
+    $teacherId = $statement->fetchColumn();
+
+    return $teacherId === false ? null : (int) $teacherId;
 }
 
 /**
@@ -318,7 +360,7 @@ function homepage_team_rows(PDO $pdo, ?int $teacherId = null): array
                AND subjects.status = 'active'
          WHERE " . $filter . "
          GROUP BY teachers.id
-         ORDER BY teachers.first_name, teachers.last_name"
+         ORDER BY teachers.first_name, teachers.last_name, teachers.id"
     );
     $statement->execute($teacherId === null ? [] : [$teacherId]);
 

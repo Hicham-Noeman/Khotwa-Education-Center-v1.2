@@ -122,6 +122,226 @@ function admin_view_tables(): array
 }
 
 /**
+ * What the administration should look at first.
+ *
+ * Two halves. The tiles say how the day stands; the list underneath says what is
+ * waiting for a person to act, and a line only appears when its count is not
+ * zero - so a quiet day shows an almost empty page, and that is the message.
+ *
+ * Every figure comes from a table the center already keeps. Nothing here writes,
+ * and a query that fails leaves its own line out rather than taking the page
+ * down with it.
+ *
+ * @return array{tiles: array<int, array<string, mixed>>, attention: array<int, array<string, mixed>>}
+ */
+function admin_overview_snapshot(PDO $pdo): array
+{
+    $count = static function (PDO $pdo, string $sql): ?int {
+        try {
+            return (int) $pdo->query($sql)->fetchColumn();
+        } catch (Throwable $exception) {
+            return null;
+        }
+    };
+
+    $today = date('Y-m-d');
+
+    $activeStudents = $count($pdo, "SELECT COUNT(*) FROM students WHERE status = 'active'") ?? 0;
+    $inToday = $count(
+        $pdo,
+        "SELECT COUNT(*) FROM student_daily_attendance
+         WHERE attendance_date = '{$today}' AND status IN ('present', 'late', 'left_early')"
+    ) ?? 0;
+    $stillIn = $count(
+        $pdo,
+        "SELECT COUNT(*) FROM student_daily_attendance
+         WHERE attendance_date = '{$today}' AND check_out_time IS NULL
+           AND status IN ('present', 'late')"
+    ) ?? 0;
+
+    $owed = 0.0;
+    try {
+        $owed = (float) $pdo->query(
+            'SELECT COALESCE(SUM(GREATEST(expected_amount - paid_amount, 0)), 0)
+             FROM student_subscription_months'
+        )->fetchColumn();
+    } catch (Throwable $exception) {
+        $owed = 0.0;
+    }
+
+    $openWarnings = $count(
+        $pdo,
+        "SELECT COUNT(*) FROM student_warnings WHERE status IN ('flagged', 'issued', 'assigned')"
+    ) ?? 0;
+
+    /*
+     * Each line: what is waiting, how many, and the screen that settles it. The
+     * 'tone' only decides the colour of the number - red for money and for
+     * anything a family is waiting on, amber for the office's own queue.
+     */
+    $candidates = [
+        [
+            'label' => 'teacher flags waiting for the office',
+            'one' => 'teacher flag waiting for the office',
+            'count' => $count($pdo, "SELECT COUNT(*) FROM student_warnings WHERE status = 'flagged'"),
+            'link' => admin_workspace_url('warnings', ['stage' => 'flagged']),
+            'tone' => 'amber',
+        ],
+        [
+            'label' => 'warnings waiting for a parent to choose an expiation',
+            'one' => 'warning waiting for a parent to choose an expiation',
+            'count' => $count($pdo, "SELECT COUNT(*) FROM student_warnings WHERE status = 'issued'"),
+            'link' => admin_workspace_url('warnings', ['stage' => 'issued']),
+            'tone' => 'red',
+        ],
+        [
+            'label' => 'expiations chosen, waiting to be confirmed done',
+            'one' => 'expiation chosen, waiting to be confirmed done',
+            'count' => $count($pdo, "SELECT COUNT(*) FROM student_warnings WHERE status = 'assigned'"),
+            'link' => admin_workspace_url('warnings', ['stage' => 'assigned']),
+            'tone' => 'amber',
+        ],
+        [
+            'label' => 'parent reviews waiting for approval',
+            'one' => 'parent review waiting for approval',
+            'count' => $count($pdo, "SELECT COUNT(*) FROM homepage_reviews WHERE status = 'pending'"),
+            'link' => admin_workspace_url('website-reviews'),
+            'tone' => 'amber',
+        ],
+        [
+            'label' => 'agreement drafts not published yet',
+            'one' => 'agreement draft not published yet',
+            'count' => $count($pdo, "SELECT COUNT(*) FROM parent_agreements WHERE status = 'draft'"),
+            'link' => admin_workspace_url('parent-agreement'),
+            'tone' => 'amber',
+        ],
+        [
+            'label' => 'active students still to be checked in today',
+            'one' => 'active student still to be checked in today',
+            'count' => max(0, $activeStudents - $inToday),
+            'link' => admin_workspace_url('attendance'),
+            'tone' => 'amber',
+        ],
+        [
+            'label' => 'students still in the building',
+            'one' => 'student still in the building',
+            'count' => $stillIn,
+            'link' => admin_workspace_url('attendance'),
+            'tone' => 'amber',
+        ],
+        [
+            // A family with no account cannot see anything the portal offers,
+            // and nothing else in the system ever says so.
+            'label' => 'active students with no parent account',
+            'one' => 'active student with no parent account',
+            'count' => $count(
+                $pdo,
+                "SELECT COUNT(*) FROM students s
+                 WHERE s.status = 'active'
+                   AND NOT EXISTS (SELECT 1 FROM parent_students p WHERE p.student_id = s.id)"
+            ),
+            'link' => admin_workspace_url('parent-links'),
+            'tone' => 'red',
+        ],
+        [
+            'label' => 'active students with no subject enrolled',
+            'one' => 'active student with no subject enrolled',
+            'count' => $count(
+                $pdo,
+                "SELECT COUNT(*) FROM students s
+                 WHERE s.status = 'active'
+                   AND NOT EXISTS (
+                       SELECT 1 FROM student_subject_enrollments e
+                       WHERE e.student_id = s.id AND e.status = 'active'
+                   )"
+            ),
+            'link' => admin_workspace_url('students'),
+            'tone' => 'amber',
+        ],
+        [
+            'label' => 'active students with no subscription',
+            'one' => 'active student with no subscription',
+            'count' => $count(
+                $pdo,
+                "SELECT COUNT(*) FROM students s
+                 WHERE s.status = 'active'
+                   AND NOT EXISTS (SELECT 1 FROM student_subscriptions b WHERE b.student_id = s.id)"
+            ),
+            'link' => admin_workspace_url('subscriptions'),
+            'tone' => 'amber',
+        ],
+        [
+            'label' => 'teachers with no subject assigned',
+            'one' => 'teacher with no subject assigned',
+            'count' => $count(
+                $pdo,
+                "SELECT COUNT(*) FROM teachers t
+                 WHERE t.status = 'active'
+                   AND NOT EXISTS (
+                       SELECT 1 FROM teacher_subjects ts
+                       WHERE ts.teacher_id = t.id AND ts.status = 'active'
+                   )"
+            ),
+            'link' => admin_workspace_url('teachers'),
+            'tone' => 'amber',
+        ],
+        [
+            'label' => 'teachers with no portal account',
+            'one' => 'teacher with no portal account',
+            'count' => $count(
+                $pdo,
+                "SELECT COUNT(*) FROM teachers t
+                 WHERE t.status = 'active'
+                   AND NOT EXISTS (SELECT 1 FROM users u WHERE u.teacher_id = t.id)"
+            ),
+            'link' => admin_workspace_url('teachers'),
+            'tone' => 'amber',
+        ],
+        [
+            'label' => 'months unpaid or part paid',
+            'one' => 'month unpaid or part paid',
+            'count' => $count(
+                $pdo,
+                'SELECT COUNT(*) FROM student_subscription_months WHERE expected_amount > paid_amount'
+            ),
+            'link' => admin_workspace_url('subscriptions'),
+            'tone' => 'red',
+        ],
+    ];
+
+    $attention = array_values(array_filter(
+        $candidates,
+        static fn (array $row): bool => ($row['count'] ?? 0) > 0
+    ));
+
+    return [
+        'tiles' => [
+            [
+                'value' => number_format($inToday) . ' / ' . number_format($activeStudents),
+                'label' => 'Checked in today',
+                'color' => 'green',
+            ],
+            [
+                'value' => number_format($owed, 2),
+                'label' => 'Still owed',
+                'color' => $owed > 0 ? 'red' : 'navy',
+            ],
+            [
+                'value' => number_format($openWarnings),
+                'label' => 'Open warnings',
+                'color' => 'orange',
+            ],
+            [
+                'value' => number_format(count($attention)),
+                'label' => 'Things needing attention',
+                'color' => 'pink',
+            ],
+        ],
+        'attention' => $attention,
+    ];
+}
+
+/**
  * Cash figures for the overview balance card.
  * "This month" = the current calendar month if it already has billing rows,
  * otherwise the most recent month that does (the center's active billing cycle).
@@ -463,7 +683,6 @@ function admin_column_label(string $column): string
         'joined_center_on' => 'At The Center Since',
         'certifications_en' => 'Certifications EN',
         'certifications_ar' => 'Certifications AR',
-        'is_teacher_of_the_month' => 'Teacher Of The Month',
         'video_url' => 'YouTube Video Link',
     ];
     if (isset($labels[$column])) {
@@ -642,7 +861,7 @@ function admin_upload_columns(string $table): array
 {
     return match ($table) {
         'students', 'teachers' => ['photo_path'],
-        'homepage_slides', 'homepage_team_members', 'homepage_gallery_images' => ['image_path'],
+        'homepage_slides', 'homepage_gallery_images' => ['image_path'],
         'homepage_partners' => ['logo_path'],
         default => [],
     };
